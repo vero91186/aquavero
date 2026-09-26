@@ -12,6 +12,7 @@ export interface Tank {
   is_planted: boolean;
   setup_date: string | null; // date de mise en eau
   cycling_status: CyclingStatus;
+  conditioner_dose_ml_per_100l: number | null;
   notes: string | null;
   cover_photo_url: string | null;
   created_at: string;
@@ -85,6 +86,7 @@ export interface MaintenanceLog {
   task_type: MaintenanceTaskType;
   description: string | null;
   percentage_changed: number | null;
+  conditioner_ml: number | null;
   performed_at: string;
   next_due_at: string | null;
   created_at: string;

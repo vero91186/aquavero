@@ -160,7 +160,7 @@ export default function TankDetailPage() {
             listTitle="Plantes du bac"
           />
         )}
-        {tab === 'entretien' && <MaintenancePanel tankId={tankId} logs={logs} onUpdated={loadAll} />}
+        {tab === 'entretien' && <MaintenancePanel tank={tank} tankId={tankId} logs={logs} onUpdated={loadAll} />}
         {tab === 'assistant' && <AiAssistantPanel tankId={tankId} />}
       </main>
     </div>
