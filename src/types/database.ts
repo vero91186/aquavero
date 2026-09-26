@@ -36,6 +36,7 @@ export interface HardscapeItem {
   quantity: number;
   notes: string | null;
   photo_url: string | null;
+  ai_summary: string | null;
   created_at: string;
 }
 
@@ -88,6 +89,24 @@ export interface WaterTest {
 
 export type LivestockCategory = 'fish' | 'invertebrate' | 'plant' | 'coral';
 export type SwimZone = 'top' | 'mid' | 'bottom';
+
+// Espèce trouvée via l'IA et mémorisée pour réapparaître directement dans les
+// suggestions du catalogue (voir migration 0007).
+export interface CustomSpecies {
+  id: string;
+  user_id: string;
+  common_name: string;
+  scientific_name: string;
+  category: LivestockCategory;
+  temperament: string | null;
+  adult_size_cm: number | null;
+  min_tank_liters: number | null;
+  bioload_factor: number | null;
+  swim_zone: SwimZone;
+  solitary: boolean;
+  care_note: string | null;
+  created_at: string;
+}
 
 export interface Livestock {
   id: string;

@@ -214,6 +214,52 @@ export async function researchProduct(name: string) {
   };
 }
 
+const SPECIES_RESEARCH_SYSTEM_PROMPT = `Tu es un expert aquariophile. On te donne un nom (commun ou
+scientifique) d'une espèce (poisson, invertébré, plante aquatique ou corail) absente du catalogue
+local de l'application. À partir de tes connaissances générales, tu donnes une fiche synthétique pour
+aider à compléter son suivi : nom commun retenu, nom scientifique le plus probable, catégorie
+("fish", "invertebrate", "plant" ou "coral"), tempérament/comportement en quelques mots, taille
+adulte typique en cm, volume de bac minimal conseillé en litres, un facteur de charge biologique
+relatif (échelle où 1.0 = petit poisson paisible type néon d'environ 4 cm ; 0 pour une plante), la
+zone de nage principale ("top", "mid" ou "bottom" — mets "bottom" pour une plante), si l'espèce est
+plutôt solitaire (à ne pas maintenir en groupe ou avec ses congénères), et une courte note
+d'entretien. Si le nom ne correspond à rien de connu en aquariophilie, mets les champs numériques à
+null et dis-le clairement dans la note. Réponds uniquement avec un objet JSON de la forme :
+{"common_name": "...", "scientific_name": "...", "category": "fish|invertebrate|plant|coral",
+"temperament": "...", "adult_size_cm": 0.0, "min_tank_liters": 0, "bioload_factor": 0.0,
+"swim_zone": "top|mid|bottom", "solitary": false, "care_note": "..."}`;
+
+export async function researchSpecies(name: string) {
+  const prompt = `Fiche pour cette espèce d'aquariophilie, absente du catalogue local : "${name}".`;
+  const text = await callGemini([{ text: prompt }], SPECIES_RESEARCH_SYSTEM_PROMPT);
+  return JSON.parse(text) as {
+    common_name: string;
+    scientific_name: string;
+    category: 'fish' | 'invertebrate' | 'plant' | 'coral';
+    temperament: string | null;
+    adult_size_cm: number | null;
+    min_tank_liters: number | null;
+    bioload_factor: number | null;
+    swim_zone: 'top' | 'mid' | 'bottom';
+    solitary: boolean;
+    care_note: string;
+  };
+}
+
+const HARDSCAPE_RESEARCH_SYSTEM_PROMPT = `Tu es un expert en décors d'aquarium (roches, bois et
+racines). On te donne le nom d'un matériau. Tu donnes une fiche synthétique : son effet éventuel sur
+le pH ou la dureté de l'eau (ex. matériau calcaire qui durcit et alcalinise l'eau, bois qui l'acidifie
+et la teinte via les tanins), la préparation nécessaire avant utilisation le cas échéant (faire
+bouillir, faire tremper plusieurs jours, brosser), et un point de vigilance si pertinent. Si le nom ne
+correspond à rien de connu, dis-le clairement. Réponds uniquement avec un objet JSON de la forme :
+{"water_effect": "...", "preparation": "...", "note": "..."}`;
+
+export async function researchHardscape(name: string) {
+  const prompt = `Fiche sur ce matériau de décor d'aquarium : "${name}".`;
+  const text = await callGemini([{ text: prompt }], HARDSCAPE_RESEARCH_SYSTEM_PROMPT);
+  return JSON.parse(text) as { water_effect: string; preparation: string; note: string };
+}
+
 export async function ocrTestStrip(imageBase64: string, imageMimeType: string) {
   const parts: GeminiPart[] = [
     { text: 'Lis les valeurs de cette bandelette ou de ce test de paramètres d\'eau.' },

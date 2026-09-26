@@ -2,12 +2,12 @@
 
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Livestock, LivestockCategory, SwimZone } from '@/types/database';
+import type { CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
-import { Trash2, Camera, Loader2, Pencil, Check, X } from 'lucide-react';
+import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
   fish: 'Poisson',
@@ -38,6 +38,7 @@ export function LivestockPanel({
   lockedCategory,
   title,
   listTitle,
+  customSpecies,
 }: {
   tankId: string;
   livestock: Livestock[];
@@ -50,6 +51,10 @@ export function LivestockPanel({
   lockedCategory?: LivestockCategory;
   title?: string;
   listTitle?: string;
+  // Espèces trouvées par l'IA lors de recherches précédentes (voir
+  // handleResearchSpecies) : viennent enrichir les suggestions du catalogue
+  // intégré au fil du temps.
+  customSpecies?: CustomSpecies[];
 }) {
   const supabase = createClient();
   const visibleCategories = categories ?? (Object.keys(CATEGORY_LABELS) as LivestockCategory[]);
@@ -88,12 +93,67 @@ export function LivestockPanel({
   const [identifyCandidates, setIdentifyCandidates] = useState<IdentifyCandidate[]>([]);
   const [identifyNote, setIdentifyNote] = useState<string | null>(null);
 
+  const [researchingSpecies, setResearchingSpecies] = useState(false);
+  const [speciesResearch, setSpeciesResearch] = useState<{
+    common_name: string;
+    scientific_name: string;
+    category: LivestockCategory;
+    temperament: string | null;
+    adult_size_cm: number | null;
+    min_tank_liters: number | null;
+    bioload_factor: number | null;
+    swim_zone: SwimZone;
+    solitary: boolean;
+    care_note: string;
+  } | null>(null);
+  // Infos issues d'une fiche IA appliquée (pas du catalogue statique) : à
+  // transmettre à l'insertion en base, séparément de matchedSpecies.
+  const [aiSpeciesInfo, setAiSpeciesInfo] = useState<{
+    temperament: string | null;
+    adultSizeCm: number | null;
+    minTankLiters: number | null;
+  } | null>(null);
+
   const filteredLivestock = livestock.filter((l) => visibleCategories.includes(l.category));
+
+  // Convertit une espèce mémorisée via l'IA (table custom_species) au même
+  // format que le catalogue statique, pour réutiliser applySuggestion tel quel.
+  function toSpeciesReference(c: CustomSpecies): SpeciesReference {
+    return {
+      commonName: c.common_name,
+      scientificName: c.scientific_name,
+      category: c.category,
+      bioloadFactor: c.bioload_factor ?? 1,
+      adultSizeCm: c.adult_size_cm ?? 0,
+      temperament: c.temperament ?? '',
+      minTankLiters: c.min_tank_liters ?? 0,
+      swimZone: c.swim_zone,
+      solitary: c.solitary,
+    };
+  }
+
+  function searchAllSpecies(value: string): SpeciesReference[] {
+    const fromCatalog = searchSpecies(value);
+    const q = value.trim().toLowerCase();
+    const fromCustom =
+      q.length >= 2
+        ? (customSpecies ?? [])
+            .filter(
+              (c) => c.common_name.toLowerCase().includes(q) || c.scientific_name.toLowerCase().includes(q)
+            )
+            .map(toSpeciesReference)
+        : [];
+    // Évite les doublons si une espèce IA porte le même nom qu'une entrée du catalogue.
+    const seen = new Set(fromCatalog.map((s) => s.scientificName.toLowerCase()));
+    return [...fromCatalog, ...fromCustom.filter((s) => !seen.has(s.scientificName.toLowerCase()))].slice(0, 8);
+  }
 
   function handleNameChange(value: string) {
     setName(value);
     setMatchedSpecies(null);
-    setSuggestions(searchSpecies(value));
+    setAiSpeciesInfo(null);
+    setSpeciesResearch(null);
+    setSuggestions(searchAllSpecies(value));
   }
 
   function applySuggestion(species: SpeciesReference) {
@@ -104,6 +164,8 @@ export function LivestockPanel({
     setSwimZone(species.swimZone);
     setSolitary(species.solitary);
     setMatchedSpecies(species);
+    setAiSpeciesInfo(null);
+    setSpeciesResearch(null);
     setSuggestions([]);
   }
 
@@ -112,10 +174,12 @@ export function LivestockPanel({
     setScientificName(c.scientific_name);
     if (!lockedCategory) setCategory(c.category);
     setMatchedSpecies(null);
+    setAiSpeciesInfo(null);
+    setSpeciesResearch(null);
     setIdentifyCandidates([]);
     setIdentifyNote(c.care_note);
     // Recherche une correspondance dans le catalogue pour préremplir le bioload/tempérament.
-    const match = searchSpecies(c.common_name)[0] ?? searchSpecies(c.scientific_name)[0];
+    const match = searchAllSpecies(c.common_name)[0] ?? searchAllSpecies(c.scientific_name)[0];
     if (match) {
       setBioloadFactor(String(match.bioloadFactor));
       setSwimZone(match.swimZone);
@@ -124,6 +188,68 @@ export function LivestockPanel({
     } else {
       setSwimZone('mid');
       setSolitary(false);
+    }
+  }
+
+  async function handleResearchSpecies() {
+    if (!name.trim()) return;
+    setResearchingSpecies(true);
+    setError(null);
+    setSpeciesResearch(null);
+    try {
+      const res = await fetch('/api/ai/research-species', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: scientificName || name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSpeciesResearch(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur de recherche IA');
+    } finally {
+      setResearchingSpecies(false);
+    }
+  }
+
+  // Applique la fiche IA au formulaire ET la mémorise dans la base
+  // (custom_species) pour qu'elle apparaisse directement dans les
+  // suggestions la prochaine fois — c'est ce qui "renforce" le catalogue.
+  async function applySpeciesResearch() {
+    if (!speciesResearch) return;
+    const r = speciesResearch;
+    setName(r.common_name || name);
+    setScientificName(r.scientific_name || scientificName);
+    if (!lockedCategory) setCategory(r.category);
+    if (r.bioload_factor !== null) setBioloadFactor(String(r.bioload_factor));
+    setSwimZone(r.swim_zone);
+    setSolitary(r.solitary);
+    setMatchedSpecies(null);
+    setAiSpeciesInfo({
+      temperament: r.temperament,
+      adultSizeCm: r.adult_size_cm,
+      minTankLiters: r.min_tank_liters,
+    });
+    setSpeciesResearch(null);
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      await supabase.from('custom_species').insert({
+        user_id: user.id,
+        common_name: r.common_name,
+        scientific_name: r.scientific_name,
+        category: r.category,
+        temperament: r.temperament,
+        adult_size_cm: r.adult_size_cm,
+        min_tank_liters: r.min_tank_liters,
+        bioload_factor: r.bioload_factor,
+        swim_zone: r.swim_zone,
+        solitary: r.solitary,
+        care_note: r.care_note,
+      });
+      onUpdated();
     }
   }
 
@@ -180,9 +306,9 @@ export function LivestockPanel({
       species_scientific_name: scientificName || null,
       quantity: parseInt(quantity, 10),
       bioload_factor: parseFloat(bioloadFactor),
-      temperament: matchedSpecies?.temperament ?? null,
-      adult_size_cm: matchedSpecies?.adultSizeCm ?? null,
-      min_tank_liters: matchedSpecies?.minTankLiters ?? null,
+      temperament: matchedSpecies?.temperament ?? aiSpeciesInfo?.temperament ?? null,
+      adult_size_cm: matchedSpecies?.adultSizeCm ?? aiSpeciesInfo?.adultSizeCm ?? null,
+      min_tank_liters: matchedSpecies?.minTankLiters ?? aiSpeciesInfo?.minTankLiters ?? null,
       swim_zone: swimZone,
       solitary,
       photo_url: photoUrl,
@@ -200,6 +326,7 @@ export function LivestockPanel({
     setSwimZone('mid');
     setSolitary(false);
     setMatchedSpecies(null);
+    setAiSpeciesInfo(null);
     setIdentifyNote(null);
     onUpdated();
   }
@@ -297,7 +424,7 @@ export function LivestockPanel({
               placeholder={lockedCategory === 'plant' ? 'Nom commun (ex. Anubias nana)' : 'Nom commun (ex. Néon bleu)'}
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              onFocus={() => setSuggestions(searchSpecies(name))}
+              onFocus={() => setSuggestions(searchAllSpecies(name))}
               onBlur={() => {
                 blurTimeout.current = setTimeout(() => setSuggestions([]), 150);
               }}
@@ -367,6 +494,46 @@ export function LivestockPanel({
             </label>
           )}
         </div>
+
+        {suggestions.length === 0 && name.trim().length >= 2 && !matchedSpecies && !speciesResearch && (
+          <button
+            type="button"
+            onClick={handleResearchSpecies}
+            disabled={researchingSpecies}
+            className="mt-2 flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
+          >
+            {researchingSpecies ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+            &quot;{name}&quot; pas dans la liste ? Rechercher avec l&apos;IA
+          </button>
+        )}
+
+        {speciesResearch && (
+          <div className="mt-3 space-y-1.5 rounded-lg border border-teal-200 bg-teal-50/50 p-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={14} className="text-teal-600" />
+              <p className="text-sm font-medium text-slate-800">
+                {speciesResearch.common_name}{' '}
+                <span className="text-xs italic text-slate-400">({speciesResearch.scientific_name})</span>
+              </p>
+            </div>
+            {(speciesResearch.temperament || speciesResearch.adult_size_cm !== null || speciesResearch.min_tank_liters !== null) && (
+              <p className="text-xs text-slate-600">
+                {speciesResearch.temperament}
+                {speciesResearch.adult_size_cm !== null ? ` · taille adulte ~${speciesResearch.adult_size_cm} cm` : ''}
+                {speciesResearch.min_tank_liters !== null ? ` · bac conseillé à partir de ${speciesResearch.min_tank_liters} L` : ''}
+              </p>
+            )}
+            <p className="text-xs text-slate-500">{speciesResearch.care_note}</p>
+            <button
+              type="button"
+              onClick={applySpeciesResearch}
+              className="mt-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-700"
+            >
+              Utiliser cette fiche
+            </button>
+          </div>
+        )}
+
         {matchedSpecies && (
           <div className="mt-3 space-y-1.5">
             <p className="rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-700">
@@ -378,6 +545,14 @@ export function LivestockPanel({
                 À savoir sur le sexage : {matchedSpecies.sexNote}
               </p>
             )}
+          </div>
+        )}
+        {aiSpeciesInfo && !matchedSpecies && (
+          <div className="mt-3 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-700">
+            Fiche IA appliquée{aiSpeciesInfo.temperament ? ` — ${aiSpeciesInfo.temperament}` : ''}
+            {aiSpeciesInfo.adultSizeCm !== null ? ` · ~${aiSpeciesInfo.adultSizeCm} cm` : ''}
+            {aiSpeciesInfo.minTankLiters !== null ? ` · bac dès ${aiSpeciesInfo.minTankLiters} L` : ''} — mémorisée
+            pour la prochaine fois.
           </div>
         )}
         <p className="mt-2 text-xs text-slate-400">

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product } from '@/types/database';
+import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product, CustomSpecies } from '@/types/database';
 import { computeHealthScore } from '@/lib/health-score';
 import { computeShelfLife } from '@/lib/shelf-life';
 import { computeReminders } from '@/lib/reminders';
@@ -94,6 +94,7 @@ export default function TankDetailPage() {
   const [doses, setDoses] = useState<CyclingDose[]>([]);
   const [hardscape, setHardscape] = useState<HardscapeItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [customSpecies, setCustomSpecies] = useState<CustomSpecies[]>([]);
   const [section, setSection] = useState<Section>('apercu');
   const [bacSub, setBacSub] = useState<BacSub>('proprietes');
   const [eauSub, setEauSub] = useState<EauSub>('parametres');
@@ -103,7 +104,7 @@ export default function TankDetailPage() {
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose'>('chat');
 
   const loadAll = useCallback(async () => {
-    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes] = await Promise.all([
+    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes] = await Promise.all([
       supabase.from('tanks').select('*').eq('id', tankId).single(),
       supabase.from('water_tests').select('*').eq('tank_id', tankId).order('tested_at', { ascending: false }),
       supabase.from('livestock').select('*').eq('tank_id', tankId),
@@ -111,6 +112,9 @@ export default function TankDetailPage() {
       supabase.from('cycling_doses').select('*').eq('tank_id', tankId).order('dosed_at', { ascending: false }),
       supabase.from('hardscape_items').select('*').eq('tank_id', tankId).order('created_at', { ascending: false }),
       supabase.from('products').select('*').eq('tank_id', tankId).order('created_at', { ascending: false }),
+      // Catalogue d'espèces : commun à tous les bacs de l'utilisateur, pas
+      // seulement celui-ci, pour bénéficier des recherches faites ailleurs.
+      supabase.from('custom_species').select('*').order('created_at', { ascending: false }),
     ]);
 
     if (tankRes.error || !tankRes.data) {
@@ -125,6 +129,7 @@ export default function TankDetailPage() {
     setDoses(dosesRes.data ?? []);
     setHardscape(hardscapeRes.data ?? []);
     setProducts(productsRes.data ?? []);
+    setCustomSpecies(customSpeciesRes.data ?? []);
     setLoading(false);
   }, [tankId, supabase, router]);
 
@@ -330,6 +335,7 @@ export default function TankDetailPage() {
               livestock={livestock}
               onUpdated={loadAll}
               categories={['fish', 'invertebrate', 'coral']}
+              customSpecies={customSpecies}
             />
           </div>
         )}
@@ -342,6 +348,7 @@ export default function TankDetailPage() {
             lockedCategory="plant"
             title="Ajouter une plante"
             listTitle="Plantes du bac"
+            customSpecies={customSpecies}
           />
         )}
         {section === 'entretien' && (

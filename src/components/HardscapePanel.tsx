@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { HardscapeItem, HardscapeKind } from '@/types/database';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
-import { Trash2, Pencil, Check, X } from 'lucide-react';
+import { Trash2, Pencil, Check, X, Search, Loader2, Sparkles } from 'lucide-react';
 
 const KIND_LABELS: Record<HardscapeKind, string> = {
   rock: 'Roche',
@@ -37,6 +37,37 @@ export function HardscapePanel({
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
+  const [researching, setResearching] = useState(false);
+  const [research, setResearch] = useState<{ water_effect: string; preparation: string; note: string } | null>(null);
+  const [researchError, setResearchError] = useState<string | null>(null);
+
+  async function handleResearch() {
+    if (!name.trim()) return;
+    setResearching(true);
+    setResearchError(null);
+    setResearch(null);
+    try {
+      const res = await fetch('/api/ai/research-hardscape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResearch(data);
+    } catch (err) {
+      setResearchError(err instanceof Error ? err.message : 'Erreur de recherche IA');
+    } finally {
+      setResearching(false);
+    }
+  }
+
+  function applyResearchToNotes() {
+    if (!research) return;
+    const summary = [research.water_effect, research.preparation].filter(Boolean).join(' — ');
+    setNotes(summary);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -48,6 +79,9 @@ export function HardscapePanel({
     // Recherche automatique d'une photo sur internet à partir du nom (le
     // mot-clé "aquarium" améliore la pertinence des résultats).
     const photoUrl = await fetchAutoPhoto(`${name} aquarium`);
+    const aiSummary = research
+      ? [research.water_effect, research.preparation, research.note].filter(Boolean).join(' — ')
+      : null;
 
     await supabase.from('hardscape_items').insert({
       tank_id: tankId,
@@ -57,11 +91,13 @@ export function HardscapePanel({
       quantity: parseInt(quantity, 10) || 1,
       notes: notes || null,
       photo_url: photoUrl,
+      ai_summary: aiSummary,
     });
     setSaving(false);
     setName('');
     setQuantity('1');
     setNotes('');
+    setResearch(null);
     onUpdated();
   }
 
@@ -121,7 +157,10 @@ export function HardscapePanel({
             required
             placeholder="Nom (ex. Roche de lave, Racine de tourbière)"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              setResearch(null);
+            }}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2"
           />
           <input
@@ -139,6 +178,37 @@ export function HardscapePanel({
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-4"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={handleResearch}
+          disabled={researching || !name.trim()}
+          className="mt-2 flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
+        >
+          {researching ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+          Rechercher &quot;{name || '...'}&quot; avec l&apos;IA (effet sur l&apos;eau, préparation)
+        </button>
+        {researchError && <p className="mt-2 text-xs text-red-600">{researchError}</p>}
+
+        {research && (
+          <div className="mt-3 space-y-1.5 rounded-lg border border-teal-200 bg-teal-50/50 p-3">
+            <div className="flex items-center gap-1.5">
+              <Sparkles size={14} className="text-teal-600" />
+              <p className="text-sm font-medium text-slate-800">Fiche IA — {name}</p>
+            </div>
+            {research.water_effect && <p className="text-xs text-slate-600">Effet sur l&apos;eau : {research.water_effect}</p>}
+            {research.preparation && <p className="text-xs text-slate-600">Préparation : {research.preparation}</p>}
+            {research.note && <p className="text-xs text-slate-500">{research.note}</p>}
+            <button
+              type="button"
+              onClick={applyResearchToNotes}
+              className="mt-1 rounded-lg bg-teal-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-teal-700"
+            >
+              Reprendre dans les notes
+            </button>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={saving}
@@ -212,6 +282,11 @@ export function HardscapePanel({
                         {item.quantity}× {item.name}
                       </span>
                       {item.notes && <span className="ml-2 text-xs text-slate-400">{item.notes}</span>}
+                      {item.ai_summary && (
+                        <div className="mt-0.5 flex items-start gap-1 text-xs text-teal-600">
+                          <Sparkles size={11} className="mt-0.5 shrink-0" /> {item.ai_summary}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
