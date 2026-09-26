@@ -15,7 +15,13 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import type { CyclingDose, CyclingStatus, Tank, WaterTest } from '@/types/database';
 import { suggestCyclingStatus, daysSince } from '@/lib/cycling';
-import { Droplets, FlaskConical, Trash2 } from 'lucide-react';
+import { Droplets, FlaskConical, Trash2, Pencil, Check, X } from 'lucide-react';
+
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const STATUS_LABELS: Record<CyclingStatus, string> = {
   not_started: 'Pas encore démarré',
@@ -47,6 +53,13 @@ export function CyclingPanel({
   const [ammoniaTarget, setAmmoniaTarget] = useState('2');
   const [doseNote, setDoseNote] = useState('');
   const [savingDose, setSavingDose] = useState(false);
+  const [editingDoseId, setEditingDoseId] = useState<string | null>(null);
+  const [editDoseForm, setEditDoseForm] = useState<{ dosed_at: string; ammonia_ppm_target: string; note: string }>({
+    dosed_at: '',
+    ammonia_ppm_target: '',
+    note: '',
+  });
+  const [savingDoseEdit, setSavingDoseEdit] = useState(false);
 
   const suggestion = suggestCyclingStatus(tests, doses);
   const days = daysSince(tank.setup_date);
@@ -87,6 +100,34 @@ export function CyclingPanel({
 
   async function handleDeleteDose(id: string) {
     await supabase.from('cycling_doses').delete().eq('id', id);
+    onUpdated();
+  }
+
+  function startEditDose(dose: CyclingDose) {
+    setEditingDoseId(dose.id);
+    setEditDoseForm({
+      dosed_at: toDatetimeLocal(dose.dosed_at),
+      ammonia_ppm_target: dose.ammonia_ppm_target !== null ? String(dose.ammonia_ppm_target) : '',
+      note: dose.note ?? '',
+    });
+  }
+
+  function cancelEditDose() {
+    setEditingDoseId(null);
+  }
+
+  async function saveEditDose(id: string) {
+    setSavingDoseEdit(true);
+    await supabase
+      .from('cycling_doses')
+      .update({
+        dosed_at: new Date(editDoseForm.dosed_at).toISOString(),
+        ammonia_ppm_target: editDoseForm.ammonia_ppm_target ? parseFloat(editDoseForm.ammonia_ppm_target) : null,
+        note: editDoseForm.note || null,
+      })
+      .eq('id', id);
+    setSavingDoseEdit(false);
+    setEditingDoseId(null);
     onUpdated();
   }
 
@@ -237,22 +278,72 @@ export function CyclingPanel({
         </form>
 
         <div className="space-y-1.5">
-          {doses.map((dose) => (
-            <div key={dose.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
-              <div>
-                <span className="font-medium text-slate-800">
-                  {dose.ammonia_ppm_target !== null ? `${dose.ammonia_ppm_target} ppm` : 'Apport'}
-                </span>
-                {dose.note && <span className="text-slate-500"> — {dose.note}</span>}
-                <div className="text-xs text-slate-400">
-                  {new Date(dose.dosed_at).toLocaleString('fr-FR')}
+          {doses.map((dose) =>
+            editingDoseId === dose.id ? (
+              <div key={dose.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Date</label>
+                  <input
+                    type="datetime-local"
+                    value={editDoseForm.dosed_at}
+                    onChange={(e) => setEditDoseForm((f) => ({ ...f, dosed_at: e.target.value }))}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Ammoniac (ppm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editDoseForm.ammonia_ppm_target}
+                    onChange={(e) => setEditDoseForm((f) => ({ ...f, ammonia_ppm_target: e.target.value }))}
+                    className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="min-w-[8rem] flex-1 space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Note</label>
+                  <input
+                    value={editDoseForm.note}
+                    onChange={(e) => setEditDoseForm((f) => ({ ...f, note: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => saveEditDose(dose.id)}
+                    disabled={savingDoseEdit}
+                    className="rounded p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                    title="Enregistrer"
+                  >
+                    <Check size={16} />
+                  </button>
+                  <button onClick={cancelEditDose} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" title="Annuler">
+                    <X size={16} />
+                  </button>
                 </div>
               </div>
-              <button onClick={() => handleDeleteDose(dose.id)} className="text-slate-400 hover:text-red-500">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
+            ) : (
+              <div key={dose.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+                <div>
+                  <span className="font-medium text-slate-800">
+                    {dose.ammonia_ppm_target !== null ? `${dose.ammonia_ppm_target} ppm` : 'Apport'}
+                  </span>
+                  {dose.note && <span className="text-slate-500"> — {dose.note}</span>}
+                  <div className="text-xs text-slate-400">
+                    {new Date(dose.dosed_at).toLocaleString('fr-FR')}
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => startEditDose(dose)} className="text-slate-400 hover:text-teal-600" title="Modifier">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => handleDeleteDose(dose.id)} className="text-slate-400 hover:text-red-500" title="Supprimer">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            )
+          )}
           {doses.length === 0 && <p className="text-sm text-slate-400">Aucun apport enregistré</p>}
         </div>
       </div>

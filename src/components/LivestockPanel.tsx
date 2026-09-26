@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Livestock, LivestockCategory } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
-import { Trash2, Camera, Loader2 } from 'lucide-react';
+import { Trash2, Camera, Loader2, Pencil, Check, X } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
   fish: 'Poisson',
@@ -55,6 +55,15 @@ export function LivestockPanel({
   const [suggestions, setSuggestions] = useState<SpeciesReference[]>([]);
   const [matchedSpecies, setMatchedSpecies] = useState<SpeciesReference | null>(null);
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ name: string; scientificName: string; quantity: string; bioloadFactor: string }>({
+    name: '',
+    scientificName: '',
+    quantity: '',
+    bioloadFactor: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const [identifying, setIdentifying] = useState(false);
   const [identifyCandidates, setIdentifyCandidates] = useState<IdentifyCandidate[]>([]);
@@ -162,6 +171,36 @@ export function LivestockPanel({
 
   async function handleDelete(id: string) {
     await supabase.from('livestock').delete().eq('id', id);
+    onUpdated();
+  }
+
+  function startEdit(item: Livestock) {
+    setEditingId(item.id);
+    setEditForm({
+      name: item.species_common_name,
+      scientificName: item.species_scientific_name ?? '',
+      quantity: String(item.quantity),
+      bioloadFactor: String(item.bioload_factor),
+    });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function saveEdit(id: string) {
+    setSavingEdit(true);
+    await supabase
+      .from('livestock')
+      .update({
+        species_common_name: editForm.name,
+        species_scientific_name: editForm.scientificName || null,
+        quantity: parseInt(editForm.quantity, 10) || 0,
+        bioload_factor: parseFloat(editForm.bioloadFactor) || 0,
+      })
+      .eq('id', id);
+    setSavingEdit(false);
+    setEditingId(null);
     onUpdated();
   }
 
@@ -295,24 +334,86 @@ export function LivestockPanel({
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">{listTitle ?? 'Peuplement actuel'}</h3>
         <div className="space-y-2">
-          {filteredLivestock.map((item) => (
-            <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-              <div>
-                <span className="font-medium text-slate-800">
-                  {item.quantity}× {item.species_common_name}
-                </span>
-                <span className="ml-2 text-xs text-slate-400">
-                  {CATEGORY_LABELS[item.category]}
-                  {item.species_scientific_name ? ` · ${item.species_scientific_name}` : ''}
-                  {item.temperament ? ` · ${item.temperament}` : ''}
-                  {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}
-                </span>
+          {filteredLivestock.map((item) =>
+            editingId === item.id ? (
+              <div key={item.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="min-w-[8rem] flex-1 space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Nom commun</label>
+                  <input
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="min-w-[8rem] flex-1 space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Nom scientifique</label>
+                  <input
+                    value={editForm.scientificName}
+                    onChange={(e) => setEditForm((f) => ({ ...f, scientificName: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Quantité</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.quantity}
+                    onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                {item.category !== 'plant' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Bioload</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={editForm.bioloadFactor}
+                      onChange={(e) => setEditForm((f) => ({ ...f, bioloadFactor: e.target.value }))}
+                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                )}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => saveEdit(item.id)}
+                    disabled={savingEdit}
+                    className="rounded p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                    title="Enregistrer"
+                  >
+                    <Check size={16} />
+                  </button>
+                  <button onClick={cancelEdit} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" title="Annuler">
+                    <X size={16} />
+                  </button>
+                </div>
               </div>
-              <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-red-500">
-                <Trash2 size={16} />
-              </button>
-            </div>
-          ))}
+            ) : (
+              <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                <div>
+                  <span className="font-medium text-slate-800">
+                    {item.quantity}× {item.species_common_name}
+                  </span>
+                  <span className="ml-2 text-xs text-slate-400">
+                    {CATEGORY_LABELS[item.category]}
+                    {item.species_scientific_name ? ` · ${item.species_scientific_name}` : ''}
+                    {item.temperament ? ` · ${item.temperament}` : ''}
+                    {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => startEdit(item)} className="text-slate-400 hover:text-teal-600" title="Modifier">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-red-500" title="Supprimer">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            )
+          )}
           {filteredLivestock.length === 0 && <p className="text-sm text-slate-400">Rien d&apos;enregistré pour l&apos;instant</p>}
         </div>
       </div>

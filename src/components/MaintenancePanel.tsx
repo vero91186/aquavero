@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Tank } from '@/types/database';
-import { CheckCircle2, Droplet } from 'lucide-react';
+import { CheckCircle2, Droplet, Pencil, Trash2, Check, X } from 'lucide-react';
+
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const TASK_LABELS: Record<MaintenanceTaskType, string> = {
   water_change: "Changement d'eau",
@@ -30,6 +36,15 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated }: {
   );
   const [rememberDose, setRememberDose] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    performed_at: string;
+    task_type: MaintenanceTaskType;
+    percentage_changed: string;
+    conditioner_ml: string;
+    description: string;
+  }>({ performed_at: '', task_type: 'water_change', percentage_changed: '', conditioner_ml: '', description: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const pct = parseFloat(percentage) || 0;
   const ratio = parseFloat(doseRatio) || 0;
@@ -62,6 +77,49 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated }: {
     setDescription('');
     setPercentage('');
     setRememberDose(false);
+    onUpdated();
+  }
+
+  async function handleDeleteLog(id: string) {
+    await supabase.from('maintenance_logs').delete().eq('id', id);
+    onUpdated();
+  }
+
+  function startEditLog(log: MaintenanceLog) {
+    setEditingId(log.id);
+    setEditForm({
+      performed_at: toDatetimeLocal(log.performed_at),
+      task_type: log.task_type,
+      percentage_changed: log.percentage_changed !== null ? String(log.percentage_changed) : '',
+      conditioner_ml: log.conditioner_ml !== null ? String(log.conditioner_ml) : '',
+      description: log.description ?? '',
+    });
+  }
+
+  function cancelEditLog() {
+    setEditingId(null);
+  }
+
+  async function saveEditLog(id: string) {
+    setSavingEdit(true);
+    await supabase
+      .from('maintenance_logs')
+      .update({
+        performed_at: new Date(editForm.performed_at).toISOString(),
+        task_type: editForm.task_type,
+        percentage_changed:
+          editForm.task_type === 'water_change' && editForm.percentage_changed
+            ? parseFloat(editForm.percentage_changed)
+            : null,
+        conditioner_ml:
+          editForm.task_type === 'water_change' && editForm.conditioner_ml
+            ? parseFloat(editForm.conditioner_ml)
+            : null,
+        description: editForm.description || null,
+      })
+      .eq('id', id);
+    setSavingEdit(false);
+    setEditingId(null);
     onUpdated();
   }
 
@@ -152,20 +210,100 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated }: {
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">Journal</h3>
         <div className="space-y-2">
-          {logs.map((log) => (
-            <div key={log.id} className="flex items-start gap-2 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0">
-              <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-500" />
-              <div>
-                <span className="font-medium text-slate-800">{TASK_LABELS[log.task_type]}</span>
-                {log.percentage_changed && <span className="text-slate-500"> — {log.percentage_changed}%</span>}
-                {log.conditioner_ml && <span className="text-slate-500"> — {log.conditioner_ml} mL de conditionneur</span>}
-                {log.description && <span className="text-slate-500"> — {log.description}</span>}
-                <div className="text-xs text-slate-400">
-                  {new Date(log.performed_at).toLocaleString('fr-FR')}
+          {logs.map((log) =>
+            editingId === log.id ? (
+              <div key={log.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Type</label>
+                  <select
+                    value={editForm.task_type}
+                    onChange={(e) => setEditForm((f) => ({ ...f, task_type: e.target.value as MaintenanceTaskType }))}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  >
+                    {Object.entries(TASK_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Date</label>
+                  <input
+                    type="datetime-local"
+                    value={editForm.performed_at}
+                    onChange={(e) => setEditForm((f) => ({ ...f, performed_at: e.target.value }))}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                {editForm.task_type === 'water_change' && (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-600">% changé</label>
+                      <input
+                        type="number"
+                        value={editForm.percentage_changed}
+                        onChange={(e) => setEditForm((f) => ({ ...f, percentage_changed: e.target.value }))}
+                        className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-slate-600">Conditionneur (mL)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={editForm.conditioner_ml}
+                        onChange={(e) => setEditForm((f) => ({ ...f, conditioner_ml: e.target.value }))}
+                        className="w-24 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                      />
+                    </div>
+                  </>
+                )}
+                <div className="min-w-[8rem] flex-1 space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Note</label>
+                  <input
+                    value={editForm.description}
+                    onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))}
+                    className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => saveEditLog(log.id)}
+                    disabled={savingEdit}
+                    className="rounded p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                    title="Enregistrer"
+                  >
+                    <Check size={16} />
+                  </button>
+                  <button onClick={cancelEditLog} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" title="Annuler">
+                    <X size={16} />
+                  </button>
                 </div>
               </div>
-            </div>
-          ))}
+            ) : (
+              <div key={log.id} className="flex items-start justify-between gap-2 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0">
+                <div className="flex items-start gap-2">
+                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-500" />
+                  <div>
+                    <span className="font-medium text-slate-800">{TASK_LABELS[log.task_type]}</span>
+                    {log.percentage_changed && <span className="text-slate-500"> — {log.percentage_changed}%</span>}
+                    {log.conditioner_ml && <span className="text-slate-500"> — {log.conditioner_ml} mL de conditionneur</span>}
+                    {log.description && <span className="text-slate-500"> — {log.description}</span>}
+                    <div className="text-xs text-slate-400">
+                      {new Date(log.performed_at).toLocaleString('fr-FR')}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => startEditLog(log)} className="text-slate-400 hover:text-teal-600" title="Modifier">
+                    <Pencil size={16} />
+                  </button>
+                  <button onClick={() => handleDeleteLog(log.id)} className="text-slate-400 hover:text-red-500" title="Supprimer">
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            )
+          )}
           {logs.length === 0 && <p className="text-sm text-slate-400">Aucune intervention enregistrée</p>}
         </div>
       </div>
