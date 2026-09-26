@@ -93,6 +93,33 @@ JSON de la forme :
 Mets null pour toute valeur non lisible ou non présente sur la photo. Les valeurs numériques sont
 des nombres, jamais des chaînes.`;
 
+const IDENTIFY_SYSTEM_PROMPT = `Tu es un identificateur d'espèces aquariophiles (poissons, invertébrés, plantes
+aquatiques, coraux) à partir d'une photo. Tu proposes jusqu'à 3 hypothèses classées par
+vraisemblance, avec un nom commun en français, le nom scientifique le plus probable, la
+catégorie ("fish", "invertebrate", "plant" ou "coral"), un niveau de confiance entre 0 et 1, et
+une courte note d'entretien (besoins de base : lumière, difficulté, comportement). Si l'image ne
+permet pas d'identifier une espèce aquariophile, renvoie une liste vide. Réponds uniquement avec un
+objet JSON de la forme :
+{"candidates": [{"common_name": "...", "scientific_name": "...", "category": "fish|invertebrate|plant|coral",
+"confidence": 0.0, "care_note": "..."}]}`;
+
+export async function identifySpeciesFromPhoto(imageBase64: string, imageMimeType: string) {
+  const parts: GeminiPart[] = [
+    { text: "Identifie l'espèce aquariophile (poisson, invertébré, plante ou corail) sur cette photo." },
+    { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
+  ];
+  const text = await callGemini(parts, IDENTIFY_SYSTEM_PROMPT);
+  return JSON.parse(text) as {
+    candidates: {
+      common_name: string;
+      scientific_name: string;
+      category: 'fish' | 'invertebrate' | 'plant' | 'coral';
+      confidence: number;
+      care_note: string;
+    }[];
+  };
+}
+
 export async function ocrTestStrip(imageBase64: string, imageMimeType: string) {
   const parts: GeminiPart[] = [
     { text: 'Lis les valeurs de cette bandelette ou de ce test de paramètres d\'eau.' },

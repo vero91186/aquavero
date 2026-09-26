@@ -14,7 +14,7 @@ import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
-type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'entretien' | 'assistant';
+type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'plantes' | 'entretien' | 'assistant';
 
 export default function TankDetailPage() {
   const params = useParams();
@@ -70,6 +70,7 @@ export default function TankDetailPage() {
     { key: 'parametres', label: "Paramètres d'eau" },
     { key: 'cyclage', label: 'Mise en eau & cyclage' },
     { key: 'peuplement', label: 'Peuplement' },
+    { key: 'plantes', label: 'Plantes' },
     { key: 'entretien', label: 'Entretien' },
     { key: 'assistant', label: 'Assistant IA' },
   ];
@@ -136,7 +137,25 @@ export default function TankDetailPage() {
         )}
         {tab === 'parametres' && <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />}
         {tab === 'cyclage' && <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />}
-        {tab === 'peuplement' && <LivestockPanel tankId={tankId} livestock={livestock} onUpdated={loadAll} />}
+        {tab === 'peuplement' && (
+          <LivestockPanel
+            tankId={tankId}
+            livestock={livestock}
+            onUpdated={loadAll}
+            categories={['fish', 'invertebrate', 'coral']}
+          />
+        )}
+        {tab === 'plantes' && (
+          <LivestockPanel
+            tankId={tankId}
+            livestock={livestock}
+            onUpdated={loadAll}
+            categories={['plant']}
+            lockedCategory="plant"
+            title="Ajouter une plante"
+            listTitle="Plantes du bac"
+          />
+        )}
         {tab === 'entretien' && <MaintenancePanel tankId={tankId} logs={logs} onUpdated={loadAll} />}
         {tab === 'assistant' && <AiAssistantPanel tankId={tankId} />}
       </main>

@@ -4,7 +4,8 @@ import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Livestock, LivestockCategory } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
-import { Trash2 } from 'lucide-react';
+import { fileToBase64 } from '@/lib/image';
+import { Trash2, Camera, Loader2 } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
   fish: 'Poisson',
@@ -13,22 +14,53 @@ const CATEGORY_LABELS: Record<LivestockCategory, string> = {
   coral: 'Corail',
 };
 
-export function LivestockPanel({ tankId, livestock, onUpdated }: {
+interface IdentifyCandidate {
+  common_name: string;
+  scientific_name: string;
+  category: LivestockCategory;
+  confidence: number;
+  care_note: string;
+}
+
+export function LivestockPanel({
+  tankId,
+  livestock,
+  onUpdated,
+  categories,
+  lockedCategory,
+  title,
+  listTitle,
+}: {
   tankId: string;
   livestock: Livestock[];
   onUpdated: () => void;
+  // Catégories affichées dans la liste et proposées dans le sélecteur d'ajout.
+  // Par défaut : toutes.
+  categories?: LivestockCategory[];
+  // Si renseigné, le formulaire ajoute toujours dans cette catégorie (pas de
+  // sélecteur affiché) — utilisé par l'onglet Plantes.
+  lockedCategory?: LivestockCategory;
+  title?: string;
+  listTitle?: string;
 }) {
   const supabase = createClient();
-  const [category, setCategory] = useState<LivestockCategory>('fish');
+  const visibleCategories = categories ?? (Object.keys(CATEGORY_LABELS) as LivestockCategory[]);
+  const [category, setCategory] = useState<LivestockCategory>(lockedCategory ?? visibleCategories[0]);
   const [name, setName] = useState('');
   const [scientificName, setScientificName] = useState('');
   const [quantity, setQuantity] = useState('1');
-  const [bioloadFactor, setBioloadFactor] = useState('1');
+  const [bioloadFactor, setBioloadFactor] = useState(lockedCategory === 'plant' ? '0' : '1');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SpeciesReference[]>([]);
   const [matchedSpecies, setMatchedSpecies] = useState<SpeciesReference | null>(null);
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [identifying, setIdentifying] = useState(false);
+  const [identifyCandidates, setIdentifyCandidates] = useState<IdentifyCandidate[]>([]);
+  const [identifyNote, setIdentifyNote] = useState<string | null>(null);
+
+  const filteredLivestock = livestock.filter((l) => visibleCategories.includes(l.category));
 
   function handleNameChange(value: string) {
     setName(value);
@@ -39,10 +71,57 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
   function applySuggestion(species: SpeciesReference) {
     setName(species.commonName);
     setScientificName(species.scientificName);
-    setCategory(species.category);
+    if (!lockedCategory) setCategory(species.category);
     setBioloadFactor(String(species.bioloadFactor));
     setMatchedSpecies(species);
     setSuggestions([]);
+  }
+
+  function applyCandidate(c: IdentifyCandidate) {
+    setName(c.common_name);
+    setScientificName(c.scientific_name);
+    if (!lockedCategory) setCategory(c.category);
+    setMatchedSpecies(null);
+    setIdentifyCandidates([]);
+    setIdentifyNote(c.care_note);
+    // Recherche une correspondance dans le catalogue pour préremplir le bioload/tempérament.
+    const match = searchSpecies(c.common_name)[0] ?? searchSpecies(c.scientific_name)[0];
+    if (match) {
+      setBioloadFactor(String(match.bioloadFactor));
+      setMatchedSpecies(match);
+    }
+  }
+
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIdentifying(true);
+    setError(null);
+    setIdentifyNote(null);
+    setIdentifyCandidates([]);
+    try {
+      const { base64, mimeType } = await fileToBase64(file);
+      const res = await fetch('/api/ai/identify-species', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, imageMimeType: mimeType }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const candidates = (data.candidates ?? []) as IdentifyCandidate[];
+      if (candidates.length === 0) {
+        setIdentifyNote("Aucune espèce reconnue sur cette photo — essaie une photo plus nette ou plus rapprochée.");
+      } else if (candidates.length === 1) {
+        applyCandidate(candidates[0]);
+      } else {
+        setIdentifyCandidates(candidates);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur de reconnaissance photo');
+    } finally {
+      setIdentifying(false);
+      e.target.value = '';
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -57,7 +136,7 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
     const { error } = await supabase.from('livestock').insert({
       tank_id: tankId,
       user_id: user.id,
-      category,
+      category: lockedCategory ?? category,
       species_common_name: name,
       species_scientific_name: scientificName || null,
       quantity: parseInt(quantity, 10),
@@ -75,8 +154,9 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
     setName('');
     setScientificName('');
     setQuantity('1');
-    setBioloadFactor('1');
+    setBioloadFactor(lockedCategory === 'plant' ? '0' : '1');
     setMatchedSpecies(null);
+    setIdentifyNote(null);
     onUpdated();
   }
 
@@ -88,22 +168,50 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h3 className="mb-3 font-semibold text-slate-900">Ajouter au peuplement</h3>
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-900">{title ?? 'Ajouter au peuplement'}</h3>
+          <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-teal-300 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-50">
+            {identifying ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
+            Identifier par photo
+            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
+          </label>
+        </div>
         {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-        <div className="grid gap-3 sm:grid-cols-5">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value as LivestockCategory)}
-            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-1"
-          >
-            {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>{label}</option>
+        {identifyNote && <p className="mb-3 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-700">{identifyNote}</p>}
+        {identifyCandidates.length > 0 && (
+          <div className="mb-3 space-y-1.5 rounded-lg border border-teal-200 bg-teal-50/50 p-3">
+            <p className="text-xs font-medium text-teal-700">Plusieurs espèces possibles, choisis la bonne :</p>
+            {identifyCandidates.map((c, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => applyCandidate(c)}
+                className="flex w-full flex-col items-start rounded-lg bg-white px-3 py-2 text-left text-sm shadow-sm hover:bg-teal-100"
+              >
+                <span className="font-medium text-slate-800">
+                  {c.common_name} <span className="text-xs text-slate-400">({Math.round(c.confidence * 100)}% confiance)</span>
+                </span>
+                <span className="text-xs italic text-slate-400">{c.scientific_name}</span>
+              </button>
             ))}
-          </select>
-          <div className="relative sm:col-span-2">
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-5">
+          {!lockedCategory && (
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as LivestockCategory)}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-1"
+            >
+              {visibleCategories.map((value) => (
+                <option key={value} value={value}>{CATEGORY_LABELS[value]}</option>
+              ))}
+            </select>
+          )}
+          <div className={`relative sm:col-span-2 ${lockedCategory ? 'sm:col-start-1' : ''}`}>
             <input
               required
-              placeholder="Nom commun (ex. Néon bleu)"
+              placeholder={lockedCategory === 'plant' ? 'Nom commun (ex. Anubias nana)' : 'Nom commun (ex. Néon bleu)'}
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
               onFocus={() => setSuggestions(searchSpecies(name))}
@@ -145,16 +253,18 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
             onChange={(e) => setQuantity(e.target.value)}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
           />
-          <input
-            type="number"
-            step="0.1"
-            min="0"
-            placeholder="Facteur bioload"
-            value={bioloadFactor}
-            onChange={(e) => setBioloadFactor(e.target.value)}
-            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-            title="1 = poisson standard type néon, ajuster selon la taille adulte"
-          />
+          {lockedCategory !== 'plant' && (
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="Facteur bioload"
+              value={bioloadFactor}
+              onChange={(e) => setBioloadFactor(e.target.value)}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              title="1 = poisson standard type néon, ajuster selon la taille adulte"
+            />
+          )}
         </div>
         {matchedSpecies && (
           <div className="mt-3 space-y-1.5">
@@ -170,8 +280,8 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
           </div>
         )}
         <p className="mt-2 text-xs text-slate-400">
-          Le nom commun propose des espèces courantes (facteur bioload, tempérament, sexage) —
-          libre à toi de saisir n&apos;importe quelle autre espèce à la main.
+          Le nom commun propose des espèces courantes, ou prends une photo pour une identification
+          par IA — libre à toi de saisir n&apos;importe quelle autre espèce à la main.
         </p>
         <button
           type="submit"
@@ -183,9 +293,9 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
       </form>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h3 className="mb-3 font-semibold text-slate-900">Peuplement actuel</h3>
+        <h3 className="mb-3 font-semibold text-slate-900">{listTitle ?? 'Peuplement actuel'}</h3>
         <div className="space-y-2">
-          {livestock.map((item) => (
+          {filteredLivestock.map((item) => (
             <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
               <div>
                 <span className="font-medium text-slate-800">
@@ -203,7 +313,7 @@ export function LivestockPanel({ tankId, livestock, onUpdated }: {
               </button>
             </div>
           ))}
-          {livestock.length === 0 && <p className="text-sm text-slate-400">Aucun peuplement renseigné</p>}
+          {filteredLivestock.length === 0 && <p className="text-sm text-slate-400">Rien d&apos;enregistré pour l&apos;instant</p>}
         </div>
       </div>
     </div>
