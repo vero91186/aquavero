@@ -19,20 +19,55 @@ import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
 import { HardscapePanel } from '@/components/HardscapePanel';
 import { ProductsPanel } from '@/components/ProductsPanel';
 import type { MaintenanceTaskType } from '@/types/database';
-import { ArrowLeft, Sparkles, Droplet, Utensils, FlaskConical, SprayCan, StickyNote } from 'lucide-react';
+import {
+  ArrowLeft,
+  Sparkles,
+  Droplet,
+  Utensils,
+  FlaskConical,
+  SprayCan,
+  StickyNote,
+  LayoutGrid,
+  Box,
+  Waves,
+  Fish,
+  Wrench,
+  Camera,
+} from 'lucide-react';
 
-type Tab =
-  | 'apercu'
-  | 'proprietes'
-  | 'parametres'
-  | 'cyclage'
-  | 'peuplement'
-  | 'plantes'
-  | 'hardscape'
-  | 'produits'
-  | 'entretien'
-  | 'scanner'
-  | 'assistant';
+// Navigation à deux niveaux : quelques sections principales (peu nombreuses,
+// pour rester lisible), chacune éventuellement subdivisée en sous-onglets —
+// plutôt qu'une seule rangée de 11 onglets à faire défiler.
+type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'scanner' | 'assistant';
+type BacSub = 'proprietes' | 'hardscape' | 'produits';
+type EauSub = 'parametres' | 'cyclage';
+type PeuplementSub = 'peuplement' | 'plantes';
+
+const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
+  { key: 'apercu', label: 'Aperçu', icon: <LayoutGrid size={15} /> },
+  { key: 'bac', label: 'Mon bac', icon: <Box size={15} /> },
+  { key: 'eau', label: 'Eau', icon: <Waves size={15} /> },
+  { key: 'peuplement', label: 'Peuplement', icon: <Fish size={15} /> },
+  { key: 'entretien', label: 'Entretien', icon: <Wrench size={15} /> },
+  { key: 'scanner', label: 'Scanner', icon: <Camera size={15} /> },
+  { key: 'assistant', label: 'Assistant IA', icon: <Sparkles size={15} /> },
+];
+
+const BAC_SUBS: { key: BacSub; label: string }[] = [
+  { key: 'proprietes', label: 'Propriétés' },
+  { key: 'hardscape', label: 'Roches & racines' },
+  { key: 'produits', label: 'Produits' },
+];
+
+const EAU_SUBS: { key: EauSub; label: string }[] = [
+  { key: 'parametres', label: "Paramètres d'eau" },
+  { key: 'cyclage', label: 'Mise en eau & cyclage' },
+];
+
+const PEUPLEMENT_SUBS: { key: PeuplementSub; label: string }[] = [
+  { key: 'peuplement', label: 'Poissons & invertébrés' },
+  { key: 'plantes', label: 'Plantes' },
+];
 
 const QUICK_ACTIONS: { taskType: MaintenanceTaskType; label: string; icon: React.ReactNode }[] = [
   { taskType: 'water_change', label: "Changement d'eau", icon: <Droplet size={14} /> },
@@ -55,7 +90,10 @@ export default function TankDetailPage() {
   const [doses, setDoses] = useState<CyclingDose[]>([]);
   const [hardscape, setHardscape] = useState<HardscapeItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
-  const [tab, setTab] = useState<Tab>('apercu');
+  const [section, setSection] = useState<Section>('apercu');
+  const [bacSub, setBacSub] = useState<BacSub>('proprietes');
+  const [eauSub, setEauSub] = useState<EauSub>('parametres');
+  const [peuplementSub, setPeuplementSub] = useState<PeuplementSub>('peuplement');
   const [loading, setLoading] = useState(true);
   const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose'>('chat');
@@ -99,19 +137,17 @@ export default function TankDetailPage() {
 
   const health = computeHealthScore(tank, livestock, tests[0] ?? null);
 
-  const tabs: { key: Tab; label: string }[] = [
-    { key: 'apercu', label: 'Aperçu' },
-    { key: 'proprietes', label: 'Propriétés' },
-    { key: 'parametres', label: "Paramètres d'eau" },
-    { key: 'cyclage', label: 'Mise en eau & cyclage' },
-    { key: 'peuplement', label: 'Peuplement' },
-    { key: 'plantes', label: 'Plantes' },
-    { key: 'hardscape', label: 'Roches & racines' },
-    { key: 'produits', label: 'Produits' },
-    { key: 'entretien', label: 'Entretien' },
-    { key: 'scanner', label: 'Scanner' },
-    { key: 'assistant', label: 'Assistant IA' },
-  ];
+  const subTabsFor: Partial<Record<Section, { key: string; label: string; active: boolean; onClick: () => void }[]>> = {
+    bac: BAC_SUBS.map((s) => ({ key: s.key, label: s.label, active: bacSub === s.key, onClick: () => setBacSub(s.key) })),
+    eau: EAU_SUBS.map((s) => ({ key: s.key, label: s.label, active: eauSub === s.key, onClick: () => setEauSub(s.key) })),
+    peuplement: PEUPLEMENT_SUBS.map((s) => ({
+      key: s.key,
+      label: s.label,
+      active: peuplementSub === s.key,
+      onClick: () => setPeuplementSub(s.key),
+    })),
+  };
+  const activeSubTabs = subTabsFor[section];
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -130,7 +166,7 @@ export default function TankDetailPage() {
             <button
               onClick={() => {
                 setAssistantMode('chat');
-                setTab('assistant');
+                setSection('assistant');
               }}
               className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
@@ -139,23 +175,39 @@ export default function TankDetailPage() {
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4">
-          {tabs.map((t) => (
+        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 pb-2">
+          {SECTIONS.map((s) => (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium ${
-                tab === t.key ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-800'
+              key={s.key}
+              onClick={() => setSection(s.key)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                section === s.key ? 'bg-teal-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
               }`}
             >
-              {t.label}
+              {s.icon} {s.label}
             </button>
           ))}
         </nav>
+
+        {activeSubTabs && (
+          <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2">
+            {activeSubTabs.map((s) => (
+              <button
+                key={s.key}
+                onClick={s.onClick}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                  s.active ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <main className="mx-auto max-w-5xl px-4 py-6">
-        {tab === 'apercu' && (
+        {section === 'apercu' && (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <HealthScoreCard health={health} />
@@ -183,7 +235,7 @@ export default function TankDetailPage() {
                     key={a.taskType}
                     onClick={() => {
                       setQuickTaskType(a.taskType);
-                      setTab('entretien');
+                      setSection('entretien');
                     }}
                     className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
                   >
@@ -195,10 +247,20 @@ export default function TankDetailPage() {
             <PopulationOverview tank={tank} livestock={livestock} />
           </div>
         )}
-        {tab === 'proprietes' && <TankPropertiesPanel tank={tank} onUpdated={loadAll} />}
-        {tab === 'parametres' && <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />}
-        {tab === 'cyclage' && <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />}
-        {tab === 'peuplement' && (
+        {section === 'bac' && bacSub === 'proprietes' && <TankPropertiesPanel tank={tank} onUpdated={loadAll} />}
+        {section === 'bac' && bacSub === 'hardscape' && (
+          <HardscapePanel tankId={tankId} items={hardscape} onUpdated={loadAll} />
+        )}
+        {section === 'bac' && bacSub === 'produits' && (
+          <ProductsPanel tankId={tankId} products={products} onUpdated={loadAll} />
+        )}
+        {section === 'eau' && eauSub === 'parametres' && (
+          <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />
+        )}
+        {section === 'eau' && eauSub === 'cyclage' && (
+          <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />
+        )}
+        {section === 'peuplement' && peuplementSub === 'peuplement' && (
           <div className="space-y-6">
             <StockingCalculator tank={tank} livestock={livestock} />
             <LivestockPanel
@@ -209,7 +271,7 @@ export default function TankDetailPage() {
             />
           </div>
         )}
-        {tab === 'plantes' && (
+        {section === 'peuplement' && peuplementSub === 'plantes' && (
           <LivestockPanel
             tankId={tankId}
             livestock={livestock}
@@ -220,9 +282,7 @@ export default function TankDetailPage() {
             listTitle="Plantes du bac"
           />
         )}
-        {tab === 'hardscape' && <HardscapePanel tankId={tankId} items={hardscape} onUpdated={loadAll} />}
-        {tab === 'produits' && <ProductsPanel tankId={tankId} products={products} onUpdated={loadAll} />}
-        {tab === 'entretien' && (
+        {section === 'entretien' && (
           <MaintenancePanel
             tank={tank}
             tankId={tankId}
@@ -232,17 +292,25 @@ export default function TankDetailPage() {
             products={products}
           />
         )}
-        {tab === 'scanner' && (
+        {section === 'scanner' && (
           <ScannerPanel
             tankId={tankId}
             onUpdated={loadAll}
             onNavigate={(target) => {
-              if (target === 'assistant') setAssistantMode('diagnose');
-              setTab(target);
+              if (target === 'assistant') {
+                setAssistantMode('diagnose');
+                setSection('assistant');
+              } else if (target === 'plantes') {
+                setSection('peuplement');
+                setPeuplementSub('plantes');
+              } else {
+                setSection('peuplement');
+                setPeuplementSub('peuplement');
+              }
             }}
           />
         )}
-        {tab === 'assistant' && <AiAssistantPanel tankId={tankId} initialMode={assistantMode} />}
+        {section === 'assistant' && <AiAssistantPanel tankId={tankId} initialMode={assistantMode} />}
       </main>
     </div>
   );
