@@ -89,8 +89,9 @@ export function ProductsPanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Recherche automatique d'une photo du produit sur internet.
-    const photoUrl = await fetchAutoPhoto(name);
+    // Recherche automatique d'une photo du produit sur internet (le mot-clé
+    // "aquarium" améliore la pertinence des résultats pour un nom de produit).
+    const photoUrl = await fetchAutoPhoto(`${name} aquarium`);
 
     await supabase.from('products').insert({
       tank_id: tankId,

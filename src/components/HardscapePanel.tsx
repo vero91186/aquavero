@@ -45,8 +45,9 @@ export function HardscapePanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Recherche automatique d'une photo sur internet à partir du nom.
-    const photoUrl = await fetchAutoPhoto(name);
+    // Recherche automatique d'une photo sur internet à partir du nom (le
+    // mot-clé "aquarium" améliore la pertinence des résultats).
+    const photoUrl = await fetchAutoPhoto(`${name} aquarium`);
 
     await supabase.from('hardscape_items').insert({
       tank_id: tankId,

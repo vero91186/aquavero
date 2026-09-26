@@ -1,22 +1,15 @@
-// Recherche automatique d'une photo sur internet (Wikipédia / Wikimedia Commons)
-// à partir d'un nom (espèce, produit, roche, racine...). Aucune clé API requise.
+// Recherche automatique d'une photo sur internet à partir d'un nom (espèce,
+// produit, roche, racine...). Aucune clé API requise.
 //
-// Important : l'API Wikimedia bloque ou limite fortement les requêtes qui
-// n'indiquent pas d'en-tête User-Agent descriptif (politique officielle :
-// https://meta.wikimedia.org/wiki/User-Agent_policy). Sans cet en-tête, les
-// requêtes échouent souvent silencieusement ("too many requests") même à
-// faible volume — d'où l'en-tête ci-dessous sur chaque appel.
+// Historique : une première version s'appuyait uniquement sur l'API
+// Wikipédia/Wikimedia, qui s'est révélée bloquer ou fortement limiter les
+// requêtes automatisées ("You are making too many requests to the API"),
+// même avec un en-tête User-Agent correct — un souci connu des hébergeurs
+// cloud partagés (Vercel compris). On utilise donc en priorité deux sources
+// plus tolérantes aux appels serveur à serveur, et Wikipédia seulement en
+// tout dernier repli.
 const USER_AGENT =
   "AquaTrackAI/1.0 (application personnelle de suivi d'aquarium; contact: vpastout@gmail.com)";
-
-interface WikiPage {
-  original?: { source?: string };
-  thumbnail?: { source?: string };
-}
-
-interface CommonsPage {
-  imageinfo?: { thumburl?: string; url?: string }[];
-}
 
 async function fetchJson(url: string): Promise<unknown> {
   try {
@@ -31,6 +24,40 @@ async function fetchJson(url: string): Promise<unknown> {
   }
 }
 
+interface INatTaxon {
+  default_photo?: { medium_url?: string; square_url?: string } | null;
+}
+
+// iNaturalist : base collaborative de photos d'espèces (faune/flore), très
+// bien fournie pour les poissons, invertébrés, plantes et coraux d'aquarium
+// via leur nom scientifique ou commun.
+async function searchINaturalist(query: string): Promise<string | null> {
+  const url = `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=1`;
+  const data = (await fetchJson(url)) as { results?: INatTaxon[] } | null;
+  const taxon = data?.results?.[0];
+  return taxon?.default_photo?.medium_url ?? taxon?.default_photo?.square_url ?? null;
+}
+
+interface OpenverseImage {
+  url?: string;
+  thumbnail?: string;
+}
+
+// Openverse : moteur de recherche d'images libres de droits (Flickr, musées,
+// Wikimedia Commons...), utile en repli large pour le matériel, les produits
+// et les éléments de décor qui n'ont pas de fiche espèce.
+async function searchOpenverse(query: string): Promise<string | null> {
+  const url = `https://api.openverse.org/v1/images/?q=${encodeURIComponent(query)}&page_size=1`;
+  const data = (await fetchJson(url)) as { results?: OpenverseImage[] } | null;
+  const img = data?.results?.[0];
+  return img?.url ?? img?.thumbnail ?? null;
+}
+
+interface WikiPage {
+  original?: { source?: string };
+  thumbnail?: { source?: string };
+}
+
 async function searchWikipediaImage(query: string, lang: 'fr' | 'en'): Promise<string | null> {
   const url = `https://${lang}.wikipedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
     query
@@ -42,30 +69,20 @@ async function searchWikipediaImage(query: string, lang: 'fr' | 'en'): Promise<s
   return first?.original?.source ?? first?.thumbnail?.source ?? null;
 }
 
-// Wikimedia Commons couvre beaucoup plus large que les articles Wikipédia
-// (matériel, produits, roches décoratives...), utile en repli quand l'espèce
-// ou le produit n'a pas d'article encyclopédique dédié.
-async function searchCommonsImage(query: string): Promise<string | null> {
-  const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(
-    `filetype:bitmap ${query}`
-  )}&gsrnamespace=6&gsrlimit=1&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*`;
-  const data = (await fetchJson(url)) as { query?: { pages?: Record<string, CommonsPage> } } | null;
-  const pages = data?.query?.pages;
-  if (!pages) return null;
-  const first = Object.values(pages)[0];
-  const info = first?.imageinfo?.[0];
-  return info?.thumburl ?? info?.url ?? null;
-}
-
 // Renvoie l'URL d'une image trouvée sur internet pour ce nom, ou null si rien
 // de pertinent n'a été trouvé. Ne lève jamais d'erreur (best-effort) : un
 // échec de recherche ne doit jamais bloquer l'ajout d'un élément.
 export async function findPhotoOnWeb(query: string): Promise<string | null> {
   const clean = query.trim();
   if (!clean) return null;
+
+  const inat = await searchINaturalist(clean);
+  if (inat) return inat;
+
+  const openverse = await searchOpenverse(clean);
+  if (openverse) return openverse;
+
   const fr = await searchWikipediaImage(clean, 'fr');
   if (fr) return fr;
-  const en = await searchWikipediaImage(clean, 'en');
-  if (en) return en;
-  return searchCommonsImage(clean);
+  return searchWikipediaImage(clean, 'en');
 }
