@@ -3,23 +3,14 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types/database';
-import { CheckCircle2, Droplet, Pencil, Trash2, Check, X } from 'lucide-react';
+import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
+import { CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X } from 'lucide-react';
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
-
-const TASK_LABELS: Record<MaintenanceTaskType, string> = {
-  water_change: "Changement d'eau",
-  filter_clean: 'Nettoyage filtre',
-  glass_clean: 'Nettoyage vitres',
-  dosing: 'Dosage / engrais',
-  feeding: 'Alimentation',
-  equipment_check: 'Vérification matériel',
-  other: 'Autre',
-};
 
 export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType, products }: {
   tank: Tank;
@@ -35,13 +26,20 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
 }) {
   const supabase = createClient();
   const [taskType, setTaskType] = useState<MaintenanceTaskType>(presetTaskType ?? 'water_change');
+  const [reminderDays, setReminderDays] = useState<string>(() => {
+    const def = DEFAULT_REMINDER_DAYS[presetTaskType ?? 'water_change'];
+    return def !== null ? String(def) : '';
+  });
 
   useEffect(() => {
     // Synchronise avec les boutons rapides de l'onglet Aperçu : un choix
-    // externe doit se refléter dans le sélecteur du formulaire.
+    // externe doit se refléter dans le sélecteur du formulaire (type
+    // d'intervention + suggestion de rappel associée).
     if (presetTaskType) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setTaskType(presetTaskType);
+      const def = DEFAULT_REMINDER_DAYS[presetTaskType];
+      setReminderDays(def !== null ? String(def) : '');
     }
   }, [presetTaskType]);
   const [description, setDescription] = useState('');
@@ -60,13 +58,27 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     percentage_changed: string;
     conditioner_ml: string;
     description: string;
-  }>({ performed_at: '', task_type: 'water_change', percentage_changed: '', conditioner_ml: '', description: '' });
+    reminder_days: string;
+  }>({
+    performed_at: '',
+    task_type: 'water_change',
+    percentage_changed: '',
+    conditioner_ml: '',
+    description: '',
+    reminder_days: '',
+  });
   const [savingEdit, setSavingEdit] = useState(false);
 
   const pct = parseFloat(percentage) || 0;
   const ratio = parseFloat(doseRatio) || 0;
   const litersChanged = tank.volume_liters * (pct / 100);
   const conditionerMl = ratio > 0 && pct > 0 ? (ratio * litersChanged) / 100 : null;
+
+  function handleTaskTypeChange(value: MaintenanceTaskType) {
+    setTaskType(value);
+    const def = DEFAULT_REMINDER_DAYS[value];
+    setReminderDays(def !== null ? String(def) : '');
+  }
 
   function handleSelectProduct(id: string) {
     setSelectedProductId(id);
@@ -87,6 +99,12 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    const reminderDaysNum = parseInt(reminderDays, 10);
+    const nextDueAt =
+      reminderDays && !Number.isNaN(reminderDaysNum) && reminderDaysNum > 0
+        ? new Date(new Date().getTime() + reminderDaysNum * 24 * 60 * 60 * 1000).toISOString()
+        : null;
+
     await supabase.from('maintenance_logs').insert({
       tank_id: tankId,
       user_id: user.id,
@@ -95,6 +113,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
       percentage_changed: taskType === 'water_change' && percentage ? parseFloat(percentage) : null,
       conditioner_ml: taskType === 'water_change' && conditionerMl !== null ? Math.round(conditionerMl * 10) / 10 : null,
       performed_at: new Date().toISOString(),
+      next_due_at: nextDueAt,
     });
 
     if (taskType === 'water_change' && rememberDose && ratio > 0) {
@@ -106,6 +125,8 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     setPercentage('');
     setRememberDose(false);
     setSelectedProductId('');
+    const def = DEFAULT_REMINDER_DAYS[taskType];
+    setReminderDays(def !== null ? String(def) : '');
     onUpdated();
   }
 
@@ -116,12 +137,23 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
 
   function startEditLog(log: MaintenanceLog) {
     setEditingId(log.id);
+    const reminderDaysValue = log.next_due_at
+      ? String(
+          Math.max(
+            0,
+            Math.round(
+              (new Date(log.next_due_at).getTime() - new Date(log.performed_at).getTime()) / (24 * 60 * 60 * 1000)
+            )
+          )
+        )
+      : '';
     setEditForm({
       performed_at: toDatetimeLocal(log.performed_at),
       task_type: log.task_type,
       percentage_changed: log.percentage_changed !== null ? String(log.percentage_changed) : '',
       conditioner_ml: log.conditioner_ml !== null ? String(log.conditioner_ml) : '',
       description: log.description ?? '',
+      reminder_days: reminderDaysValue,
     });
   }
 
@@ -131,10 +163,16 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
 
   async function saveEditLog(id: string) {
     setSavingEdit(true);
+    const performedAt = new Date(editForm.performed_at);
+    const reminderDaysNum = parseInt(editForm.reminder_days, 10);
+    const nextDueAt =
+      editForm.reminder_days && !Number.isNaN(reminderDaysNum) && reminderDaysNum > 0
+        ? new Date(performedAt.getTime() + reminderDaysNum * 24 * 60 * 60 * 1000).toISOString()
+        : null;
     await supabase
       .from('maintenance_logs')
       .update({
-        performed_at: new Date(editForm.performed_at).toISOString(),
+        performed_at: performedAt.toISOString(),
         task_type: editForm.task_type,
         percentage_changed:
           editForm.task_type === 'water_change' && editForm.percentage_changed
@@ -145,6 +183,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
             ? parseFloat(editForm.conditioner_ml)
             : null,
         description: editForm.description || null,
+        next_due_at: nextDueAt,
       })
       .eq('id', id);
     setSavingEdit(false);
@@ -159,7 +198,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
         <div className="grid gap-3 sm:grid-cols-4">
           <select
             value={taskType}
-            onChange={(e) => setTaskType(e.target.value as MaintenanceTaskType)}
+            onChange={(e) => handleTaskTypeChange(e.target.value as MaintenanceTaskType)}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
           >
             {Object.entries(TASK_LABELS).map(([value, label]) => (
@@ -181,6 +220,20 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
             onChange={(e) => setDescription(e.target.value)}
             className={`rounded-lg border border-slate-300 px-2 py-1.5 text-sm ${taskType === 'water_change' ? 'sm:col-span-2' : 'sm:col-span-3'}`}
           />
+        </div>
+
+        <div className="mt-3 flex items-center gap-2 text-sm">
+          <Bell size={15} className="shrink-0 text-slate-400" />
+          <label className="text-slate-600">Me rappeler dans</label>
+          <input
+            type="number"
+            min="0"
+            placeholder="jours"
+            value={reminderDays}
+            onChange={(e) => setReminderDays(e.target.value)}
+            className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-sm"
+          />
+          <span className="text-slate-500">jour(s) — laisser vide pour aucun rappel</span>
         </div>
 
         {taskType === 'water_change' && (
@@ -311,6 +364,16 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                     className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Rappel (jours)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.reminder_days}
+                    onChange={(e) => setEditForm((f) => ({ ...f, reminder_days: e.target.value }))}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
                 <div className="flex gap-1">
                   <button
                     onClick={() => saveEditLog(log.id)}
@@ -336,6 +399,11 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                     {log.description && <span className="text-slate-500"> — {log.description}</span>}
                     <div className="text-xs text-slate-400">
                       {new Date(log.performed_at).toLocaleString('fr-FR')}
+                      {log.next_due_at && (
+                        <span className="ml-2 inline-flex items-center gap-1 text-sky-600">
+                          <Bell size={11} /> rappel le {new Date(log.next_due_at).toLocaleDateString('fr-FR')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>

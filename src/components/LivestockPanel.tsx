@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Livestock, LivestockCategory, SwimZone } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
+import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { Trash2, Camera, Loader2, Pencil, Check, X } from 'lucide-react';
 
@@ -167,6 +168,10 @@ export function LivestockPanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Recherche automatique d'une photo sur internet à partir du nom (scientifique
+    // en priorité, plus fiable pour trouver la bonne espèce).
+    const photoUrl = await fetchAutoPhoto(scientificName || name);
+
     const { error } = await supabase.from('livestock').insert({
       tank_id: tankId,
       user_id: user.id,
@@ -180,6 +185,7 @@ export function LivestockPanel({
       min_tank_liters: matchedSpecies?.minTankLiters ?? null,
       swim_zone: swimZone,
       solitary,
+      photo_url: photoUrl,
       added_at: new Date().toISOString().slice(0, 10),
     });
     setSaving(false);

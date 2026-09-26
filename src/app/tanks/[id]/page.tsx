@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client';
 import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product } from '@/types/database';
 import { computeHealthScore } from '@/lib/health-score';
 import { computeShelfLife } from '@/lib/shelf-life';
+import { computeReminders } from '@/lib/reminders';
+import { TASK_LABELS } from '@/lib/maintenance';
 import { HealthScoreCard } from '@/components/HealthScoreCard';
 import { WaterTestsPanel } from '@/components/WaterTestsPanel';
 import { LivestockPanel } from '@/components/LivestockPanel';
@@ -142,6 +144,7 @@ export default function TankDetailPage() {
     .map((p) => ({ product: p, shelfLife: computeShelfLife(p.opened_at, p.shelf_life_days_after_opening) }))
     .filter((p) => p.shelfLife && p.shelfLife.level !== 'ok')
     .sort((a, b) => (a.shelfLife!.daysLeft ?? 0) - (b.shelfLife!.daysLeft ?? 0));
+  const reminders = computeReminders(logs);
 
   const subTabsFor: Partial<Record<Section, { key: string; label: string; active: boolean; onClick: () => void }[]>> = {
     bac: BAC_SUBS.map((s) => ({ key: s.key, label: s.label, active: bacSub === s.key, onClick: () => setBacSub(s.key) })),
@@ -215,6 +218,32 @@ export default function TankDetailPage() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         {section === 'apercu' && (
           <div className="space-y-4">
+            {reminders.length > 0 && (
+              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
+                <div className="mb-1 flex items-center gap-2 text-sky-800">
+                  <AlertTriangle size={16} />
+                  <h3 className="font-semibold">Rappels d&apos;entretien</h3>
+                </div>
+                <ul className="space-y-1 text-sm text-sky-700">
+                  {reminders.map((r) => (
+                    <li key={r.taskType}>
+                      <span className="font-medium">{TASK_LABELS[r.taskType]}</span> —{' '}
+                      {r.level === 'overdue'
+                        ? `en retard depuis le ${r.dueAt.toLocaleDateString('fr-FR')} (${Math.abs(r.daysLeft)} j)`
+                        : r.daysLeft === 0
+                          ? "aujourd'hui"
+                          : `dans ${r.daysLeft} j (le ${r.dueAt.toLocaleDateString('fr-FR')})`}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => setSection('entretien')}
+                  className="mt-2 text-xs font-medium text-sky-800 underline hover:text-sky-900"
+                >
+                  Voir l&apos;entretien
+                </button>
+              </div>
+            )}
             {productsToWatch.length > 0 && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
                 <div className="mb-1 flex items-center gap-2 text-amber-800">

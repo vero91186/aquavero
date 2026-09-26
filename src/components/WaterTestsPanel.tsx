@@ -147,9 +147,15 @@ export function WaterTestsPanel({ tankId, tests, onUpdated }: {
     .map((t) => ({
       date: new Date(t.tested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
       pH: t.ph,
+      NH3: t.ammonia_ppm,
       NO2: t.nitrite_ppm,
       NO3: t.nitrate_ppm,
+      GH: t.gh_dgh,
+      KH: t.kh_dkh,
+      Température: t.temperature_c,
     }));
+  const hasHardness = tests.some((t) => t.gh_dgh !== null || t.kh_dkh !== null);
+  const hasTemperature = tests.some((t) => t.temperature_c !== null);
 
   return (
     <div className="space-y-6">
@@ -194,16 +200,48 @@ export function WaterTestsPanel({ tankId, tests, onUpdated }: {
 
       {chartData.length > 1 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <h3 className="mb-3 font-semibold text-slate-900">Tendance</h3>
+          <h3 className="mb-3 font-semibold text-slate-900">Tendance — azote &amp; pH</h3>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
               <XAxis dataKey="date" tick={{ fontSize: 12 }} />
               <YAxis tick={{ fontSize: 12 }} />
               <Tooltip />
-              <Line type="monotone" dataKey="pH" stroke="#0d9488" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="NO2" stroke="#f59e0b" strokeWidth={2} dot={false} />
-              <Line type="monotone" dataKey="NO3" stroke="#6366f1" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="pH" stroke="#0d9488" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="NH3" stroke="#ef4444" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="NO2" stroke="#f59e0b" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="NO3" stroke="#6366f1" strokeWidth={2} dot={false} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {chartData.length > 1 && hasHardness && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-3 font-semibold text-slate-900">Tendance — dureté (GH / KH)</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Line type="monotone" dataKey="GH" stroke="#0ea5e9" strokeWidth={2} dot={false} connectNulls />
+              <Line type="monotone" dataKey="KH" stroke="#8b5cf6" strokeWidth={2} dot={false} connectNulls />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {chartData.length > 1 && hasTemperature && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-3 font-semibold text-slate-900">Tendance — température</h3>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} unit="°C" />
+              <Tooltip />
+              <Line type="monotone" dataKey="Température" stroke="#f97316" strokeWidth={2} dot={false} connectNulls />
             </LineChart>
           </ResponsiveContainer>
         </div>

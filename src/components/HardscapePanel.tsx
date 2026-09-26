@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { HardscapeItem, HardscapeKind } from '@/types/database';
+import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { Trash2, Pencil, Check, X } from 'lucide-react';
 
@@ -44,6 +45,9 @@ export function HardscapePanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Recherche automatique d'une photo sur internet à partir du nom.
+    const photoUrl = await fetchAutoPhoto(name);
+
     await supabase.from('hardscape_items').insert({
       tank_id: tankId,
       user_id: user.id,
@@ -51,6 +55,7 @@ export function HardscapePanel({
       name,
       quantity: parseInt(quantity, 10) || 1,
       notes: notes || null,
+      photo_url: photoUrl,
     });
     setSaving(false);
     setName('');

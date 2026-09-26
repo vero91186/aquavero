@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Product, ProductCategory } from '@/types/database';
 import { computeShelfLife } from '@/lib/shelf-life';
+import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { Search, Loader2, Trash2, Pencil, Check, X, Plus, AlertTriangle } from 'lucide-react';
 
@@ -88,6 +89,9 @@ export function ProductsPanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
+    // Recherche automatique d'une photo du produit sur internet.
+    const photoUrl = await fetchAutoPhoto(name);
+
     await supabase.from('products').insert({
       tank_id: tankId,
       user_id: user.id,
@@ -97,6 +101,7 @@ export function ProductsPanel({
       dose_ml_per_100l: result.dose_ml_per_100l,
       shelf_life_days_after_opening: result.shelf_life_days_after_opening,
       ai_summary: result.note || null,
+      photo_url: photoUrl,
     });
     setSaving(false);
     setName('');
