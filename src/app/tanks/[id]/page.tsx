@@ -12,6 +12,7 @@ import { LivestockPanel } from '@/components/LivestockPanel';
 import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
+import { StockingCalculator } from '@/components/StockingCalculator';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
 type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'plantes' | 'entretien' | 'assistant';
@@ -138,12 +139,15 @@ export default function TankDetailPage() {
         {tab === 'parametres' && <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />}
         {tab === 'cyclage' && <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />}
         {tab === 'peuplement' && (
-          <LivestockPanel
-            tankId={tankId}
-            livestock={livestock}
-            onUpdated={loadAll}
-            categories={['fish', 'invertebrate', 'coral']}
-          />
+          <div className="space-y-6">
+            <StockingCalculator tank={tank} livestock={livestock} />
+            <LivestockPanel
+              tankId={tankId}
+              livestock={livestock}
+              onUpdated={loadAll}
+              categories={['fish', 'invertebrate', 'coral']}
+            />
+          </div>
         )}
         {tab === 'plantes' && (
           <LivestockPanel

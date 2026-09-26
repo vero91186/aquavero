@@ -26,6 +26,39 @@ export function computeBioload(tank: Tank, livestock: Livestock[]): BioloadResul
   return { totalBioloadUnits, bioloadPerLiter, loadLevel };
 }
 
+const LOAD_THRESHOLDS = { moderee: 0.04, elevee: 0.08, critique: 0.12 };
+
+export interface StockingHeadroom {
+  current: BioloadResult;
+  // Nombre max d'individus (du facteur bioload donné) qu'on peut encore
+  // ajouter avant de franchir chaque seuil de charge. null si le facteur est
+  // nul (ex. plante) ou si le seuil est déjà dépassé (0 dans ce cas).
+  maxBeforeModeree: number | null;
+  maxBeforeElevee: number | null;
+  maxBeforeCritique: number | null;
+}
+
+export function computeStockingHeadroom(
+  tank: Tank,
+  livestock: Livestock[],
+  additionalBioloadFactor: number
+): StockingHeadroom {
+  const current = computeBioload(tank, livestock);
+  if (additionalBioloadFactor <= 0 || tank.volume_liters <= 0) {
+    return { current, maxBeforeModeree: null, maxBeforeElevee: null, maxBeforeCritique: null };
+  }
+  const maxFor = (threshold: number) => {
+    const capacityUnits = threshold * tank.volume_liters - current.totalBioloadUnits;
+    return Math.max(0, Math.floor(capacityUnits / additionalBioloadFactor));
+  };
+  return {
+    current,
+    maxBeforeModeree: maxFor(LOAD_THRESHOLDS.moderee),
+    maxBeforeElevee: maxFor(LOAD_THRESHOLDS.elevee),
+    maxBeforeCritique: maxFor(LOAD_THRESHOLDS.critique),
+  };
+}
+
 export interface HealthScoreResult {
   score: number; // 0-100
   label: 'excellent' | 'bon' | 'à surveiller' | 'préoccupant';
