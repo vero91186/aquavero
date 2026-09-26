@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { MaintenanceLog, MaintenanceTaskType, Tank } from '@/types/database';
+import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types/database';
 import { CheckCircle2, Droplet, Pencil, Trash2, Check, X } from 'lucide-react';
 
 function toDatetimeLocal(iso: string): string {
@@ -21,7 +21,7 @@ const TASK_LABELS: Record<MaintenanceTaskType, string> = {
   other: 'Autre',
 };
 
-export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType }: {
+export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType, products }: {
   tank: Tank;
   tankId: string;
   logs: MaintenanceLog[];
@@ -29,6 +29,9 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   // Préremplit le type d'intervention (ex. depuis les boutons rapides de
   // l'onglet Aperçu) sans forcer un composant contrôlé de l'extérieur.
   presetTaskType?: MaintenanceTaskType | null;
+  // Produits enregistrés (onglet Produits) : les conditionneurs d'eau
+  // alimentent directement le calculateur ci-dessous.
+  products?: Product[];
 }) {
   const supabase = createClient();
   const [taskType, setTaskType] = useState<MaintenanceTaskType>(presetTaskType ?? 'water_change');
@@ -47,7 +50,9 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     tank.conditioner_dose_ml_per_100l !== null ? String(tank.conditioner_dose_ml_per_100l) : ''
   );
   const [rememberDose, setRememberDose] = useState(false);
+  const [selectedProductId, setSelectedProductId] = useState('');
   const [saving, setSaving] = useState(false);
+  const conditionerProducts = (products ?? []).filter((p) => p.category === 'conditioner');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     performed_at: string;
@@ -62,6 +67,17 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   const ratio = parseFloat(doseRatio) || 0;
   const litersChanged = tank.volume_liters * (pct / 100);
   const conditionerMl = ratio > 0 && pct > 0 ? (ratio * litersChanged) / 100 : null;
+
+  function handleSelectProduct(id: string) {
+    setSelectedProductId(id);
+    const product = conditionerProducts.find((p) => p.id === id);
+    if (product?.dose_ml_per_100l !== null && product?.dose_ml_per_100l !== undefined) {
+      setDoseRatio(String(product.dose_ml_per_100l));
+    }
+    if (product && !description) {
+      setDescription(product.name);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -89,6 +105,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     setDescription('');
     setPercentage('');
     setRememberDose(false);
+    setSelectedProductId('');
     onUpdated();
   }
 
@@ -172,6 +189,23 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
               <Droplet size={16} className="text-sky-600" />
               <p className="text-sm font-medium text-sky-800">Calculateur de conditionneur d&apos;eau</p>
             </div>
+            {conditionerProducts.length > 0 && (
+              <div className="mb-3 space-y-1">
+                <label className="text-xs font-medium text-slate-600">Produit enregistré (onglet Produits)</label>
+                <select
+                  value={selectedProductId}
+                  onChange={(e) => handleSelectProduct(e.target.value)}
+                  className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:w-auto"
+                >
+                  <option value="">— dosage manuel —</option>
+                  {conditionerProducts.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}{p.dose_ml_per_100l !== null ? ` (${p.dose_ml_per_100l} mL/100L)` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-600">Dosage produit (mL / 100 L)</label>

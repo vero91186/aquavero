@@ -157,6 +157,30 @@ export async function identifyItemFromPhoto(
   };
 }
 
+const PRODUCT_SYSTEM_PROMPT = `Tu es un expert produits d'aquariophilie. On te donne le nom (et parfois
+la marque) d'un produit du commerce (conditionneur d'eau, engrais, nourriture, media filtrant, test
+kit...). À partir de tes connaissances générales sur ce type de produit, tu donnes une fiche
+synthétique : sa catégorie la plus probable, son usage/dosage typique en une phrase, et si c'est un
+conditionneur d'eau (déchlorinant), une estimation du dosage usuel en mL pour 100 L d'eau neuve
+(beaucoup de conditionneurs se dosent autour de 5 mL/100L, mais certains sont plus concentrés —
+indique ta meilleure estimation, ou null si tu ne peux pas l'estimer raisonnablement). Précise aussi
+un point de vigilance si pertinent (dosage à ne pas dépasser, incompatibilité, etc). Tu n'as pas
+accès à internet : si tu ne reconnais pas ce produit précis, base-toi sur les produits similaires de
+sa catégorie et dis-le clairement dans la note. Réponds uniquement avec un objet JSON de la forme :
+{"category": "conditioner|fertilizer|food|filter_media|test_kit|other", "dose_info": "...",
+"dose_ml_per_100l": 0.0, "note": "..."}`;
+
+export async function researchProduct(name: string) {
+  const prompt = `Donne-moi une fiche sur ce produit d'aquariophilie : "${name}".`;
+  const text = await callGemini([{ text: prompt }], PRODUCT_SYSTEM_PROMPT);
+  return JSON.parse(text) as {
+    category: 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
+    dose_info: string;
+    dose_ml_per_100l: number | null;
+    note: string;
+  };
+}
+
 export async function ocrTestStrip(imageBase64: string, imageMimeType: string) {
   const parts: GeminiPart[] = [
     { text: 'Lis les valeurs de cette bandelette ou de ce test de paramètres d\'eau.' },

@@ -13,10 +13,43 @@ export interface Tank {
   setup_date: string | null; // date de mise en eau
   cycling_status: CyclingStatus;
   conditioner_dose_ml_per_100l: number | null;
+  length_cm: number | null;
+  width_cm: number | null;
+  height_cm: number | null;
+  substrate: string | null;
+  lighting_hours_per_day: number | null;
+  fertile_soil: boolean;
   notes: string | null;
   cover_photo_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type HardscapeKind = 'rock' | 'wood';
+
+export interface HardscapeItem {
+  id: string;
+  tank_id: string;
+  user_id: string;
+  kind: HardscapeKind;
+  name: string;
+  quantity: number;
+  notes: string | null;
+  created_at: string;
+}
+
+export type ProductCategory = 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
+
+export interface Product {
+  id: string;
+  tank_id: string;
+  user_id: string;
+  name: string;
+  category: ProductCategory;
+  dose_info: string | null;
+  dose_ml_per_100l: number | null;
+  ai_summary: string | null;
+  created_at: string;
 }
 
 export interface CyclingDose {

@@ -1,0 +1,214 @@
+'use client';
+
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { HardscapeItem, HardscapeKind } from '@/types/database';
+import { Trash2, Pencil, Check, X } from 'lucide-react';
+
+const KIND_LABELS: Record<HardscapeKind, string> = {
+  rock: 'Roche',
+  wood: 'Racine / bois',
+};
+
+export function HardscapePanel({
+  tankId,
+  items,
+  onUpdated,
+}: {
+  tankId: string;
+  items: HardscapeItem[];
+  onUpdated: () => void;
+}) {
+  const supabase = createClient();
+  const [kind, setKind] = useState<HardscapeKind>('rock');
+  const [name, setName] = useState('');
+  const [quantity, setQuantity] = useState('1');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{ kind: HardscapeKind; name: string; quantity: string; notes: string }>({
+    kind: 'rock',
+    name: '',
+    quantity: '',
+    notes: '',
+  });
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('hardscape_items').insert({
+      tank_id: tankId,
+      user_id: user.id,
+      kind,
+      name,
+      quantity: parseInt(quantity, 10) || 1,
+      notes: notes || null,
+    });
+    setSaving(false);
+    setName('');
+    setQuantity('1');
+    setNotes('');
+    onUpdated();
+  }
+
+  async function handleDelete(id: string) {
+    await supabase.from('hardscape_items').delete().eq('id', id);
+    onUpdated();
+  }
+
+  function startEdit(item: HardscapeItem) {
+    setEditingId(item.id);
+    setEditForm({ kind: item.kind, name: item.name, quantity: String(item.quantity), notes: item.notes ?? '' });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+  }
+
+  async function saveEdit(id: string) {
+    setSavingEdit(true);
+    await supabase
+      .from('hardscape_items')
+      .update({
+        kind: editForm.kind,
+        name: editForm.name,
+        quantity: parseInt(editForm.quantity, 10) || 1,
+        notes: editForm.notes || null,
+      })
+      .eq('id', id);
+    setSavingEdit(false);
+    setEditingId(null);
+    onUpdated();
+  }
+
+  const rocks = items.filter((i) => i.kind === 'rock');
+  const woods = items.filter((i) => i.kind === 'wood');
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 className="mb-3 font-semibold text-slate-900">Ajouter une roche ou une racine</h3>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <select
+            value={kind}
+            onChange={(e) => setKind(e.target.value as HardscapeKind)}
+            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+          >
+            {(Object.keys(KIND_LABELS) as HardscapeKind[]).map((k) => (
+              <option key={k} value={k}>{KIND_LABELS[k]}</option>
+            ))}
+          </select>
+          <input
+            required
+            placeholder="Nom (ex. Roche de lave, Racine de tourbière)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-2"
+          />
+          <input
+            type="number"
+            min="1"
+            placeholder="Quantité"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+          />
+          <input
+            placeholder="Notes (optionnel)"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm sm:col-span-4"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={saving}
+          className="mt-3 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+        >
+          {saving ? 'Ajout…' : 'Ajouter'}
+        </button>
+      </form>
+
+      {([
+        ['rock', 'Roches', rocks],
+        ['wood', 'Racines et bois', woods],
+      ] as const).map(([, label, list]) => (
+        <div key={label} className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-3 font-semibold text-slate-900">{label}</h3>
+          <div className="space-y-2">
+            {list.map((item) =>
+              editingId === item.id ? (
+                <div key={item.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div className="min-w-[10rem] flex-1 space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Nom</label>
+                    <input
+                      value={editForm.name}
+                      onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Quantité</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={editForm.quantity}
+                      onChange={(e) => setEditForm((f) => ({ ...f, quantity: e.target.value }))}
+                      className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                  <div className="min-w-[10rem] flex-1 space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Notes</label>
+                    <input
+                      value={editForm.notes}
+                      onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                      className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                    />
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => saveEdit(item.id)}
+                      disabled={savingEdit}
+                      className="rounded p-1.5 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                      title="Enregistrer"
+                    >
+                      <Check size={16} />
+                    </button>
+                    <button onClick={cancelEdit} className="rounded p-1.5 text-slate-400 hover:bg-slate-100" title="Annuler">
+                      <X size={16} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                  <div>
+                    <span className="font-medium text-slate-800">
+                      {item.quantity}× {item.name}
+                    </span>
+                    {item.notes && <span className="ml-2 text-xs text-slate-400">{item.notes}</span>}
+                  </div>
+                  <div className="flex gap-1">
+                    <button onClick={() => startEdit(item)} className="text-slate-400 hover:text-teal-600" title="Modifier">
+                      <Pencil size={16} />
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} className="text-slate-400 hover:text-red-500" title="Supprimer">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+            {list.length === 0 && <p className="text-sm text-slate-400">Rien d&apos;enregistré pour l&apos;instant</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}

@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose } from '@/types/database';
+import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product } from '@/types/database';
 import { computeHealthScore } from '@/lib/health-score';
 import { HealthScoreCard } from '@/components/HealthScoreCard';
 import { WaterTestsPanel } from '@/components/WaterTestsPanel';
@@ -15,10 +15,24 @@ import { CyclingPanel } from '@/components/CyclingPanel';
 import { StockingCalculator } from '@/components/StockingCalculator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { ScannerPanel } from '@/components/ScannerPanel';
+import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
+import { HardscapePanel } from '@/components/HardscapePanel';
+import { ProductsPanel } from '@/components/ProductsPanel';
 import type { MaintenanceTaskType } from '@/types/database';
 import { ArrowLeft, Sparkles, Droplet, Utensils, FlaskConical, SprayCan, StickyNote } from 'lucide-react';
 
-type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'plantes' | 'entretien' | 'scanner' | 'assistant';
+type Tab =
+  | 'apercu'
+  | 'proprietes'
+  | 'parametres'
+  | 'cyclage'
+  | 'peuplement'
+  | 'plantes'
+  | 'hardscape'
+  | 'produits'
+  | 'entretien'
+  | 'scanner'
+  | 'assistant';
 
 const QUICK_ACTIONS: { taskType: MaintenanceTaskType; label: string; icon: React.ReactNode }[] = [
   { taskType: 'water_change', label: "Changement d'eau", icon: <Droplet size={14} /> },
@@ -39,18 +53,22 @@ export default function TankDetailPage() {
   const [livestock, setLivestock] = useState<Livestock[]>([]);
   const [logs, setLogs] = useState<MaintenanceLog[]>([]);
   const [doses, setDoses] = useState<CyclingDose[]>([]);
+  const [hardscape, setHardscape] = useState<HardscapeItem[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [tab, setTab] = useState<Tab>('apercu');
   const [loading, setLoading] = useState(true);
   const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose'>('chat');
 
   const loadAll = useCallback(async () => {
-    const [tankRes, testsRes, livestockRes, logsRes, dosesRes] = await Promise.all([
+    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes] = await Promise.all([
       supabase.from('tanks').select('*').eq('id', tankId).single(),
       supabase.from('water_tests').select('*').eq('tank_id', tankId).order('tested_at', { ascending: false }),
       supabase.from('livestock').select('*').eq('tank_id', tankId),
       supabase.from('maintenance_logs').select('*').eq('tank_id', tankId).order('performed_at', { ascending: false }),
       supabase.from('cycling_doses').select('*').eq('tank_id', tankId).order('dosed_at', { ascending: false }),
+      supabase.from('hardscape_items').select('*').eq('tank_id', tankId).order('created_at', { ascending: false }),
+      supabase.from('products').select('*').eq('tank_id', tankId).order('created_at', { ascending: false }),
     ]);
 
     if (tankRes.error || !tankRes.data) {
@@ -63,6 +81,8 @@ export default function TankDetailPage() {
     setLivestock(livestockRes.data ?? []);
     setLogs(logsRes.data ?? []);
     setDoses(dosesRes.data ?? []);
+    setHardscape(hardscapeRes.data ?? []);
+    setProducts(productsRes.data ?? []);
     setLoading(false);
   }, [tankId, supabase, router]);
 
@@ -81,10 +101,13 @@ export default function TankDetailPage() {
 
   const tabs: { key: Tab; label: string }[] = [
     { key: 'apercu', label: 'Aperçu' },
+    { key: 'proprietes', label: 'Propriétés' },
     { key: 'parametres', label: "Paramètres d'eau" },
     { key: 'cyclage', label: 'Mise en eau & cyclage' },
     { key: 'peuplement', label: 'Peuplement' },
     { key: 'plantes', label: 'Plantes' },
+    { key: 'hardscape', label: 'Roches & racines' },
+    { key: 'produits', label: 'Produits' },
     { key: 'entretien', label: 'Entretien' },
     { key: 'scanner', label: 'Scanner' },
     { key: 'assistant', label: 'Assistant IA' },
@@ -172,6 +195,7 @@ export default function TankDetailPage() {
             <PopulationOverview tank={tank} livestock={livestock} />
           </div>
         )}
+        {tab === 'proprietes' && <TankPropertiesPanel tank={tank} onUpdated={loadAll} />}
         {tab === 'parametres' && <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />}
         {tab === 'cyclage' && <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />}
         {tab === 'peuplement' && (
@@ -196,8 +220,17 @@ export default function TankDetailPage() {
             listTitle="Plantes du bac"
           />
         )}
+        {tab === 'hardscape' && <HardscapePanel tankId={tankId} items={hardscape} onUpdated={loadAll} />}
+        {tab === 'produits' && <ProductsPanel tankId={tankId} products={products} onUpdated={loadAll} />}
         {tab === 'entretien' && (
-          <MaintenancePanel tank={tank} tankId={tankId} logs={logs} onUpdated={loadAll} presetTaskType={quickTaskType} />
+          <MaintenancePanel
+            tank={tank}
+            tankId={tankId}
+            logs={logs}
+            onUpdated={loadAll}
+            presetTaskType={quickTaskType}
+            products={products}
+          />
         )}
         {tab === 'scanner' && (
           <ScannerPanel
