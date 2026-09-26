@@ -9,6 +9,16 @@ interface GeminiPart {
   inline_data?: { mime_type: string; data: string };
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Codes transitoires côté Google (surcharge du modèle, quota momentané) :
+// on retente automatiquement quelques fois avant d'abandonner, plutôt que de
+// remonter une erreur technique dès le premier essai.
+const RETRYABLE_STATUSES = new Set([429, 500, 503]);
+const MAX_ATTEMPTS = 3;
+
 async function callGemini(parts: GeminiPart[], systemInstruction: string) {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -17,25 +27,43 @@ async function callGemini(parts: GeminiPart[], systemInstruction: string) {
     );
   }
 
-  const res = await fetch(`${API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      system_instruction: { parts: [{ text: systemInstruction }] },
-      contents: [{ role: 'user', parts }],
-      generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
-    }),
-  });
+  let lastStatus: number | null = null;
+  let lastBody = '';
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Erreur Gemini (${res.status}) : ${text}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const res = await fetch(`${API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents: [{ role: 'user', parts }],
+        generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
+      }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (!text) throw new Error("Réponse Gemini vide ou inattendue.");
+      return text as string;
+    }
+
+    lastStatus = res.status;
+    lastBody = await res.text();
+
+    if (RETRYABLE_STATUSES.has(res.status) && attempt < MAX_ATTEMPTS) {
+      await sleep(attempt * 1200); // 1.2s puis 2.4s avant de retenter
+      continue;
+    }
+    break;
   }
 
-  const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error("Réponse Gemini vide ou inattendue.");
-  return text as string;
+  if (lastStatus !== null && RETRYABLE_STATUSES.has(lastStatus)) {
+    throw new Error(
+      "Le service IA de Google est momentanément surchargé (forte demande). Réessaie dans une minute ou deux — ce n'est pas un problème de ton côté."
+    );
+  }
+  throw new Error(`Erreur Gemini (${lastStatus}) : ${lastBody}`);
 }
 
 const CHAT_SYSTEM_PROMPT = `Tu es l'assistant aquariophile intégré à AquaTrack AI. Tu réponds en français,
