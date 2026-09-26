@@ -1,6 +1,7 @@
 // Types partagés, alignés sur le schéma supabase/migrations/0001_init.sql
 
 export type WaterType = 'freshwater' | 'saltwater' | 'brackish';
+export type CyclingStatus = 'not_started' | 'cycling' | 'cycled';
 
 export interface Tank {
   id: string;
@@ -9,11 +10,22 @@ export interface Tank {
   water_type: WaterType;
   volume_liters: number;
   is_planted: boolean;
-  setup_date: string | null;
+  setup_date: string | null; // date de mise en eau
+  cycling_status: CyclingStatus;
   notes: string | null;
   cover_photo_url: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface CyclingDose {
+  id: string;
+  tank_id: string;
+  user_id: string;
+  dosed_at: string;
+  ammonia_ppm_target: number | null;
+  note: string | null;
+  created_at: string;
 }
 
 export interface WaterTest {

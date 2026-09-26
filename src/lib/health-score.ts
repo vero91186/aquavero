@@ -50,6 +50,25 @@ export function computeHealthScore(
   const factors: HealthScoreResult['factors'] = [];
   let score = 100;
 
+  const hasFish = livestock.some((l) => l.category === 'fish' && l.quantity > 0);
+  if (tank.cycling_status !== 'cycled' && hasFish) {
+    if (tank.cycling_status === 'not_started') {
+      score -= 30;
+      factors.push({
+        label: 'Cyclage',
+        impact: -30,
+        detail: 'Poissons présents mais le cyclage du bac n\'a pas été démarré',
+      });
+    } else {
+      score -= 18;
+      factors.push({
+        label: 'Cyclage',
+        impact: -18,
+        detail: 'Cyclage en cours : ammoniac et nitrites à surveiller de près tant que les poissons sont en place',
+      });
+    }
+  }
+
   const { bioloadPerLiter, loadLevel } = computeBioload(tank, livestock);
   if (loadLevel === 'critique') {
     score -= 25;

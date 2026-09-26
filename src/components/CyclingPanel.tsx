@@ -1,0 +1,201 @@
+'use client';
+
+import { useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import type { CyclingDose, CyclingStatus, Tank, WaterTest } from '@/types/database';
+import { suggestCyclingStatus, daysSince } from '@/lib/cycling';
+import { Droplets, FlaskConical, Trash2 } from 'lucide-react';
+
+const STATUS_LABELS: Record<CyclingStatus, string> = {
+  not_started: 'Pas encore démarré',
+  cycling: 'Cyclage en cours',
+  cycled: 'Cycle terminé',
+};
+
+const STATUS_STYLES: Record<CyclingStatus, string> = {
+  not_started: 'bg-slate-100 text-slate-600',
+  cycling: 'bg-amber-100 text-amber-700',
+  cycled: 'bg-emerald-100 text-emerald-700',
+};
+
+export function CyclingPanel({
+  tank,
+  tests,
+  doses,
+  onUpdated,
+}: {
+  tank: Tank;
+  tests: WaterTest[];
+  doses: CyclingDose[];
+  onUpdated: () => void;
+}) {
+  const supabase = createClient();
+  const [waterFillDate, setWaterFillDate] = useState(tank.setup_date ?? '');
+  const [savingDate, setSavingDate] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
+  const [ammoniaTarget, setAmmoniaTarget] = useState('2');
+  const [doseNote, setDoseNote] = useState('');
+  const [savingDose, setSavingDose] = useState(false);
+
+  const suggestion = suggestCyclingStatus(tests, doses);
+  const days = daysSince(tank.setup_date);
+
+  async function handleSaveDate(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingDate(true);
+    await supabase.from('tanks').update({ setup_date: waterFillDate || null }).eq('id', tank.id);
+    setSavingDate(false);
+    onUpdated();
+  }
+
+  async function handleSetStatus(status: CyclingStatus) {
+    setSavingStatus(true);
+    await supabase.from('tanks').update({ cycling_status: status }).eq('id', tank.id);
+    setSavingStatus(false);
+    onUpdated();
+  }
+
+  async function handleAddDose(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingDose(true);
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase.from('cycling_doses').insert({
+      tank_id: tank.id,
+      user_id: user.id,
+      ammonia_ppm_target: ammoniaTarget ? parseFloat(ammoniaTarget) : null,
+      note: doseNote || null,
+    });
+    setSavingDose(false);
+    setDoseNote('');
+    onUpdated();
+  }
+
+  async function handleDeleteDose(id: string) {
+    await supabase.from('cycling_doses').delete().eq('id', id);
+    onUpdated();
+  }
+
+  const cycleNotComplete = tank.cycling_status !== 'cycled';
+
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold text-slate-900">Mise en eau</h3>
+          {days !== null && <span className="text-sm text-slate-500">{days} jour{days > 1 ? 's' : ''}</span>}
+        </div>
+        <form onSubmit={handleSaveDate} className="flex items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Date de mise en eau</label>
+            <input
+              type="date"
+              value={waterFillDate}
+              onChange={(e) => setWaterFillDate(e.target.value)}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={savingDate}
+            className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+          >
+            <Droplets size={14} /> {savingDate ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </form>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 className="mb-3 font-semibold text-slate-900">Statut du cyclage</h3>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(Object.keys(STATUS_LABELS) as CyclingStatus[]).map((status) => (
+            <button
+              key={status}
+              onClick={() => handleSetStatus(status)}
+              disabled={savingStatus}
+              className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                tank.cycling_status === status
+                  ? STATUS_STYLES[status]
+                  : 'bg-white text-slate-500 border border-slate-200 hover:bg-slate-50'
+              }`}
+            >
+              {STATUS_LABELS[status]}
+            </button>
+          ))}
+        </div>
+
+        <div className={`rounded-lg px-3 py-2 text-sm ${STATUS_STYLES[suggestion.suggestion]}`}>
+          <span className="font-medium">Suggestion d&apos;après tes derniers tests : {suggestion.label}.</span>{' '}
+          {suggestion.explanation}
+        </div>
+
+        {cycleNotComplete && (
+          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+            Tant que le cycle n&apos;est pas marqué terminé, évite d&apos;introduire des poissons
+            sensibles à l&apos;ammoniac et aux nitrites — ou fais-le très progressivement en
+            surveillant les paramètres de près.
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 className="mb-3 font-semibold text-slate-900">Journal des apports d&apos;ammoniac</h3>
+        <p className="mb-3 text-xs text-slate-400">
+          Pour un cyclage sans poisson (fishless cycling) : note chaque ajout d&apos;ammoniac pour
+          suivre la progression aux côtés de tes tests d&apos;eau.
+        </p>
+        <form onSubmit={handleAddDose} className="mb-4 flex flex-wrap items-end gap-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Ammoniac visé (ppm)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={ammoniaTarget}
+              onChange={(e) => setAmmoniaTarget(e.target.value)}
+              className="w-28 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="min-w-[10rem] flex-1 space-y-1">
+            <label className="text-xs font-medium text-slate-600">Note (optionnel)</label>
+            <input
+              value={doseNote}
+              onChange={(e) => setDoseNote(e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={savingDose}
+            className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+          >
+            <FlaskConical size={14} /> Ajouter
+          </button>
+        </form>
+
+        <div className="space-y-1.5">
+          {doses.map((dose) => (
+            <div key={dose.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2 text-sm">
+              <div>
+                <span className="font-medium text-slate-800">
+                  {dose.ammonia_ppm_target !== null ? `${dose.ammonia_ppm_target} ppm` : 'Apport'}
+                </span>
+                {dose.note && <span className="text-slate-500"> — {dose.note}</span>}
+                <div className="text-xs text-slate-400">
+                  {new Date(dose.dosed_at).toLocaleString('fr-FR')}
+                </div>
+              </div>
+              <button onClick={() => handleDeleteDose(dose.id)} className="text-slate-400 hover:text-red-500">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          {doses.length === 0 && <p className="text-sm text-slate-400">Aucun apport enregistré</p>}
+        </div>
+      </div>
+    </div>
+  );
+}

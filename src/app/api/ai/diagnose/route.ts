@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { diagnoseFromInput } from '@/lib/ai/gemini';
 import { computeHealthScore } from '@/lib/health-score';
+import { daysSince } from '@/lib/cycling';
+
+const CYCLING_LABELS: Record<string, string> = {
+  not_started: 'pas encore démarré',
+  cycling: 'en cours',
+  cycled: 'terminé',
+};
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -32,8 +39,12 @@ export async function POST(req: NextRequest) {
 
   const health = computeHealthScore(tank, livestock ?? [], latestTest ?? null);
 
+  const setupDays = daysSince(tank.setup_date);
+
   const tankContext = [
     `Bac ${tank.name}, ${tank.volume_liters} L, ${tank.water_type}`,
+    `Mise en eau : ${tank.setup_date ? `${setupDays} jour${(setupDays ?? 0) > 1 ? 's' : ''}` : 'non renseignée'}`,
+    `Statut du cyclage : ${CYCLING_LABELS[tank.cycling_status] ?? tank.cycling_status}`,
     `Score de santé actuel : ${health.score}/100`,
     `Peuplement : ${(livestock ?? []).map((l) => `${l.quantity} ${l.species_common_name}`).join(', ') || 'non renseigné'}`,
     latestTest

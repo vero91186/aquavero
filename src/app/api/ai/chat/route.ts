@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { chatWithAssistant } from '@/lib/ai/gemini';
 import { computeBioload, computeHealthScore } from '@/lib/health-score';
+import { daysSince } from '@/lib/cycling';
+
+const CYCLING_LABELS: Record<string, string> = {
+  not_started: 'pas encore démarré',
+  cycling: 'en cours',
+  cycled: 'terminé',
+};
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
@@ -30,9 +37,13 @@ export async function POST(req: NextRequest) {
   const bioload = computeBioload(tank, livestock ?? []);
   const health = computeHealthScore(tank, livestock ?? [], latestTest ?? null);
 
+  const setupDays = daysSince(tank.setup_date);
+
   const tankContext = [
     `Nom : ${tank.name}`,
     `Type d'eau : ${tank.water_type}, volume : ${tank.volume_liters} L, planté : ${tank.is_planted ? 'oui' : 'non'}`,
+    `Mise en eau : ${tank.setup_date ? `${setupDays} jour${(setupDays ?? 0) > 1 ? 's' : ''} (le ${tank.setup_date})` : 'date non renseignée'}`,
+    `Statut du cyclage (cycle de l'azote) : ${CYCLING_LABELS[tank.cycling_status] ?? tank.cycling_status}`,
     `Score de santé actuel : ${health.score}/100 (${health.label})`,
     `Charge biologique : ${bioload.loadLevel}`,
     `Peuplement : ${(livestock ?? [])
