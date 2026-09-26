@@ -50,6 +50,7 @@ export interface WaterTest {
 }
 
 export type LivestockCategory = 'fish' | 'invertebrate' | 'plant' | 'coral';
+export type SwimZone = 'top' | 'mid' | 'bottom';
 
 export interface Livestock {
   id: string;
@@ -64,6 +65,8 @@ export interface Livestock {
   bioload_factor: number;
   temperament: string | null;
   min_tank_liters: number | null;
+  swim_zone: SwimZone;
+  solitary: boolean;
   added_at: string | null;
   photo_url: string | null;
   notes: string | null;

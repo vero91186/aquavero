@@ -13,6 +13,7 @@ import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
 import { StockingCalculator } from '@/components/StockingCalculator';
+import { PopulationOverview } from '@/components/PopulationOverview';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 
 type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'plantes' | 'entretien' | 'assistant';
@@ -116,24 +117,27 @@ export default function TankDetailPage() {
 
       <main className="mx-auto max-w-5xl px-4 py-6">
         {tab === 'apercu' && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <HealthScoreCard health={health} />
-            <div className="rounded-2xl border border-slate-200 bg-white p-5">
-              <h3 className="mb-3 font-semibold text-slate-900">Résumé</h3>
-              <ul className="space-y-1 text-sm text-slate-600">
-                <li>
-                  Cyclage :{' '}
-                  {tank.cycling_status === 'cycled'
-                    ? 'terminé'
-                    : tank.cycling_status === 'cycling'
-                      ? 'en cours'
-                      : 'pas encore démarré'}
-                </li>
-                <li>{livestock.reduce((s, l) => s + l.quantity, 0)} individus au peuplement</li>
-                <li>{tests.length} test{tests.length > 1 ? 's' : ''} enregistré{tests.length > 1 ? 's' : ''}</li>
-                <li>{logs.length} intervention{logs.length > 1 ? 's' : ''} au journal</li>
-              </ul>
+          <div className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <HealthScoreCard health={health} />
+              <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h3 className="mb-3 font-semibold text-slate-900">Résumé</h3>
+                <ul className="space-y-1 text-sm text-slate-600">
+                  <li>
+                    Cyclage :{' '}
+                    {tank.cycling_status === 'cycled'
+                      ? 'terminé'
+                      : tank.cycling_status === 'cycling'
+                        ? 'en cours'
+                        : 'pas encore démarré'}
+                  </li>
+                  <li>{livestock.reduce((s, l) => s + l.quantity, 0)} individus au peuplement</li>
+                  <li>{tests.length} test{tests.length > 1 ? 's' : ''} enregistré{tests.length > 1 ? 's' : ''}</li>
+                  <li>{logs.length} intervention{logs.length > 1 ? 's' : ''} au journal</li>
+                </ul>
+              </div>
             </div>
+            <PopulationOverview tank={tank} livestock={livestock} />
           </div>
         )}
         {tab === 'parametres' && <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />}

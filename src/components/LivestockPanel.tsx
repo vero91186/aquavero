@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Livestock, LivestockCategory } from '@/types/database';
+import type { Livestock, LivestockCategory, SwimZone } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { Trash2, Camera, Loader2, Pencil, Check, X } from 'lucide-react';
@@ -12,6 +12,12 @@ const CATEGORY_LABELS: Record<LivestockCategory, string> = {
   invertebrate: 'Invertébré',
   plant: 'Plante',
   coral: 'Corail',
+};
+
+const SWIM_ZONE_LABELS: Record<SwimZone, string> = {
+  top: 'Surface',
+  mid: 'Pleine eau',
+  bottom: 'Fond',
 };
 
 interface IdentifyCandidate {
@@ -50,6 +56,8 @@ export function LivestockPanel({
   const [scientificName, setScientificName] = useState('');
   const [quantity, setQuantity] = useState('1');
   const [bioloadFactor, setBioloadFactor] = useState(lockedCategory === 'plant' ? '0' : '1');
+  const [swimZone, setSwimZone] = useState<SwimZone>('mid');
+  const [solitary, setSolitary] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SpeciesReference[]>([]);
@@ -57,11 +65,20 @@ export function LivestockPanel({
   const blurTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<{ name: string; scientificName: string; quantity: string; bioloadFactor: string }>({
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    scientificName: string;
+    quantity: string;
+    bioloadFactor: string;
+    swimZone: SwimZone;
+    solitary: boolean;
+  }>({
     name: '',
     scientificName: '',
     quantity: '',
     bioloadFactor: '',
+    swimZone: 'mid',
+    solitary: false,
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -82,6 +99,8 @@ export function LivestockPanel({
     setScientificName(species.scientificName);
     if (!lockedCategory) setCategory(species.category);
     setBioloadFactor(String(species.bioloadFactor));
+    setSwimZone(species.swimZone);
+    setSolitary(species.solitary);
     setMatchedSpecies(species);
     setSuggestions([]);
   }
@@ -97,7 +116,12 @@ export function LivestockPanel({
     const match = searchSpecies(c.common_name)[0] ?? searchSpecies(c.scientific_name)[0];
     if (match) {
       setBioloadFactor(String(match.bioloadFactor));
+      setSwimZone(match.swimZone);
+      setSolitary(match.solitary);
       setMatchedSpecies(match);
+    } else {
+      setSwimZone('mid');
+      setSolitary(false);
     }
   }
 
@@ -153,6 +177,8 @@ export function LivestockPanel({
       temperament: matchedSpecies?.temperament ?? null,
       adult_size_cm: matchedSpecies?.adultSizeCm ?? null,
       min_tank_liters: matchedSpecies?.minTankLiters ?? null,
+      swim_zone: swimZone,
+      solitary,
       added_at: new Date().toISOString().slice(0, 10),
     });
     setSaving(false);
@@ -164,6 +190,8 @@ export function LivestockPanel({
     setScientificName('');
     setQuantity('1');
     setBioloadFactor(lockedCategory === 'plant' ? '0' : '1');
+    setSwimZone('mid');
+    setSolitary(false);
     setMatchedSpecies(null);
     setIdentifyNote(null);
     onUpdated();
@@ -181,6 +209,8 @@ export function LivestockPanel({
       scientificName: item.species_scientific_name ?? '',
       quantity: String(item.quantity),
       bioloadFactor: String(item.bioload_factor),
+      swimZone: item.swim_zone,
+      solitary: item.solitary,
     });
   }
 
@@ -197,6 +227,8 @@ export function LivestockPanel({
         species_scientific_name: editForm.scientificName || null,
         quantity: parseInt(editForm.quantity, 10) || 0,
         bioload_factor: parseFloat(editForm.bioloadFactor) || 0,
+        swim_zone: editForm.swimZone,
+        solitary: editForm.solitary,
       })
       .eq('id', id);
     setSavingEdit(false);
@@ -304,6 +336,24 @@ export function LivestockPanel({
               title="1 = poisson standard type néon, ajuster selon la taille adulte"
             />
           )}
+          {lockedCategory !== 'plant' && (
+            <select
+              value={swimZone}
+              onChange={(e) => setSwimZone(e.target.value as SwimZone)}
+              className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+              title="Zone de nage principale"
+            >
+              {(Object.keys(SWIM_ZONE_LABELS) as SwimZone[]).map((z) => (
+                <option key={z} value={z}>{SWIM_ZONE_LABELS[z]}</option>
+              ))}
+            </select>
+          )}
+          {lockedCategory !== 'plant' && (
+            <label className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-600">
+              <input type="checkbox" checked={solitary} onChange={(e) => setSolitary(e.target.checked)} />
+              Espèce solitaire
+            </label>
+          )}
         </div>
         {matchedSpecies && (
           <div className="mt-3 space-y-1.5">
@@ -376,6 +426,30 @@ export function LivestockPanel({
                     />
                   </div>
                 )}
+                {item.category !== 'plant' && (
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-slate-600">Zone de nage</label>
+                    <select
+                      value={editForm.swimZone}
+                      onChange={(e) => setEditForm((f) => ({ ...f, swimZone: e.target.value as SwimZone }))}
+                      className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                    >
+                      {(Object.keys(SWIM_ZONE_LABELS) as SwimZone[]).map((z) => (
+                        <option key={z} value={z}>{SWIM_ZONE_LABELS[z]}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                {item.category !== 'plant' && (
+                  <label className="flex items-center gap-1.5 pb-1 text-xs text-slate-600">
+                    <input
+                      type="checkbox"
+                      checked={editForm.solitary}
+                      onChange={(e) => setEditForm((f) => ({ ...f, solitary: e.target.checked }))}
+                    />
+                    Solitaire
+                  </label>
+                )}
                 <div className="flex gap-1">
                   <button
                     onClick={() => saveEdit(item.id)}
@@ -399,8 +473,10 @@ export function LivestockPanel({
                   <span className="ml-2 text-xs text-slate-400">
                     {CATEGORY_LABELS[item.category]}
                     {item.species_scientific_name ? ` · ${item.species_scientific_name}` : ''}
+                    {item.category !== 'plant' ? ` · ${SWIM_ZONE_LABELS[item.swim_zone]}` : ''}
                     {item.temperament ? ` · ${item.temperament}` : ''}
                     {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}
+                    {item.solitary && item.quantity > 1 ? ' · ⚠️ solitaire, à séparer' : ''}
                   </span>
                 </div>
                 <div className="flex gap-1">
