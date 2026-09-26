@@ -1,7 +1,7 @@
 // Client minimal pour l'API Gemini (Google AI Studio), texte + vision.
 // Clé attendue dans la variable d'environnement GOOGLE_API_KEY (serveur uniquement).
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
+const GEMINI_MODEL = 'gemini-3.8-flash';
 const API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 interface GeminiPart {
