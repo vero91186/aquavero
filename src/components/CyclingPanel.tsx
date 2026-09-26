@@ -1,6 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ReferenceLine,
+  ResponsiveContainer,
+} from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import type { CyclingDose, CyclingStatus, Tank, WaterTest } from '@/types/database';
 import { suggestCyclingStatus, daysSince } from '@/lib/cycling';
@@ -81,8 +92,57 @@ export function CyclingPanel({
 
   const cycleNotComplete = tank.cycling_status !== 'cycled';
 
+  // Suivi visuel du cyclage : ammoniac/nitrites/nitrates dans le temps, avec
+  // des repères verticaux pour chaque apport d'ammoniac (fishless cycling).
+  const chartData = [...tests]
+    .sort((a, b) => new Date(a.tested_at).getTime() - new Date(b.tested_at).getTime())
+    .map((t) => ({
+      dateLabel: new Date(t.tested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
+      timestamp: new Date(t.tested_at).getTime(),
+      Ammoniac: t.ammonia_ppm,
+      Nitrites: t.nitrite_ppm,
+      Nitrates: t.nitrate_ppm,
+    }));
+
+  const doseMarkers = [...doses].sort(
+    (a, b) => new Date(a.dosed_at).getTime() - new Date(b.dosed_at).getTime()
+  );
+
   return (
     <div className="space-y-6">
+      {chartData.length > 1 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h3 className="mb-1 font-semibold text-slate-900">Suivi visuel du cyclage</h3>
+          <p className="mb-3 text-xs text-slate-400">
+            Ammoniac et nitrites doivent redescendre vers 0 pendant que les nitrates apparaissent.
+            {doseMarkers.length > 0 && ' Les traits pointillés marquent tes apports d’ammoniac.'}
+          </p>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+              <XAxis dataKey="dateLabel" tick={{ fontSize: 12 }} />
+              <YAxis tick={{ fontSize: 12 }} />
+              <Tooltip />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Line type="monotone" dataKey="Ammoniac" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+              <Line type="monotone" dataKey="Nitrites" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+              <Line type="monotone" dataKey="Nitrates" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} connectNulls />
+              {doseMarkers.map((d) => {
+                const label = new Date(d.dosed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+                const match = chartData.find((c) => c.dateLabel === label);
+                return match ? (
+                  <ReferenceLine key={d.id} x={label} stroke="#94a3b8" strokeDasharray="4 4" />
+                ) : null;
+              })}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {chartData.length <= 1 && (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-5 text-sm text-slate-400">
+          Enregistre au moins deux tests d&apos;eau (onglet « Paramètres d&apos;eau ») pour voir apparaître le suivi visuel du cyclage.
+        </div>
+      )}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">Mise en eau</h3>

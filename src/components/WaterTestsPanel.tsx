@@ -5,7 +5,15 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { createClient } from '@/lib/supabase/client';
 import { fileToBase64 } from '@/lib/image';
 import type { WaterTest } from '@/types/database';
-import { Camera, Loader2 } from 'lucide-react';
+import { Camera, Loader2, Pencil, Trash2, Check, X } from 'lucide-react';
+
+// Convertit un timestamp ISO en valeur affichable/éditable par un
+// <input type="datetime-local"> (qui attend l'heure locale sans fuseau).
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 const FIELDS: { key: keyof WaterTest; label: string; unit: string }[] = [
   { key: 'ph', label: 'pH', unit: '' },
@@ -28,6 +36,9 @@ export function WaterTestsPanel({ tankId, tests, onUpdated }: {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrNote, setOcrNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string>>({});
+  const [savingEdit, setSavingEdit] = useState(false);
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -89,6 +100,45 @@ export function WaterTestsPanel({ tankId, tests, onUpdated }: {
     }
     setForm({});
     setOcrNote(null);
+    onUpdated();
+  }
+
+  function startEdit(t: WaterTest) {
+    setEditingId(t.id);
+    const f: Record<string, string> = { tested_at: toDatetimeLocal(t.tested_at) };
+    for (const field of FIELDS) {
+      const v = t[field.key];
+      f[field.key] = v === null || v === undefined ? '' : String(v);
+    }
+    setEditForm(f);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm({});
+  }
+
+  async function saveEdit(id: string) {
+    setSavingEdit(true);
+    const payload: Record<string, unknown> = {
+      tested_at: new Date(editForm.tested_at).toISOString(),
+    };
+    for (const field of FIELDS) {
+      payload[field.key] = editForm[field.key] ? parseFloat(editForm[field.key]) : null;
+    }
+    const { error } = await supabase.from('water_tests').update(payload).eq('id', id);
+    setSavingEdit(false);
+    if (error) {
+      setError(error.message);
+      return;
+    }
+    setEditingId(null);
+    setEditForm({});
+    onUpdated();
+  }
+
+  async function handleDeleteTest(id: string) {
+    await supabase.from('water_tests').delete().eq('id', id);
     onUpdated();
   }
 
@@ -169,22 +219,84 @@ export function WaterTestsPanel({ tankId, tests, onUpdated }: {
                 {FIELDS.map((f) => (
                   <th key={f.key} className="pb-2 pr-4">{f.label}</th>
                 ))}
+                <th className="pb-2 pr-4"></th>
               </tr>
             </thead>
             <tbody>
-              {tests.slice(0, 15).map((t) => (
-                <tr key={t.id} className="border-t border-slate-100">
-                  <td className="py-2 pr-4 text-slate-500">
-                    {new Date(t.tested_at).toLocaleDateString('fr-FR')}
-                  </td>
-                  {FIELDS.map((f) => (
-                    <td key={f.key} className="py-2 pr-4">{(t[f.key] as number | null) ?? '—'}</td>
-                  ))}
-                </tr>
-              ))}
+              {tests.slice(0, 15).map((t) =>
+                editingId === t.id ? (
+                  <tr key={t.id} className="border-t border-slate-100 bg-slate-50">
+                    <td className="py-2 pr-4">
+                      <input
+                        type="datetime-local"
+                        value={editForm.tested_at ?? ''}
+                        onChange={(e) => setEditForm((f) => ({ ...f, tested_at: e.target.value }))}
+                        className="w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                      />
+                    </td>
+                    {FIELDS.map((f) => (
+                      <td key={f.key} className="py-2 pr-4">
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={editForm[f.key] ?? ''}
+                          onChange={(e) => setEditForm((ef) => ({ ...ef, [f.key]: e.target.value }))}
+                          className="w-16 rounded-lg border border-slate-300 px-1.5 py-1 text-xs"
+                        />
+                      </td>
+                    ))}
+                    <td className="py-2 pr-4">
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => saveEdit(t.id)}
+                          disabled={savingEdit}
+                          className="rounded p-1 text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                          title="Enregistrer"
+                        >
+                          <Check size={16} />
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100"
+                          title="Annuler"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <tr key={t.id} className="border-t border-slate-100">
+                    <td className="py-2 pr-4 text-slate-500">
+                      {new Date(t.tested_at).toLocaleDateString('fr-FR')}
+                    </td>
+                    {FIELDS.map((f) => (
+                      <td key={f.key} className="py-2 pr-4">{(t[f.key] as number | null) ?? '—'}</td>
+                    ))}
+                    <td className="py-2 pr-4">
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => startEdit(t)}
+                          className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-teal-600"
+                          title="Modifier"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTest(t.id)}
+                          className="rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
               {tests.length === 0 && (
                 <tr>
-                  <td colSpan={FIELDS.length + 1} className="py-4 text-center text-slate-400">
+                  <td colSpan={FIELDS.length + 2} className="py-4 text-center text-slate-400">
                     Aucun test enregistré
                   </td>
                 </tr>
