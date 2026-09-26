@@ -6,6 +6,7 @@ import type { Product, ProductCategory } from '@/types/database';
 import { computeShelfLife } from '@/lib/shelf-life';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { Search, Loader2, Trash2, Pencil, Check, X, Plus, AlertTriangle } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
@@ -182,6 +183,12 @@ export function ProductsPanel({
             {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
             {searching ? 'Recherche…' : 'Rechercher'}
           </button>
+        </div>
+        <div className="mt-2 flex items-center justify-between">
+          <p className="text-xs text-slate-400">
+            {searching && "L'IA peut mettre quelques secondes si elle est très sollicitée."}
+          </p>
+          <GoogleSearchLink query={`${name} aquarium`} />
         </div>
         <p className="mt-2 text-xs text-slate-400">
           Fiche générée par IA à partir de ses connaissances générales sur ce type de produit — vérifie

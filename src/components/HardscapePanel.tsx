@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { HardscapeItem, HardscapeKind } from '@/types/database';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { Trash2, Pencil, Check, X, Search, Loader2, Sparkles } from 'lucide-react';
 
 const KIND_LABELS: Record<HardscapeKind, string> = {
@@ -179,15 +180,21 @@ export function HardscapePanel({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={handleResearch}
-          disabled={researching || !name.trim()}
-          className="mt-2 flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
-        >
-          {researching ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-          Rechercher &quot;{name || '...'}&quot; avec l&apos;IA (effet sur l&apos;eau, préparation)
-        </button>
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button
+            type="button"
+            onClick={handleResearch}
+            disabled={researching || !name.trim()}
+            className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
+          >
+            {researching ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+            Rechercher &quot;{name || '...'}&quot; avec l&apos;IA (effet sur l&apos;eau, préparation)
+          </button>
+          {researching && (
+            <span className="text-xs text-slate-400">Peut prendre quelques secondes si l&apos;IA est très sollicitée.</span>
+          )}
+          <GoogleSearchLink query={`${name} aquarium`} />
+        </div>
         {researchError && <p className="mt-2 text-xs text-red-600">{researchError}</p>}
 
         {research && (

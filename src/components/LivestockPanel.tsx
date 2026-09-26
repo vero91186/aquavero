@@ -7,6 +7,7 @@ import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
@@ -496,15 +497,21 @@ export function LivestockPanel({
         </div>
 
         {suggestions.length === 0 && name.trim().length >= 2 && !matchedSpecies && !speciesResearch && (
-          <button
-            type="button"
-            onClick={handleResearchSpecies}
-            disabled={researchingSpecies}
-            className="mt-2 flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
-          >
-            {researchingSpecies ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-            &quot;{name}&quot; pas dans la liste ? Rechercher avec l&apos;IA
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <button
+              type="button"
+              onClick={handleResearchSpecies}
+              disabled={researchingSpecies}
+              className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
+            >
+              {researchingSpecies ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
+              &quot;{name}&quot; pas dans la liste ? Rechercher avec l&apos;IA
+            </button>
+            {researchingSpecies && (
+              <span className="text-xs text-slate-400">Peut prendre quelques secondes si l&apos;IA est très sollicitée.</span>
+            )}
+            <GoogleSearchLink query={`${name} aquarium poisson plante`} />
+          </div>
         )}
 
         {speciesResearch && (
