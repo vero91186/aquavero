@@ -23,8 +23,8 @@ const SEVERITY_LABELS: Record<string, string> = {
   urgent: 'Urgente',
 };
 
-export function AiAssistantPanel({ tankId }: { tankId: string }) {
-  const [mode, setMode] = useState<'chat' | 'diagnose'>('chat');
+export function AiAssistantPanel({ tankId, initialMode }: { tankId: string; initialMode?: 'chat' | 'diagnose' }) {
+  const [mode, setMode] = useState<'chat' | 'diagnose'>(initialMode ?? 'chat');
 
   return (
     <div className="space-y-4">

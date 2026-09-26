@@ -14,8 +14,10 @@ import {
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import type { CyclingDose, CyclingStatus, Tank, WaterTest } from '@/types/database';
-import { suggestCyclingStatus, daysSince } from '@/lib/cycling';
+import { suggestCyclingStatus, daysSince, getCycleStage, CYCLE_STAGE_LABELS, CYCLE_STAGE_MESSAGES, type CycleStage } from '@/lib/cycling';
 import { Droplets, FlaskConical, Trash2, Pencil, Check, X } from 'lucide-react';
+
+const STAGE_ORDER: CycleStage[] = ['start', 'ammonia', 'nitrite', 'ready'];
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
@@ -63,6 +65,11 @@ export function CyclingPanel({
 
   const suggestion = suggestCyclingStatus(tests, doses);
   const days = daysSince(tank.setup_date);
+  const latestTest = [...tests].sort(
+    (a, b) => new Date(b.tested_at).getTime() - new Date(a.tested_at).getTime()
+  )[0] ?? null;
+  const stage = getCycleStage(tank.cycling_status, latestTest);
+  const stageIndex = STAGE_ORDER.indexOf(stage);
 
   async function handleSaveDate(e: React.FormEvent) {
     e.preventDefault();
@@ -151,6 +158,55 @@ export function CyclingPanel({
 
   return (
     <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-wrap items-center gap-5">
+          <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center rounded-full border-4 border-teal-500 text-center">
+            <span className="text-2xl font-bold text-slate-900">{days ?? '–'}</span>
+            <span className="text-[10px] uppercase tracking-wide text-slate-400">
+              {days !== null && days > 1 ? 'jours' : 'jour'}
+            </span>
+          </div>
+          <div className="min-w-[12rem] flex-1">
+            <h3 className="font-semibold text-teal-700">
+              {stage === 'start' ? 'Démarrage du cycle' : `Cycle de l'azote — ${CYCLE_STAGE_LABELS[stage]}`}
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">{CYCLE_STAGE_MESSAGES[stage]}</p>
+          </div>
+        </div>
+
+        <div className="mt-5 flex items-center">
+          {STAGE_ORDER.map((s, i) => (
+            <div key={s} className="flex flex-1 items-center last:flex-none">
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className={`h-3 w-3 rounded-full ${
+                    i <= stageIndex ? 'bg-teal-500' : 'bg-slate-200'
+                  }`}
+                />
+                <span className={`text-xs ${i <= stageIndex ? 'font-medium text-teal-700' : 'text-slate-400'}`}>
+                  {CYCLE_STAGE_LABELS[s]}
+                </span>
+              </div>
+              {i < STAGE_ORDER.length - 1 && (
+                <div className={`mx-1 h-0.5 flex-1 ${i < stageIndex ? 'bg-teal-500' : 'bg-slate-200'}`} />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-5 flex flex-wrap gap-2">
+          <span className="rounded-lg bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+            Ammoniac {latestTest?.ammonia_ppm ?? '–'} ppm
+          </span>
+          <span className="rounded-lg bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+            Nitrite {latestTest?.nitrite_ppm ?? '–'} ppm
+          </span>
+          <span className="rounded-lg bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
+            Nitrate {latestTest?.nitrate_ppm ?? '–'} ppm
+          </span>
+        </div>
+      </div>
+
       {chartData.length > 1 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <h3 className="mb-1 font-semibold text-slate-900">Suivi visuel du cyclage</h3>

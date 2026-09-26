@@ -120,6 +120,43 @@ export async function identifySpeciesFromPhoto(imageBase64: string, imageMimeTyp
   };
 }
 
+const ITEM_SYSTEM_PROMPTS: Record<'equipment' | 'inventory', string> = {
+  equipment: `Tu identifies du matériel d'aquariophilie (filtre, chauffage, éclairage, pompe,
+osmoseur, écumeur...) à partir d'une photo. Tu proposes la marque et le modèle les plus probables
+si visibles ou déductibles, la catégorie de matériel, et une courte note d'entretien ou d'usage
+(fréquence de nettoyage, consommables, points de vigilance). Si rien n'est identifiable, renvoie des
+champs vides. Réponds uniquement avec un objet JSON de la forme :
+{"name": "...", "brand_model": "...", "category": "...", "note": "..."}`,
+  inventory: `Tu identifies un produit d'aquariophilie (nourriture, engrais, conditionneur d'eau,
+masse filtrante, media, test kit, accessoire...) à partir d'une photo, souvent de son emballage. Tu
+proposes le nom du produit, la marque, la catégorie, et une courte note d'usage (dosage typique,
+fréquence, précaution). Si rien n'est identifiable, renvoie des champs vides. Réponds uniquement
+avec un objet JSON de la forme :
+{"name": "...", "brand_model": "...", "category": "...", "note": "..."}`,
+};
+
+export async function identifyItemFromPhoto(
+  imageBase64: string,
+  imageMimeType: string,
+  kind: 'equipment' | 'inventory'
+) {
+  const prompt =
+    kind === 'equipment'
+      ? "Identifie ce matériel d'aquariophilie sur cette photo."
+      : "Identifie ce produit d'aquariophilie sur cette photo (nourriture, engrais, conditionneur, media filtrant...).";
+  const parts: GeminiPart[] = [
+    { text: prompt },
+    { inline_data: { mime_type: imageMimeType, data: imageBase64 } },
+  ];
+  const text = await callGemini(parts, ITEM_SYSTEM_PROMPTS[kind]);
+  return JSON.parse(text) as {
+    name: string;
+    brand_model: string;
+    category: string;
+    note: string;
+  };
+}
+
 export async function ocrTestStrip(imageBase64: string, imageMimeType: string) {
   const parts: GeminiPart[] = [
     { text: 'Lis les valeurs de cette bandelette ou de ce test de paramètres d\'eau.' },

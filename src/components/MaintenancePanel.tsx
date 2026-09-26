@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Tank } from '@/types/database';
 import { CheckCircle2, Droplet, Pencil, Trash2, Check, X } from 'lucide-react';
@@ -21,14 +21,26 @@ const TASK_LABELS: Record<MaintenanceTaskType, string> = {
   other: 'Autre',
 };
 
-export function MaintenancePanel({ tank, tankId, logs, onUpdated }: {
+export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType }: {
   tank: Tank;
   tankId: string;
   logs: MaintenanceLog[];
   onUpdated: () => void;
+  // Préremplit le type d'intervention (ex. depuis les boutons rapides de
+  // l'onglet Aperçu) sans forcer un composant contrôlé de l'extérieur.
+  presetTaskType?: MaintenanceTaskType | null;
 }) {
   const supabase = createClient();
-  const [taskType, setTaskType] = useState<MaintenanceTaskType>('water_change');
+  const [taskType, setTaskType] = useState<MaintenanceTaskType>(presetTaskType ?? 'water_change');
+
+  useEffect(() => {
+    // Synchronise avec les boutons rapides de l'onglet Aperçu : un choix
+    // externe doit se refléter dans le sélecteur du formulaire.
+    if (presetTaskType) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setTaskType(presetTaskType);
+    }
+  }, [presetTaskType]);
   const [description, setDescription] = useState('');
   const [percentage, setPercentage] = useState('');
   const [doseRatio, setDoseRatio] = useState(

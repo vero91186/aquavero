@@ -77,3 +77,45 @@ export function daysSince(dateStr: string | null): number | null {
   const diffMs = Date.now() - start.getTime();
   return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
 }
+
+// Étape du cycle de l'azote pour l'affichage type "stepper" (Démarrer →
+// Ammoniac → Nitrite → Prêt), à partir du statut choisi par l'utilisateur et
+// du dernier test d'eau.
+export type CycleStage = 'start' | 'ammonia' | 'nitrite' | 'ready';
+
+export const CYCLE_STAGE_LABELS: Record<CycleStage, string> = {
+  start: 'Démarrer',
+  ammonia: 'Ammoniac',
+  nitrite: 'Nitrite',
+  ready: 'Prêt',
+};
+
+export const CYCLE_STAGE_MESSAGES: Record<CycleStage, string> = {
+  start: "Rien ne s'enregistre encore — ajoute une source d'ammoniac (une pincée de nourriture ou de l'ammoniac pur) et teste tous les deux jours.",
+  ammonia: "L'ammoniac est présent — les bactéries qui le transforment en nitrites sont en train de s'installer. Continue de tester régulièrement.",
+  nitrite: "L'ammoniac redescend, les nitrites apparaissent — la deuxième famille de bactéries s'installe. Patiente jusqu'à ce qu'ils reviennent à 0.",
+  ready: 'Ammoniac et nitrites à 0 avec des nitrates présents : le cycle est établi.',
+};
+
+export function getCycleStage(status: CyclingStatus, latestTest: WaterTest | null): CycleStage {
+  if (status === 'cycled') return 'ready';
+  if (!latestTest) return 'start';
+
+  const ammonia = latestTest.ammonia_ppm;
+  const nitrite = latestTest.nitrite_ppm;
+  const nitrate = latestTest.nitrate_ppm;
+
+  if (ammonia !== null && ammonia > NEAR_ZERO) return 'ammonia';
+  if (nitrite !== null && nitrite > NEAR_ZERO) return 'nitrite';
+  if (
+    ammonia !== null &&
+    nitrite !== null &&
+    ammonia <= NEAR_ZERO &&
+    nitrite <= NEAR_ZERO &&
+    nitrate !== null &&
+    nitrate > 0
+  ) {
+    return 'ready';
+  }
+  return 'start';
+}

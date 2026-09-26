@@ -14,9 +14,19 @@ import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
 import { StockingCalculator } from '@/components/StockingCalculator';
 import { PopulationOverview } from '@/components/PopulationOverview';
-import { ArrowLeft, Sparkles } from 'lucide-react';
+import { ScannerPanel } from '@/components/ScannerPanel';
+import type { MaintenanceTaskType } from '@/types/database';
+import { ArrowLeft, Sparkles, Droplet, Utensils, FlaskConical, SprayCan, StickyNote } from 'lucide-react';
 
-type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'plantes' | 'entretien' | 'assistant';
+type Tab = 'apercu' | 'parametres' | 'cyclage' | 'peuplement' | 'plantes' | 'entretien' | 'scanner' | 'assistant';
+
+const QUICK_ACTIONS: { taskType: MaintenanceTaskType; label: string; icon: React.ReactNode }[] = [
+  { taskType: 'water_change', label: "Changement d'eau", icon: <Droplet size={14} /> },
+  { taskType: 'feeding', label: 'Nourrissage', icon: <Utensils size={14} /> },
+  { taskType: 'dosing', label: 'Dosage', icon: <FlaskConical size={14} /> },
+  { taskType: 'glass_clean', label: 'Nettoyage', icon: <SprayCan size={14} /> },
+  { taskType: 'other', label: 'Note', icon: <StickyNote size={14} /> },
+];
 
 export default function TankDetailPage() {
   const params = useParams();
@@ -31,6 +41,8 @@ export default function TankDetailPage() {
   const [doses, setDoses] = useState<CyclingDose[]>([]);
   const [tab, setTab] = useState<Tab>('apercu');
   const [loading, setLoading] = useState(true);
+  const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
+  const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose'>('chat');
 
   const loadAll = useCallback(async () => {
     const [tankRes, testsRes, livestockRes, logsRes, dosesRes] = await Promise.all([
@@ -74,6 +86,7 @@ export default function TankDetailPage() {
     { key: 'peuplement', label: 'Peuplement' },
     { key: 'plantes', label: 'Plantes' },
     { key: 'entretien', label: 'Entretien' },
+    { key: 'scanner', label: 'Scanner' },
     { key: 'assistant', label: 'Assistant IA' },
   ];
 
@@ -92,7 +105,10 @@ export default function TankDetailPage() {
               </p>
             </div>
             <button
-              onClick={() => setTab('assistant')}
+              onClick={() => {
+                setAssistantMode('chat');
+                setTab('assistant');
+              }}
               className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700"
             >
               <Sparkles size={16} /> Assistant IA
@@ -137,6 +153,22 @@ export default function TankDetailPage() {
                 </ul>
               </div>
             </div>
+            <div className="rounded-2xl border border-slate-200 bg-white p-4">
+              <div className="flex flex-wrap gap-2">
+                {QUICK_ACTIONS.map((a) => (
+                  <button
+                    key={a.taskType}
+                    onClick={() => {
+                      setQuickTaskType(a.taskType);
+                      setTab('entretien');
+                    }}
+                    className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
+                  >
+                    {a.icon} {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
             <PopulationOverview tank={tank} livestock={livestock} />
           </div>
         )}
@@ -164,8 +196,20 @@ export default function TankDetailPage() {
             listTitle="Plantes du bac"
           />
         )}
-        {tab === 'entretien' && <MaintenancePanel tank={tank} tankId={tankId} logs={logs} onUpdated={loadAll} />}
-        {tab === 'assistant' && <AiAssistantPanel tankId={tankId} />}
+        {tab === 'entretien' && (
+          <MaintenancePanel tank={tank} tankId={tankId} logs={logs} onUpdated={loadAll} presetTaskType={quickTaskType} />
+        )}
+        {tab === 'scanner' && (
+          <ScannerPanel
+            tankId={tankId}
+            onUpdated={loadAll}
+            onNavigate={(target) => {
+              if (target === 'assistant') setAssistantMode('diagnose');
+              setTab(target);
+            }}
+          />
+        )}
+        {tab === 'assistant' && <AiAssistantPanel tankId={tankId} initialMode={assistantMode} />}
       </main>
     </div>
   );
