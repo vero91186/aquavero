@@ -14,8 +14,16 @@ import {
 } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import type { CyclingDose, CyclingStatus, Tank, WaterTest } from '@/types/database';
-import { suggestCyclingStatus, daysSince, getCycleStage, CYCLE_STAGE_LABELS, CYCLE_STAGE_MESSAGES, type CycleStage } from '@/lib/cycling';
-import { Droplets, FlaskConical, Trash2, Pencil, Check, X } from 'lucide-react';
+import {
+  suggestCyclingStatus,
+  daysSince,
+  getCycleStage,
+  CYCLE_STAGE_LABELS,
+  CYCLE_STAGE_MESSAGES,
+  CYCLE_GUIDE_STEPS,
+  type CycleStage,
+} from '@/lib/cycling';
+import { Droplets, FlaskConical, Trash2, Pencil, Check, X, CheckCircle2 } from 'lucide-react';
 
 const STAGE_ORDER: CycleStage[] = ['start', 'ammonia', 'nitrite', 'ready'];
 
@@ -204,6 +212,43 @@ export function CyclingPanel({
           <span className="rounded-lg bg-slate-50 px-3 py-1.5 text-sm text-slate-600">
             Nitrate {latestTest?.nitrate_ppm ?? '–'} ppm
           </span>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 className="mb-3 font-semibold text-slate-900">Les étapes du cyclage</h3>
+        <div className="space-y-3">
+          {CYCLE_GUIDE_STEPS.map((step, i) => {
+            const isDone = i < stageIndex || tank.cycling_status === 'cycled';
+            const isCurrent = step.key === stage && tank.cycling_status !== 'cycled';
+            return (
+              <div
+                key={step.key}
+                className={`flex gap-3 rounded-xl border p-3 ${
+                  isCurrent ? 'border-teal-300 bg-teal-50' : isDone ? 'border-slate-100 bg-slate-50' : 'border-slate-100'
+                }`}
+              >
+                {isDone ? (
+                  <CheckCircle2 size={20} className="mt-0.5 shrink-0 text-teal-500" />
+                ) : (
+                  <span
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                      isCurrent ? 'bg-teal-600 text-white' : 'bg-slate-200 text-slate-500'
+                    }`}
+                  >
+                    {i + 1}
+                  </span>
+                )}
+                <div>
+                  <p className={`text-sm font-medium ${isCurrent ? 'text-teal-800' : 'text-slate-800'}`}>
+                    {step.title}
+                    {isCurrent && <span className="ml-2 rounded-full bg-teal-600 px-2 py-0.5 text-[10px] font-semibold uppercase text-white">En cours</span>}
+                  </p>
+                  <p className="mt-0.5 text-sm text-slate-500">{step.description}</p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
 

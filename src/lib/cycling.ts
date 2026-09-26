@@ -97,6 +97,42 @@ export const CYCLE_STAGE_MESSAGES: Record<CycleStage, string> = {
   ready: 'Ammoniac et nitrites à 0 avec des nitrates présents : le cycle est établi.',
 };
 
+// Guide détaillé des étapes du cycle de l'azote (fishless cycling), affiché
+// en complément du stepper compact — pour que l'utilisateur comprenne quoi
+// faire concrètement à chaque étape, pas seulement où il en est.
+export interface CycleGuideStep {
+  key: CycleStage;
+  title: string;
+  description: string;
+}
+
+export const CYCLE_GUIDE_STEPS: CycleGuideStep[] = [
+  {
+    key: 'start',
+    title: 'Démarrer le cycle',
+    description:
+      "Bac en eau, décor et substrat en place, sans poisson. Ajoute une source d'ammoniac (nourriture qui pourrit ou ammoniac pur sans additif) pour atteindre environ 2 à 4 ppm, et teste l'eau tous les 2 jours.",
+  },
+  {
+    key: 'ammonia',
+    title: "Pic d'ammoniac",
+    description:
+      "L'ammoniac monte puis commence à redescendre entre deux apports : les premières bactéries (Nitrosomonas) s'installent et le transforment en nitrites. Continue les apports réguliers et les tests.",
+  },
+  {
+    key: 'nitrite',
+    title: 'Pic de nitrites',
+    description:
+      "L'ammoniac est désormais transformé rapidement, mais les nitrites — toxiques eux aussi — montent en attendant l'installation de la deuxième famille de bactéries (Nitrobacter). Continue à tester, la patience est normale ici.",
+  },
+  {
+    key: 'ready',
+    title: 'Cycle terminé',
+    description:
+      "Ammoniac et nitrites reviennent à 0 en moins de 24 h après un apport, et des nitrates apparaissent. Fais un grand changement d'eau (environ 50 %) pour faire baisser les nitrates, puis introduis les premiers poissons progressivement.",
+  },
+];
+
 export function getCycleStage(status: CyclingStatus, latestTest: WaterTest | null): CycleStage {
   if (status === 'cycled') return 'ready';
   if (!latestTest) return 'start';
