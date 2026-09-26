@@ -191,12 +191,16 @@ kit...). À partir de tes connaissances générales sur ce type de produit, tu d
 synthétique : sa catégorie la plus probable, son usage/dosage typique en une phrase, et si c'est un
 conditionneur d'eau (déchlorinant), une estimation du dosage usuel en mL pour 100 L d'eau neuve
 (beaucoup de conditionneurs se dosent autour de 5 mL/100L, mais certains sont plus concentrés —
-indique ta meilleure estimation, ou null si tu ne peux pas l'estimer raisonnablement). Précise aussi
-un point de vigilance si pertinent (dosage à ne pas dépasser, incompatibilité, etc). Tu n'as pas
-accès à internet : si tu ne reconnais pas ce produit précis, base-toi sur les produits similaires de
-sa catégorie et dis-le clairement dans la note. Réponds uniquement avec un objet JSON de la forme :
+indique ta meilleure estimation, ou null si tu ne peux pas l'estimer raisonnablement). Donne aussi
+une estimation de la durée de conservation typique de ce type de produit UNE FOIS OUVERT, en jours
+(par exemple environ 60 jours pour de la nourriture en flocons ouverte, 365 jours ou plus pour un
+conditionneur d'eau ou un engrais liquide bien fermé, null si vraiment impossible à estimer). Précise
+aussi un point de vigilance si pertinent (dosage à ne pas dépasser, incompatibilité, conditions de
+conservation, etc). Tu n'as pas accès à internet : si tu ne reconnais pas ce produit précis,
+base-toi sur les produits similaires de sa catégorie et dis-le clairement dans la note. Réponds
+uniquement avec un objet JSON de la forme :
 {"category": "conditioner|fertilizer|food|filter_media|test_kit|other", "dose_info": "...",
-"dose_ml_per_100l": 0.0, "note": "..."}`;
+"dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0, "note": "..."}`;
 
 export async function researchProduct(name: string) {
   const prompt = `Donne-moi une fiche sur ce produit d'aquariophilie : "${name}".`;
@@ -205,6 +209,7 @@ export async function researchProduct(name: string) {
     category: 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
     dose_info: string;
     dose_ml_per_100l: number | null;
+    shelf_life_days_after_opening: number | null;
     note: string;
   };
 }

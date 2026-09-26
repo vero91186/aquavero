@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { Livestock, LivestockCategory, SwimZone } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
+import { PhotoUpload } from '@/components/PhotoUpload';
 import { Trash2, Camera, Loader2, Pencil, Check, X } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
@@ -199,6 +200,11 @@ export function LivestockPanel({
 
   async function handleDelete(id: string) {
     await supabase.from('livestock').delete().eq('id', id);
+    onUpdated();
+  }
+
+  async function handlePhotoChange(id: string, url: string | null) {
+    await supabase.from('livestock').update({ photo_url: url }).eq('id', id);
     onUpdated();
   }
 
@@ -465,21 +471,29 @@ export function LivestockPanel({
                 </div>
               </div>
             ) : (
-              <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                <div>
-                  <span className="font-medium text-slate-800">
-                    {item.quantity}× {item.species_common_name}
-                  </span>
-                  <span className="ml-2 text-xs text-slate-400">
-                    {CATEGORY_LABELS[item.category]}
-                    {item.species_scientific_name ? ` · ${item.species_scientific_name}` : ''}
-                    {item.category !== 'plant' ? ` · ${SWIM_ZONE_LABELS[item.swim_zone]}` : ''}
-                    {item.temperament ? ` · ${item.temperament}` : ''}
-                    {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}
-                    {item.solitary && item.quantity > 1 ? ' · ⚠️ solitaire, à séparer' : ''}
-                  </span>
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
+                <div className="flex items-center gap-3">
+                  <PhotoUpload
+                    photoUrl={item.photo_url}
+                    folder="livestock"
+                    size="sm"
+                    onChange={(url) => handlePhotoChange(item.id, url)}
+                  />
+                  <div>
+                    <span className="font-medium text-slate-800">
+                      {item.quantity}× {item.species_common_name}
+                    </span>
+                    <span className="ml-2 text-xs text-slate-400">
+                      {CATEGORY_LABELS[item.category]}
+                      {item.species_scientific_name ? ` · ${item.species_scientific_name}` : ''}
+                      {item.category !== 'plant' ? ` · ${SWIM_ZONE_LABELS[item.swim_zone]}` : ''}
+                      {item.temperament ? ` · ${item.temperament}` : ''}
+                      {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}
+                      {item.solitary && item.quantity > 1 ? ' · ⚠️ solitaire, à séparer' : ''}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex items-center gap-1">
                   <button onClick={() => startEdit(item)} className="text-slate-400 hover:text-teal-600" title="Modifier">
                     <Pencil size={16} />
                   </button>

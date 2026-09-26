@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { HardscapeItem, HardscapeKind } from '@/types/database';
+import { PhotoUpload } from '@/components/PhotoUpload';
 import { Trash2, Pencil, Check, X } from 'lucide-react';
 
 const KIND_LABELS: Record<HardscapeKind, string> = {
@@ -60,6 +61,11 @@ export function HardscapePanel({
 
   async function handleDelete(id: string) {
     await supabase.from('hardscape_items').delete().eq('id', id);
+    onUpdated();
+  }
+
+  async function handlePhotoChange(id: string, url: string | null) {
+    await supabase.from('hardscape_items').update({ photo_url: url }).eq('id', id);
     onUpdated();
   }
 
@@ -187,14 +193,22 @@ export function HardscapePanel({
                   </div>
                 </div>
               ) : (
-                <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                  <div>
-                    <span className="font-medium text-slate-800">
-                      {item.quantity}× {item.name}
-                    </span>
-                    {item.notes && <span className="ml-2 text-xs text-slate-400">{item.notes}</span>}
+                <div key={item.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-100 px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <PhotoUpload
+                      photoUrl={item.photo_url}
+                      folder="hardscape"
+                      size="sm"
+                      onChange={(url) => handlePhotoChange(item.id, url)}
+                    />
+                    <div>
+                      <span className="font-medium text-slate-800">
+                        {item.quantity}× {item.name}
+                      </span>
+                      {item.notes && <span className="ml-2 text-xs text-slate-400">{item.notes}</span>}
+                    </div>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
                     <button onClick={() => startEdit(item)} className="text-slate-400 hover:text-teal-600" title="Modifier">
                       <Pencil size={16} />
                     </button>

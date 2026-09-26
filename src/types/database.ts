@@ -35,6 +35,7 @@ export interface HardscapeItem {
   name: string;
   quantity: number;
   notes: string | null;
+  photo_url: string | null;
   created_at: string;
 }
 
@@ -49,6 +50,9 @@ export interface Product {
   dose_info: string | null;
   dose_ml_per_100l: number | null;
   ai_summary: string | null;
+  photo_url: string | null;
+  opened_at: string | null;
+  shelf_life_days_after_opening: number | null;
   created_at: string;
 }
 

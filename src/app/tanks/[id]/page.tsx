@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product } from '@/types/database';
 import { computeHealthScore } from '@/lib/health-score';
+import { computeShelfLife } from '@/lib/shelf-life';
 import { HealthScoreCard } from '@/components/HealthScoreCard';
 import { WaterTestsPanel } from '@/components/WaterTestsPanel';
 import { LivestockPanel } from '@/components/LivestockPanel';
@@ -33,6 +34,7 @@ import {
   Fish,
   Wrench,
   Camera,
+  AlertTriangle,
 } from 'lucide-react';
 
 // Navigation à deux niveaux : quelques sections principales (peu nombreuses,
@@ -136,6 +138,10 @@ export default function TankDetailPage() {
   }
 
   const health = computeHealthScore(tank, livestock, tests[0] ?? null);
+  const productsToWatch = products
+    .map((p) => ({ product: p, shelfLife: computeShelfLife(p.opened_at, p.shelf_life_days_after_opening) }))
+    .filter((p) => p.shelfLife && p.shelfLife.level !== 'ok')
+    .sort((a, b) => (a.shelfLife!.daysLeft ?? 0) - (b.shelfLife!.daysLeft ?? 0));
 
   const subTabsFor: Partial<Record<Section, { key: string; label: string; active: boolean; onClick: () => void }[]>> = {
     bac: BAC_SUBS.map((s) => ({ key: s.key, label: s.label, active: bacSub === s.key, onClick: () => setBacSub(s.key) })),
@@ -209,6 +215,33 @@ export default function TankDetailPage() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         {section === 'apercu' && (
           <div className="space-y-4">
+            {productsToWatch.length > 0 && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                <div className="mb-1 flex items-center gap-2 text-amber-800">
+                  <AlertTriangle size={16} />
+                  <h3 className="font-semibold">Produits à surveiller</h3>
+                </div>
+                <ul className="space-y-1 text-sm text-amber-700">
+                  {productsToWatch.map(({ product, shelfLife }) => (
+                    <li key={product.id}>
+                      <span className="font-medium">{product.name}</span> —{' '}
+                      {shelfLife!.level === 'expired'
+                        ? `probablement à jeter (dépassé depuis le ${shelfLife!.discardDate.toLocaleDateString('fr-FR')})`
+                        : `à utiliser avant le ${shelfLife!.discardDate.toLocaleDateString('fr-FR')} (${shelfLife!.daysLeft} j)`}
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  onClick={() => {
+                    setSection('bac');
+                    setBacSub('produits');
+                  }}
+                  className="mt-2 text-xs font-medium text-amber-800 underline hover:text-amber-900"
+                >
+                  Voir mes produits
+                </button>
+              </div>
+            )}
             <div className="grid gap-4 sm:grid-cols-2">
               <HealthScoreCard health={health} />
               <div className="rounded-2xl border border-slate-200 bg-white p-5">
