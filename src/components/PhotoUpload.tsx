@@ -22,7 +22,7 @@ export function PhotoUpload({
   const [error, setError] = useState<string | null>(null);
   const [pastingUrl, setPastingUrl] = useState(false);
   const [urlValue, setUrlValue] = useState('');
-  const dim = size === 'sm' ? 'h-16 w-16' : 'h-20 w-20';
+  const dim = size === 'sm' ? 'h-24 w-24' : 'h-28 w-28';
 
   async function handlePasteUrl(e: React.FormEvent) {
     e.preventDefault();
