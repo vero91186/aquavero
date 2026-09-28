@@ -21,7 +21,13 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
 
-  const { tankId } = await req.json();
+  const { tankId, images } = (await req.json()) as {
+    tankId?: string;
+    // Photo(s) d'ensemble du bac, optionnelles — en plus des données déjà
+    // enregistrées, pour repérer les problèmes visibles (algues, aspect des
+    // plantes/poissons, propreté...).
+    images?: { base64: string; mimeType: string }[];
+  };
   if (!tankId) return NextResponse.json({ error: 'tankId requis' }, { status: 400 });
 
   const { data: tank } = await supabase.from('tanks').select('*').eq('id', tankId).single();
@@ -96,7 +102,23 @@ export async function POST(req: NextRequest) {
   ].join('\n');
 
   try {
-    const result = await checkupTank(tankContext);
+    const result = await checkupTank({ tankContext, images });
+
+    // Sauvegarde la ou les photos fournies dans le bucket, pour les
+    // rattacher à l'entrée du journal ci-dessous.
+    let firstPhotoUrl: string | null = null;
+    for (const img of images ?? []) {
+      const ext = img.mimeType.split('/')[1] ?? 'jpg';
+      const path = `${user.id}/checkup/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+      const buffer = Buffer.from(img.base64, 'base64');
+      const { error: uploadError } = await supabase.storage
+        .from('aquarium-photos')
+        .upload(path, buffer, { contentType: img.mimeType });
+      if (!uploadError) {
+        const { data: publicUrl } = supabase.storage.from('aquarium-photos').getPublicUrl(path);
+        if (!firstPhotoUrl) firstPhotoUrl = publicUrl.publicUrl;
+      }
+    }
 
     // Trace le scan dans le journal du bac (entrée "Observation"), pour
     // garder une note de ce qui a été relevé sans que ça bloque la réponse
@@ -113,6 +135,7 @@ export async function POST(req: NextRequest) {
       task_type: 'observation',
       description,
       performed_at: new Date().toISOString(),
+      photo_url: firstPhotoUrl,
     });
 
     return NextResponse.json(result);

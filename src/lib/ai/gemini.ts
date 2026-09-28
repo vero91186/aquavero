@@ -271,20 +271,41 @@ const TANK_CHECKUP_SYSTEM_PROMPT = `Tu es l'assistant aquariophile intégré à 
 Aquarium Doctor". On te donne un état complet et détaillé d'un bac (âge du bac, statut du cyclage,
 peuplement et charge biologique, derniers paramètres d'eau avec leur ancienneté, historique
 d'entretien avec la date des dernières interventions par type, rappels en retard ou proches, et
-produits ouverts proches de la péremption). Aucune photo n'est fournie : base-toi uniquement sur ces
-données factuelles, sans halluciner de symptôme visuel. Identifie les problèmes réels ou probables et
-les points de vigilance (ex. cyclage pas terminé avec des poissons déjà en place, paramètres hors
-plage, changement d'eau très en retard, charge biologique trop élevée pour le volume, produit
-périmé), classés par gravité, et une liste d'actions concrètes et priorisées à faire. S'il n'y a rien
-d'alarmant, dis-le clairement dans l'évaluation générale et propose quand même 1 ou 2 conseils
+produits ouverts proches de la péremption), et éventuellement une ou plusieurs photos d'ensemble du
+bac. Si une ou plusieurs photos sont fournies, observe aussi leur état visuel : couleur et
+transparence de l'eau, présence d'algues (et leur type si identifiable : vertes, brunes/diatomées,
+cyanobactéries...) sur les vitres, le décor ou les plantes, aspect général des plantes (croissance,
+feuilles jaunies ou fondues), aspect et comportement des poissons visibles, propreté du sol et du
+filtre visible, niveau d'eau, buée ou dépôts sur les vitres — et croise ces observations visuelles
+avec les données fournies. Sans photo, base-toi uniquement sur les données factuelles, sans halluciner
+de symptôme visuel. Identifie les problèmes réels ou probables et les points de vigilance (ex.
+cyclage pas terminé avec des poissons déjà en place, paramètres hors plage, changement d'eau très en
+retard, charge biologique trop élevée pour le volume, produit périmé, algues visibles, plante en
+mauvais état), classés par gravité, et une liste d'actions concrètes et priorisées à faire. S'il n'y a
+rien d'alarmant, dis-le clairement dans l'évaluation générale et propose quand même 1 ou 2 conseils
 d'entretien courant plutôt que d'inventer un problème. Réponds uniquement avec un objet JSON de la
 forme :
 {"overall_assessment": "...", "issues": [{"label": "...", "severity": "low|medium|high|urgent", "detail": "..."}],
 "todos": ["...", "..."]}`;
 
-export async function checkupTank(tankContext: string) {
-  const prompt = `Voici l'état complet du bac à analyser :\n${tankContext}`;
-  const text = await callGemini([{ text: prompt }], TANK_CHECKUP_SYSTEM_PROMPT);
+export async function checkupTank(params: {
+  tankContext: string;
+  images?: { base64: string; mimeType: string }[];
+}) {
+  const hasPhotos = (params.images?.length ?? 0) > 0;
+  const parts: GeminiPart[] = [
+    {
+      text: `Voici l'état complet du bac à analyser :\n${params.tankContext}\n\n${
+        hasPhotos
+          ? `${params.images!.length} photo(s) du bac sont jointes ci-dessous.`
+          : "Aucune photo n'est fournie pour ce scan."
+      }`,
+    },
+  ];
+  for (const img of params.images ?? []) {
+    parts.push({ inline_data: { mime_type: img.mimeType, data: img.base64 } });
+  }
+  const text = await callGemini(parts, TANK_CHECKUP_SYSTEM_PROMPT);
   return JSON.parse(text) as {
     overall_assessment: string;
     issues: { label: string; severity: 'low' | 'medium' | 'high' | 'urgent'; detail: string }[];

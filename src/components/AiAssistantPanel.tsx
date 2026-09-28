@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { fileToBase64 } from '@/lib/image';
-import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks } from 'lucide-react';
+import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -280,10 +280,35 @@ interface CheckupResult {
   todos: string[];
 }
 
+interface PendingImage {
+  base64: string;
+  mimeType: string;
+  previewUrl: string;
+}
+
+const MAX_SCAN_PHOTOS = 3;
+
 function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckupResult | null>(null);
+  const [images, setImages] = useState<PendingImage[]>([]);
+
+  async function handleAddPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).slice(0, MAX_SCAN_PHOTOS - images.length);
+    const added = await Promise.all(
+      files.map(async (file) => {
+        const { base64, mimeType } = await fileToBase64(file);
+        return { base64, mimeType, previewUrl: URL.createObjectURL(file) };
+      })
+    );
+    setImages((prev) => [...prev, ...added].slice(0, MAX_SCAN_PHOTOS));
+    e.target.value = '';
+  }
+
+  function removeImage(index: number) {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  }
 
   async function runScan() {
     setLoading(true);
@@ -293,7 +318,10 @@ function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
       const res = await fetch('/api/ai/tank-checkup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tankId }),
+        body: JSON.stringify({
+          tankId,
+          images: images.map(({ base64, mimeType }) => ({ base64, mimeType })),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -316,10 +344,36 @@ function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
         <p className="mt-1 text-sm text-slate-500">
           L&apos;IA passe en revue le cyclage, le peuplement et la charge biologique, les derniers
           paramètres d&apos;eau, l&apos;historique d&apos;entretien et les produits proches de la
-          péremption pour repérer les problèmes et lister ce qu&apos;il y a à faire — sans besoin de
-          photo ni de description. Le résultat est aussi ajouté au journal (onglet Entretien) comme
-          observation.
+          péremption pour repérer les problèmes et lister ce qu&apos;il y a à faire. Ajoute une ou
+          plusieurs photos d&apos;ensemble du bac (optionnel) pour qu&apos;elle regarde aussi l&apos;eau,
+          les algues, les plantes et les poissons visibles. Le résultat est ajouté au journal (onglet
+          Entretien) comme observation.
         </p>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {images.map((img, i) => (
+            <div key={i} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img.previewUrl} alt="" className="h-16 w-16 rounded-lg object-cover" />
+              <button
+                type="button"
+                onClick={() => removeImage(i)}
+                className="absolute -right-1.5 -top-1.5 rounded-full bg-white p-0.5 text-slate-400 shadow hover:text-red-500"
+                title="Retirer"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          {images.length < MAX_SCAN_PHOTOS && (
+            <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-teal-400 hover:text-teal-600">
+              <Camera size={18} />
+              <span className="text-[10px]">Photo</span>
+              <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handleAddPhotos} />
+            </label>
+          )}
+        </div>
+
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <button
           type="button"
