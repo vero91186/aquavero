@@ -23,7 +23,17 @@ const SEVERITY_LABELS: Record<string, string> = {
   urgent: 'Urgente',
 };
 
-export function AiAssistantPanel({ tankId, initialMode }: { tankId: string; initialMode?: 'chat' | 'diagnose' | 'scan' }) {
+export function AiAssistantPanel({
+  tankId,
+  initialMode,
+  onUpdated,
+}: {
+  tankId: string;
+  initialMode?: 'chat' | 'diagnose' | 'scan';
+  // Rafraîchit les données du bac (ex. journal) après un scan complet, qui
+  // y ajoute automatiquement une entrée "Observation".
+  onUpdated?: () => void;
+}) {
   const [mode, setMode] = useState<'chat' | 'diagnose' | 'scan'>(initialMode ?? 'chat');
 
   return (
@@ -55,7 +65,13 @@ export function AiAssistantPanel({ tankId, initialMode }: { tankId: string; init
         </button>
       </div>
 
-      {mode === 'chat' ? <ChatMode tankId={tankId} /> : mode === 'diagnose' ? <DiagnoseMode tankId={tankId} /> : <ScanMode tankId={tankId} />}
+      {mode === 'chat' ? (
+        <ChatMode tankId={tankId} />
+      ) : mode === 'diagnose' ? (
+        <DiagnoseMode tankId={tankId} />
+      ) : (
+        <ScanMode tankId={tankId} onUpdated={onUpdated} />
+      )}
     </div>
   );
 }
@@ -264,7 +280,7 @@ interface CheckupResult {
   todos: string[];
 }
 
-function ScanMode({ tankId }: { tankId: string }) {
+function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => void }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CheckupResult | null>(null);
@@ -282,6 +298,7 @@ function ScanMode({ tankId }: { tankId: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResult(data);
+      onUpdated?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
     } finally {
@@ -300,7 +317,8 @@ function ScanMode({ tankId }: { tankId: string }) {
           L&apos;IA passe en revue le cyclage, le peuplement et la charge biologique, les derniers
           paramètres d&apos;eau, l&apos;historique d&apos;entretien et les produits proches de la
           péremption pour repérer les problèmes et lister ce qu&apos;il y a à faire — sans besoin de
-          photo ni de description.
+          photo ni de description. Le résultat est aussi ajouté au journal (onglet Entretien) comme
+          observation.
         </p>
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <button

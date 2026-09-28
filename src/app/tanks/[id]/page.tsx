@@ -392,7 +392,9 @@ export default function TankDetailPage() {
             }}
           />
         )}
-        {section === 'assistant' && <AiAssistantPanel tankId={tankId} initialMode={assistantMode} />}
+        {section === 'assistant' && (
+          <AiAssistantPanel tankId={tankId} initialMode={assistantMode} onUpdated={loadAll} />
+        )}
       </main>
     </div>
   );

@@ -97,6 +97,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await checkupTank(tankContext);
+
+    // Trace le scan dans le journal du bac (entrée "Observation"), pour
+    // garder une note de ce qui a été relevé sans que ça bloque la réponse
+    // si l'insertion échoue pour une raison ou une autre.
+    const issuesSummary = result.issues?.length
+      ? result.issues.map((i) => `[${i.severity}] ${i.label}`).join(' · ')
+      : 'aucun problème détecté';
+    const todosSummary = result.todos?.length ? ` — À faire : ${result.todos.join(' ; ')}` : '';
+    const description = `Scan complet IA — ${result.overall_assessment} Problèmes relevés : ${issuesSummary}.${todosSummary}`;
+
+    await supabase.from('maintenance_logs').insert({
+      tank_id: tankId,
+      user_id: user.id,
+      task_type: 'observation',
+      description,
+      performed_at: new Date().toISOString(),
+    });
+
     return NextResponse.json(result);
   } catch (err) {
     return NextResponse.json(
