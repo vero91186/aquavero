@@ -37,7 +37,7 @@ export function PopulationOverview({ tank, livestock }: { tank: Tank; livestock:
   const totalIndividuals = animals.reduce((s, l) => s + l.quantity, 0);
   const maxZone = Math.max(1, ...Object.values(zoneCounts));
 
-  const bySpecies = [...livestock]
+  const bySpecies = [...animals]
     .filter((l) => l.quantity > 0)
     .sort((a, b) => b.quantity - a.quantity);
   const maxSpecies = Math.max(1, ...bySpecies.map((l) => l.quantity));

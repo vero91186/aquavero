@@ -289,7 +289,10 @@ export default function TankDetailPage() {
                         ? 'en cours'
                         : 'pas encore démarré'}
                   </li>
-                  <li>{livestock.reduce((s, l) => s + l.quantity, 0)} individus au peuplement</li>
+                  <li>
+                    {livestock.filter((l) => l.category !== 'plant').reduce((s, l) => s + l.quantity, 0)} individus
+                    au peuplement
+                  </li>
                   <li>{tests.length} test{tests.length > 1 ? 's' : ''} enregistré{tests.length > 1 ? 's' : ''}</li>
                   <li>{logs.length} intervention{logs.length > 1 ? 's' : ''} au journal</li>
                 </ul>
