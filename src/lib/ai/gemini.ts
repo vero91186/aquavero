@@ -247,11 +247,18 @@ export async function researchSpecies(name: string) {
 }
 
 const HARDSCAPE_RESEARCH_SYSTEM_PROMPT = `Tu es un expert en décors d'aquarium (roches, bois et
-racines). On te donne le nom d'un matériau. Tu donnes une fiche synthétique : son effet éventuel sur
-le pH ou la dureté de l'eau (ex. matériau calcaire qui durcit et alcalinise l'eau, bois qui l'acidifie
-et la teinte via les tanins), la préparation nécessaire avant utilisation le cas échéant (faire
-bouillir, faire tremper plusieurs jours, brosser), et un point de vigilance si pertinent. Si le nom ne
-correspond à rien de connu, dis-le clairement. Réponds uniquement avec un objet JSON de la forme :
+racines), y compris les noms commerciaux français couramment utilisés en aquariophilie et
+aquascaping, même quand ils sont une traduction ou une adaptation d'un nom anglais (ex. "racine
+araignée" ou "bois araignée" = spiderwood ; "racine de tourbière"/"racine de mangrove" = bogwood/
+mangrove wood ; "bois de mopani" = mopani wood ; "racine de tourbière" = moorwood). Avant de conclure
+que tu ne connais pas un matériau, pense à sa traduction anglaise probable et à ses variantes
+d'orthographe ou de nom commercial. On te donne le nom d'un matériau. Tu donnes une fiche
+synthétique : son effet éventuel sur le pH ou la dureté de l'eau (ex. matériau calcaire qui durcit et
+alcalinise l'eau, bois qui l'acidifie et la teinte via les tanins), la préparation nécessaire avant
+utilisation le cas échéant (faire bouillir, faire tremper plusieurs jours, brosser), et un point de
+vigilance si pertinent. Ce n'est que si vraiment aucun matériau d'aquariophilie connu ne correspond,
+même approximativement, que tu le dis clairement plutôt que d'inventer une fiche. Réponds uniquement
+avec un objet JSON de la forme :
 {"water_effect": "...", "preparation": "...", "note": "..."}`;
 
 export async function researchHardscape(name: string) {
