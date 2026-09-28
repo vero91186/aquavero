@@ -7,6 +7,7 @@ export const TASK_LABELS: Record<MaintenanceTaskType, string> = {
   dosing: 'Dosage / engrais',
   feeding: 'Alimentation',
   equipment_check: 'Vérification matériel',
+  observation: 'Observation',
   other: 'Autre',
 };
 
@@ -20,5 +21,6 @@ export const DEFAULT_REMINDER_DAYS: Record<MaintenanceTaskType, number | null> =
   dosing: 7,
   feeding: null,
   equipment_check: 30,
+  observation: null,
   other: null,
 };

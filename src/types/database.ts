@@ -145,6 +145,7 @@ export type MaintenanceTaskType =
   | 'dosing'
   | 'feeding'
   | 'equipment_check'
+  | 'observation'
   | 'other';
 
 export interface MaintenanceLog {
@@ -157,6 +158,7 @@ export interface MaintenanceLog {
   conditioner_ml: number | null;
   performed_at: string;
   next_due_at: string | null;
+  photo_url: string | null;
   created_at: string;
 }
 

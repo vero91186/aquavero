@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types/database';
 import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
+import { PhotoUpload } from '@/components/PhotoUpload';
 import { CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X } from 'lucide-react';
 
 function toDatetimeLocal(iso: string): string {
@@ -49,6 +50,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   );
   const [rememberDose, setRememberDose] = useState(false);
   const [selectedProductId, setSelectedProductId] = useState('');
+  const [newPhotoUrl, setNewPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const conditionerProducts = (products ?? []).filter((p) => p.category === 'conditioner');
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -114,6 +116,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
       conditioner_ml: taskType === 'water_change' && conditionerMl !== null ? Math.round(conditionerMl * 10) / 10 : null,
       performed_at: new Date().toISOString(),
       next_due_at: nextDueAt,
+      photo_url: newPhotoUrl,
     });
 
     if (taskType === 'water_change' && rememberDose && ratio > 0) {
@@ -125,6 +128,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     setPercentage('');
     setRememberDose(false);
     setSelectedProductId('');
+    setNewPhotoUrl(null);
     const def = DEFAULT_REMINDER_DAYS[taskType];
     setReminderDays(def !== null ? String(def) : '');
     onUpdated();
@@ -132,6 +136,11 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
 
   async function handleDeleteLog(id: string) {
     await supabase.from('maintenance_logs').delete().eq('id', id);
+    onUpdated();
+  }
+
+  async function handleLogPhotoChange(id: string, url: string | null) {
+    await supabase.from('maintenance_logs').update({ photo_url: url }).eq('id', id);
     onUpdated();
   }
 
@@ -194,7 +203,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   return (
     <div className="space-y-6">
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
-        <h3 className="mb-3 font-semibold text-slate-900">Noter une intervention</h3>
+        <h3 className="mb-3 font-semibold text-slate-900">Noter une intervention ou une observation</h3>
         <div className="grid gap-3 sm:grid-cols-4">
           <select
             value={taskType}
@@ -297,6 +306,11 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
           </div>
         )}
 
+        <div className="mt-3 space-y-1">
+          <label className="text-xs font-medium text-slate-600">Photo (optionnel)</label>
+          <PhotoUpload photoUrl={newPhotoUrl} folder="maintenance" size="sm" onChange={(url) => setNewPhotoUrl(url)} />
+        </div>
+
         <button
           type="submit"
           disabled={saving}
@@ -390,10 +404,18 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
               </div>
             ) : (
               <div key={log.id} className="flex items-start justify-between gap-2 border-t border-slate-100 pt-2 text-sm first:border-0 first:pt-0">
-                <div className="flex items-start gap-2">
-                  <CheckCircle2 size={16} className="mt-0.5 shrink-0 text-teal-500" />
+                <div className="flex items-start gap-3">
+                  <PhotoUpload
+                    photoUrl={log.photo_url}
+                    folder="maintenance"
+                    size="sm"
+                    onChange={(url) => handleLogPhotoChange(log.id, url)}
+                  />
                   <div>
-                    <span className="font-medium text-slate-800">{TASK_LABELS[log.task_type]}</span>
+                    <div className="flex items-center gap-1.5">
+                      <CheckCircle2 size={16} className="shrink-0 text-teal-500" />
+                      <span className="font-medium text-slate-800">{TASK_LABELS[log.task_type]}</span>
+                    </div>
                     {log.percentage_changed && <span className="text-slate-500"> — {log.percentage_changed}%</span>}
                     {log.conditioner_ml && <span className="text-slate-500"> — {log.conditioner_ml} mL de conditionneur</span>}
                     {log.description && <span className="text-slate-500"> — {log.description}</span>}
