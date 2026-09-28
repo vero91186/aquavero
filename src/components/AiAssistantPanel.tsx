@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { fileToBase64 } from '@/lib/image';
+import { fileToBase64, compressImageFile } from '@/lib/image';
 import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X } from 'lucide-react';
 
 interface ChatMessage {
@@ -298,8 +298,9 @@ function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
     const files = Array.from(e.target.files ?? []).slice(0, MAX_SCAN_PHOTOS - images.length);
     const added = await Promise.all(
       files.map(async (file) => {
-        const { base64, mimeType } = await fileToBase64(file);
-        return { base64, mimeType, previewUrl: URL.createObjectURL(file) };
+        const compressed = await compressImageFile(file);
+        const { base64, mimeType } = await fileToBase64(compressed);
+        return { base64, mimeType, previewUrl: URL.createObjectURL(compressed) };
       })
     );
     setImages((prev) => [...prev, ...added].slice(0, MAX_SCAN_PHOTOS));
