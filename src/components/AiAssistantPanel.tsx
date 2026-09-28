@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { fileToBase64 } from '@/lib/image';
-import { Send, Camera, Loader2, Stethoscope, AlertTriangle } from 'lucide-react';
+import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -23,12 +23,12 @@ const SEVERITY_LABELS: Record<string, string> = {
   urgent: 'Urgente',
 };
 
-export function AiAssistantPanel({ tankId, initialMode }: { tankId: string; initialMode?: 'chat' | 'diagnose' }) {
-  const [mode, setMode] = useState<'chat' | 'diagnose'>(initialMode ?? 'chat');
+export function AiAssistantPanel({ tankId, initialMode }: { tankId: string; initialMode?: 'chat' | 'diagnose' | 'scan' }) {
+  const [mode, setMode] = useState<'chat' | 'diagnose' | 'scan'>(initialMode ?? 'chat');
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <button
           onClick={() => setMode('chat')}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
@@ -43,11 +43,19 @@ export function AiAssistantPanel({ tankId, initialMode }: { tankId: string; init
             mode === 'diagnose' ? 'bg-teal-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
           }`}
         >
-          <Stethoscope size={14} /> Check-up
+          <Stethoscope size={14} /> Check-up d&apos;un symptôme
+        </button>
+        <button
+          onClick={() => setMode('scan')}
+          className={`flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm font-medium ${
+            mode === 'scan' ? 'bg-teal-600 text-white' : 'bg-white text-slate-600 border border-slate-200'
+          }`}
+        >
+          <ScanSearch size={14} /> Scan complet du bac
         </button>
       </div>
 
-      {mode === 'chat' ? <ChatMode tankId={tankId} /> : <DiagnoseMode tankId={tankId} />}
+      {mode === 'chat' ? <ChatMode tankId={tankId} /> : mode === 'diagnose' ? <DiagnoseMode tankId={tankId} /> : <ScanMode tankId={tankId} />}
     </div>
   );
 }
@@ -245,6 +253,105 @@ function DiagnoseMode({ tankId }: { tankId: string }) {
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+interface CheckupResult {
+  overall_assessment: string;
+  issues: { label: string; severity: string; detail: string }[];
+  todos: string[];
+}
+
+function ScanMode({ tankId }: { tankId: string }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<CheckupResult | null>(null);
+
+  async function runScan() {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch('/api/ai/tank-checkup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tankId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-2">
+          <ScanSearch size={18} className="text-teal-600" />
+          <h3 className="font-semibold text-slate-900">Scan complet du bac</h3>
+        </div>
+        <p className="mt-1 text-sm text-slate-500">
+          L&apos;IA passe en revue le cyclage, le peuplement et la charge biologique, les derniers
+          paramètres d&apos;eau, l&apos;historique d&apos;entretien et les produits proches de la
+          péremption pour repérer les problèmes et lister ce qu&apos;il y a à faire — sans besoin de
+          photo ni de description.
+        </p>
+        {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        <button
+          type="button"
+          onClick={runScan}
+          disabled={loading}
+          className="mt-4 flex items-center gap-2 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+        >
+          {loading ? <Loader2 size={16} className="animate-spin" /> : <ScanSearch size={16} />}
+          {loading ? 'Analyse en cours…' : 'Lancer le scan'}
+        </button>
+        {loading && (
+          <p className="mt-2 text-xs text-slate-400">Peut prendre quelques secondes si l&apos;IA est très sollicitée.</p>
+        )}
+      </div>
+
+      {result && (
+        <>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5">
+            <h3 className="mb-2 font-semibold text-slate-900">Évaluation générale</h3>
+            <p className="text-sm text-slate-700">{result.overall_assessment}</p>
+          </div>
+
+          {result.issues?.length > 0 && (
+            <div className="space-y-2">
+              {result.issues.map((issue, i) => (
+                <div key={i} className={`rounded-2xl border p-4 ${SEVERITY_STYLES[issue.severity] ?? 'bg-slate-50 text-slate-700 border-slate-200'}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{issue.label}</span>
+                    <span className="shrink-0 text-xs font-medium">{SEVERITY_LABELS[issue.severity] ?? issue.severity}</span>
+                  </div>
+                  <p className="mt-1 text-sm">{issue.detail}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {result.todos?.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-2 flex items-center gap-2">
+                <ListChecks size={16} className="text-teal-600" />
+                <h3 className="font-semibold text-slate-900">À faire</h3>
+              </div>
+              <ul className="list-inside list-disc space-y-1 text-sm text-slate-700">
+                {result.todos.map((todo, i) => (
+                  <li key={i}>{todo}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

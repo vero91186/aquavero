@@ -37,6 +37,7 @@ import {
   Wrench,
   Camera,
   AlertTriangle,
+  ScanSearch,
 } from 'lucide-react';
 
 // Navigation à deux niveaux : quelques sections principales (peu nombreuses,
@@ -101,7 +102,7 @@ export default function TankDetailPage() {
   const [peuplementSub, setPeuplementSub] = useState<PeuplementSub>('peuplement');
   const [loading, setLoading] = useState(true);
   const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
-  const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose'>('chat');
+  const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose' | 'scan'>('chat');
 
   const loadAll = useCallback(async () => {
     const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes] = await Promise.all([
@@ -312,6 +313,15 @@ export default function TankDetailPage() {
                     {a.icon} {a.label}
                   </button>
                 ))}
+                <button
+                  onClick={() => {
+                    setAssistantMode('scan');
+                    setSection('assistant');
+                  }}
+                  className="flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-100"
+                >
+                  <ScanSearch size={15} /> Scan complet IA
+                </button>
               </div>
             </div>
             <PopulationOverview tank={tank} livestock={livestock} />
