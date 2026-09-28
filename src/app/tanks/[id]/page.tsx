@@ -322,7 +322,7 @@ export default function TankDetailPage() {
           <ProductsPanel tankId={tankId} products={products} onUpdated={loadAll} />
         )}
         {section === 'eau' && eauSub === 'parametres' && (
-          <WaterTestsPanel tankId={tankId} tests={tests} onUpdated={loadAll} />
+          <WaterTestsPanel tank={tank} tankId={tankId} tests={tests} onUpdated={loadAll} />
         )}
         {section === 'eau' && eauSub === 'cyclage' && (
           <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />

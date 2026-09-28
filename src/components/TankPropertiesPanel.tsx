@@ -24,6 +24,14 @@ export function TankPropertiesPanel({ tank, onUpdated }: { tank: Tank; onUpdated
     fertile_soil: tank.fertile_soil,
     lighting_hours_per_day: tank.lighting_hours_per_day !== null ? String(tank.lighting_hours_per_day) : '',
     is_planted: tank.is_planted,
+    tap_analyzed_at: tank.tap_analyzed_at ?? '',
+    tap_ph: tank.tap_ph !== null ? String(tank.tap_ph) : '',
+    tap_gh_dgh: tank.tap_gh_dgh !== null ? String(tank.tap_gh_dgh) : '',
+    tap_kh_dkh: tank.tap_kh_dkh !== null ? String(tank.tap_kh_dkh) : '',
+    tap_nitrate_ppm: tank.tap_nitrate_ppm !== null ? String(tank.tap_nitrate_ppm) : '',
+    tap_chlorine_total_mg_l: tank.tap_chlorine_total_mg_l !== null ? String(tank.tap_chlorine_total_mg_l) : '',
+    tap_temperature_c: tank.tap_temperature_c !== null ? String(tank.tap_temperature_c) : '',
+    tap_conductivity_us_cm: tank.tap_conductivity_us_cm !== null ? String(tank.tap_conductivity_us_cm) : '',
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -49,6 +57,14 @@ export function TankPropertiesPanel({ tank, onUpdated }: { tank: Tank; onUpdated
         fertile_soil: form.fertile_soil,
         lighting_hours_per_day: form.lighting_hours_per_day ? parseFloat(form.lighting_hours_per_day) : null,
         is_planted: form.is_planted,
+        tap_analyzed_at: form.tap_analyzed_at || null,
+        tap_ph: form.tap_ph ? parseFloat(form.tap_ph) : null,
+        tap_gh_dgh: form.tap_gh_dgh ? parseFloat(form.tap_gh_dgh) : null,
+        tap_kh_dkh: form.tap_kh_dkh ? parseFloat(form.tap_kh_dkh) : null,
+        tap_nitrate_ppm: form.tap_nitrate_ppm ? parseFloat(form.tap_nitrate_ppm) : null,
+        tap_chlorine_total_mg_l: form.tap_chlorine_total_mg_l ? parseFloat(form.tap_chlorine_total_mg_l) : null,
+        tap_temperature_c: form.tap_temperature_c ? parseFloat(form.tap_temperature_c) : null,
+        tap_conductivity_us_cm: form.tap_conductivity_us_cm ? parseFloat(form.tap_conductivity_us_cm) : null,
       })
       .eq('id', tank.id);
     setSaving(false);
@@ -167,6 +183,103 @@ export function TankPropertiesPanel({ tank, onUpdated }: { tank: Tank; onUpdated
             />
           </div>
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h3 className="mb-1 font-semibold text-slate-900">Eau du robinet (analyse de ville)</h3>
+        <p className="mb-3 text-xs text-slate-500">
+          Renseigne ici les valeurs de la dernière analyse de l&apos;eau de ta commune (mairie /
+          distributeur) : ça sert de repère pour tes changements d&apos;eau, à comparer avec les
+          tests de ton bac. Le titre hydrotimétrique (TH) correspond au GH, le titre alcalimétrique
+          complet (TAC) au KH — en °f, à multiplier par 0,56 pour les convertir en °dGH / °dKH.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Date de l&apos;analyse</label>
+            <input
+              type="date"
+              value={form.tap_analyzed_at}
+              onChange={(e) => set('tap_analyzed_at', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">pH</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.tap_ph}
+              onChange={(e) => set('tap_ph', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">GH (°dGH)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.tap_gh_dgh}
+              onChange={(e) => set('tap_gh_dgh', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">KH (°dKH)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.tap_kh_dkh}
+              onChange={(e) => set('tap_kh_dkh', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Nitrates (mg/L)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.tap_nitrate_ppm}
+              onChange={(e) => set('tap_nitrate_ppm', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Chlore total (mg/L)</label>
+            <input
+              type="number"
+              step="0.01"
+              value={form.tap_chlorine_total_mg_l}
+              onChange={(e) => set('tap_chlorine_total_mg_l', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Température (°C)</label>
+            <input
+              type="number"
+              step="0.1"
+              value={form.tap_temperature_c}
+              onChange={(e) => set('tap_temperature_c', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Conductivité (µS/cm)</label>
+            <input
+              type="number"
+              step="1"
+              value={form.tap_conductivity_us_cm}
+              onChange={(e) => set('tap_conductivity_us_cm', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+        </div>
+        {form.tap_chlorine_total_mg_l && parseFloat(form.tap_chlorine_total_mg_l) > 0 && (
+          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            Chlore détecté dans l&apos;eau du robinet : pense toujours au conditionneur d&apos;eau
+            lors des changements d&apos;eau (calculateur dans l&apos;onglet Entretien).
+          </p>
+        )}
       </div>
 
       <button

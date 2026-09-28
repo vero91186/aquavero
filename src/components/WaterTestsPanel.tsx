@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import { fileToBase64 } from '@/lib/image';
-import type { WaterTest } from '@/types/database';
+import type { Tank, WaterTest } from '@/types/database';
 import { Camera, Loader2, Pencil, Trash2, Check, X } from 'lucide-react';
 
 // Convertit un timestamp ISO en valeur affichable/éditable par un
@@ -25,7 +25,8 @@ const FIELDS: { key: keyof WaterTest; label: string; unit: string }[] = [
   { key: 'temperature_c', label: 'Température', unit: '°C' },
 ];
 
-export function WaterTestsPanel({ tankId, tests, onUpdated }: {
+export function WaterTestsPanel({ tank, tankId, tests, onUpdated }: {
+  tank: Tank;
   tankId: string;
   tests: WaterTest[];
   onUpdated: () => void;
@@ -157,8 +158,35 @@ export function WaterTestsPanel({ tankId, tests, onUpdated }: {
   const hasHardness = tests.some((t) => t.gh_dgh !== null || t.kh_dkh !== null);
   const hasTemperature = tests.some((t) => t.temperature_c !== null);
 
+  const hasTapReference =
+    tank.tap_ph !== null ||
+    tank.tap_gh_dgh !== null ||
+    tank.tap_kh_dkh !== null ||
+    tank.tap_nitrate_ppm !== null ||
+    tank.tap_chlorine_total_mg_l !== null;
+
   return (
     <div className="space-y-6">
+      {hasTapReference && (
+        <div className="rounded-2xl border border-sky-100 bg-sky-50/60 p-4 text-sm text-sky-800">
+          <p className="font-medium">
+            Repère eau du robinet
+            {tank.tap_analyzed_at ? ` (analyse du ${new Date(tank.tap_analyzed_at).toLocaleDateString('fr-FR')})` : ''}
+          </p>
+          <p className="mt-1 text-sky-700">
+            {tank.tap_ph !== null && `pH ${tank.tap_ph}`}
+            {tank.tap_gh_dgh !== null && ` · GH ${tank.tap_gh_dgh} °dGH`}
+            {tank.tap_kh_dkh !== null && ` · KH ${tank.tap_kh_dkh} °dKH`}
+            {tank.tap_nitrate_ppm !== null && ` · NO3 ${tank.tap_nitrate_ppm} mg/L`}
+            {tank.tap_chlorine_total_mg_l !== null && ` · Chlore total ${tank.tap_chlorine_total_mg_l} mg/L`}
+            {tank.tap_temperature_c !== null && ` · ${tank.tap_temperature_c} °C`}
+          </p>
+          <p className="mt-1 text-xs text-sky-600">
+            À modifier dans Mon bac → Propriétés. Utile pour comparer avec tes tests ci-dessous —
+            un GH/KH très différent entre le robinet et le bac peut expliquer des variations de pH.
+          </p>
+        </div>
+      )}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">Nouveau test</h3>

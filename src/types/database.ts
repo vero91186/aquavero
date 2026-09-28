@@ -21,6 +21,15 @@ export interface Tank {
   fertile_soil: boolean;
   notes: string | null;
   cover_photo_url: string | null;
+  // Repère eau du robinet, issu d'une analyse de l'eau de ville (voir migration 0008).
+  tap_analyzed_at: string | null;
+  tap_ph: number | null;
+  tap_gh_dgh: number | null;
+  tap_kh_dkh: number | null;
+  tap_nitrate_ppm: number | null;
+  tap_chlorine_total_mg_l: number | null;
+  tap_temperature_c: number | null;
+  tap_conductivity_us_cm: number | null;
   created_at: string;
   updated_at: string;
 }
