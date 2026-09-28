@@ -7,7 +7,7 @@ import { computeShelfLife } from '@/lib/shelf-life';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
-import { Search, Loader2, Trash2, Pencil, Check, X, Plus, AlertTriangle } from 'lucide-react';
+import { Search, Loader2, Trash2, Pencil, Check, X, Plus, AlertTriangle, RotateCw } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
   conditioner: "Conditionneur d'eau",
@@ -60,7 +60,7 @@ export function ProductsPanel({
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
-  async function handleResearch(e: React.FormEvent) {
+  async function handleResearch(e: React.FormEvent | React.MouseEvent) {
     e.preventDefault();
     if (!name.trim()) return;
     setSearching(true);
@@ -166,7 +166,20 @@ export function ProductsPanel({
           Entre le nom du produit que tu utilises (conditionneur, engrais, nourriture...) : l&apos;IA
           en fait une fiche (catégorie, dosage, conservation) que tu peux ajouter à ta liste.
         </p>
-        {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-lg bg-red-50 px-3 py-2">
+            <p className="text-sm text-red-600">{error}</p>
+            <button
+              type="button"
+              onClick={handleResearch}
+              disabled={searching || !name.trim()}
+              className="flex shrink-0 items-center gap-1 rounded-lg bg-red-100 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-200 disabled:opacity-50"
+            >
+              {searching ? <Loader2 size={12} className="animate-spin" /> : <RotateCw size={12} />}
+              Réessayer
+            </button>
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             required
