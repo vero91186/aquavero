@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Tank, WaterType } from '@/types/database';
+import type { Livestock, Tank, WaterType } from '@/types/database';
+import { DensitySimulator } from '@/components/DensitySimulator';
 import { Save } from 'lucide-react';
 
 const WATER_TYPE_LABELS: Record<WaterType, string> = {
@@ -11,7 +12,15 @@ const WATER_TYPE_LABELS: Record<WaterType, string> = {
   brackish: 'Eau saumâtre',
 };
 
-export function TankPropertiesPanel({ tank, onUpdated }: { tank: Tank; onUpdated: () => void }) {
+export function TankPropertiesPanel({
+  tank,
+  livestock,
+  onUpdated,
+}: {
+  tank: Tank;
+  livestock: Livestock[];
+  onUpdated: () => void;
+}) {
   const supabase = createClient();
   const [form, setForm] = useState({
     name: tank.name,
@@ -153,6 +162,8 @@ export function TankPropertiesPanel({ tank, onUpdated }: { tank: Tank; onUpdated
           </div>
         </div>
       </div>
+
+      <DensitySimulator livestock={livestock} netLiters={parseFloat(form.volume_liters) || 0} />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">Sol et éclairage</h3>

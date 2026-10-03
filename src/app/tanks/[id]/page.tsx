@@ -327,7 +327,7 @@ export default function TankDetailPage() {
             <PopulationOverview tank={tank} livestock={livestock} />
           </div>
         )}
-        {section === 'bac' && bacSub === 'proprietes' && <TankPropertiesPanel tank={tank} onUpdated={loadAll} />}
+        {section === 'bac' && bacSub === 'proprietes' && <TankPropertiesPanel tank={tank} livestock={livestock} onUpdated={loadAll} />}
         {section === 'bac' && bacSub === 'hardscape' && (
           <HardscapePanel tankId={tankId} items={hardscape} onUpdated={loadAll} />
         )}
