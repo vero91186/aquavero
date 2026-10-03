@@ -232,10 +232,12 @@ connaissances générales, tu donnes une fiche prudente — catégorie la plus p
 typique en une phrase, estimation du dosage en mL pour 100 L d'eau neuve SEULEMENT pour un
 conditionneur d'eau (null si tu ne peux pas l'estimer raisonnablement), durée de conservation typique
 une fois ouvert en jours (null si impossible à estimer) et un point de vigilance. Si tu ne reconnais
-pas ce produit précis, base-toi sur sa catégorie et dis-le clairement dans la note. Réponds
-uniquement avec un objet JSON de la forme :
-{"category": "conditioner|fertilizer|food|filter_media|test_kit|other", "dose_info": "...",
-"dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0, "note": "..."}`;
+pas ce produit précis, base-toi sur sa catégorie et dis-le clairement dans la note. Donne aussi
+"purpose" (à quoi sert ce type de produit, en une ou deux phrases) et "usage" (comment et à quelle
+fréquence on l'emploie, en une ou deux phrases). Réponds uniquement avec un objet JSON de la forme :
+{"category": "conditioner|fertilizer|food|filter_media|test_kit|other", "purpose": "...",
+"usage": "...", "dose_info": "...", "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0,
+"note": "..."}`;
 
 const PRODUCT_SYSTEM_PROMPT = `Tu es un expert produits d'aquariophilie. Utilise la recherche web pour
 identifier EXACTEMENT le produit demandé (marque, gamme, contenance) et lire sa notice ou sa fiche
@@ -243,6 +245,11 @@ officielle : le site du fabricant en priorité, sinon un revendeur spécialisé 
 pas d'un produit « similaire ».
 
 Règles de précision :
+- purpose : à quoi sert le produit, concrètement, en une ou deux phrases claires pour un débutant
+  (ex. « Neutralise le chlore et les chloramines de l'eau du robinet et détoxifie temporairement
+  l'ammoniac et les nitrites »). Appuie-toi sur ce que dit le fabricant, sans slogan marketing.
+- usage : quand et comment l'employer (à chaque changement d'eau, une fois par semaine, en cas de
+  problème précis...) et la fréquence, d'après la notice. Null si introuvable.
 - dose_info : la consigne du fabricant reformulée fidèlement, avec les chiffres et unités d'origine
   (ex. « 1 mL pour 10 L d'eau neuve »). Rien d'inventé : si aucune consigne n'est trouvée, null.
 - dose_ml_per_100l : uniquement si la dose du fabricant s'exprime en volume de produit par volume
@@ -262,7 +269,7 @@ Règles de précision :
 
 Réponds uniquement avec un objet JSON, sans texte autour, de la forme :
 {"identified_name": "...", "category": "conditioner|fertilizer|food|filter_media|test_kit|other",
-"dose_info": "...", "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0,
+"purpose": "...", "usage": "...", "dose_info": "...", "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0,
 "confidence": "confirmé|estimation|inconnu", "source_url": "...", "note": "..."}`;
 
 export type ProductConfidence = 'confirmé' | 'estimation' | 'inconnu';
@@ -271,6 +278,8 @@ type ProductCategoryId = 'conditioner' | 'fertilizer' | 'food' | 'filter_media' 
 export interface ProductResearch {
   identified_name: string | null;
   category: ProductCategoryId;
+  purpose: string | null; // à quoi sert le produit
+  usage: string | null; // quand et comment l'employer
   dose_info: string | null;
   dose_ml_per_100l: number | null;
   shelf_life_days_after_opening: number | null;
@@ -329,6 +338,8 @@ export function normalizeProductResearch(
   return {
     identified_name: stringOrNull(raw.identified_name),
     category,
+    purpose: stringOrNull(raw.purpose),
+    usage: stringOrNull(raw.usage),
     dose_info: stringOrNull(raw.dose_info),
     // Un dosage en mL/100 L au-delà de 500 est presque sûrement une erreur de conversion.
     dose_ml_per_100l: unknown ? null : positiveNumberOrNull(raw.dose_ml_per_100l, 500),

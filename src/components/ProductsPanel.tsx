@@ -23,6 +23,8 @@ type Confidence = 'confirmé' | 'estimation' | 'inconnu';
 interface ResearchResult {
   identified_name: string | null;
   category: ProductCategory;
+  purpose: string | null;
+  usage: string | null;
   dose_info: string | null;
   dose_ml_per_100l: number | null;
   shelf_life_days_after_opening: number | null;
@@ -44,6 +46,41 @@ function hostOf(url: string) {
   } catch {
     return url;
   }
+}
+
+// Affiche la description enregistrée d'un produit (à quoi il sert, mode
+// d'emploi, précautions, source). Ligne « Source : » rendue en lien cliquable.
+function SummaryDetails({ summary }: { summary: string }) {
+  const lines = summary.split('\n').filter(Boolean);
+  const purposeLine = lines.find((l) => l.startsWith('À quoi ça sert :'));
+  const sourceLine = lines.find((l) => l.startsWith('Source : '));
+  const rest = lines.filter((l) => l !== purposeLine && l !== sourceLine);
+  const sourceUrl = sourceLine?.slice('Source : '.length).trim();
+  const safeSource = sourceUrl && /^https?:\/\//i.test(sourceUrl) ? sourceUrl : null;
+  return (
+    <div className="mt-1 text-xs text-slate-500">
+      {purposeLine && <p className="text-slate-600">{purposeLine}</p>}
+      {(rest.length > 0 || safeSource) && (
+        <details className="mt-0.5">
+          <summary className="cursor-pointer text-teal-700">Plus de détails</summary>
+          <div className="mt-1 space-y-0.5">
+            {rest.map((l, i) => (
+              <p key={i}>{l}</p>
+            ))}
+            {safeSource && (
+              <p>
+                Source :{' '}
+                <a href={safeSource} target="_blank" rel="noopener noreferrer" className="text-teal-700 underline">
+                  {hostOf(safeSource)}
+                </a>
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+      {!purposeLine && rest.length === 0 && !safeSource && <p>{summary}</p>}
+    </div>
+  );
 }
 
 export function ProductsPanel({
@@ -114,13 +151,17 @@ export function ProductsPanel({
     // elle existe), pas dans une banque d'images : mieux vaut aucune photo qu'une
     // photo sans rapport.
     const photoUrl = await fetchAutoPhoto(result.identified_name ?? name, 'product', result.source_url);
+    // Une rubrique par ligne : la liste les affiche telles quelles (voir
+    // SummaryDetails) et les anciens produits, à texte libre, restent lisibles.
     const summary = [
-      result.confidence !== 'confirmé' ? `(${CONFIDENCE_STYLES[result.confidence].label})` : null,
-      result.note || null,
+      result.confidence !== 'confirmé' ? `Fiabilité : ${CONFIDENCE_STYLES[result.confidence].label}` : null,
+      result.purpose ? `À quoi ça sert : ${result.purpose}` : null,
+      result.usage ? `Mode d'emploi : ${result.usage}` : null,
+      result.note ? `Précautions : ${result.note}` : null,
       result.source_url ? `Source : ${result.source_url}` : null,
     ]
       .filter(Boolean)
-      .join(' ');
+      .join('\n');
 
     await supabase.from('products').insert({
       tank_id: tankId,
@@ -252,6 +293,16 @@ export function ProductsPanel({
                 {CONFIDENCE_STYLES[result.confidence].label}
               </span>
             </div>
+            {result.purpose && (
+              <p className="text-sm text-slate-700">
+                <span className="font-medium">À quoi ça sert :</span> {result.purpose}
+              </p>
+            )}
+            {result.usage && (
+              <p className="text-sm text-slate-700">
+                <span className="font-medium">Mode d&apos;emploi :</span> {result.usage}
+              </p>
+            )}
             {result.dose_info && <p className="text-sm text-slate-600">{result.dose_info}</p>}
             {result.dose_ml_per_100l !== null && (
               <p className="text-sm text-slate-600">
@@ -263,7 +314,11 @@ export function ProductsPanel({
                 Conservation une fois ouvert : environ {result.shelf_life_days_after_opening} jours
               </p>
             )}
-            {result.note && <p className="text-xs text-slate-500">{result.note}</p>}
+            {result.note && (
+              <p className="text-xs text-slate-500">
+                <span className="font-medium">Précautions :</span> {result.note}
+              </p>
+            )}
             {(result.source_url || result.sources.length > 0) && (
               <p className="text-xs text-slate-500">
                 Sources :{' '}
@@ -396,6 +451,7 @@ export function ProductsPanel({
                       {p.dose_ml_per_100l !== null ? ` · ${p.dose_ml_per_100l} mL/100L` : ''}
                       {p.dose_info ? ` · ${p.dose_info}` : ''}
                     </span>
+                    {p.ai_summary && <SummaryDetails summary={p.ai_summary} />}
                     {shelfLife ? (
                       <div
                         className={`mt-0.5 flex items-center gap-1 text-xs font-medium ${
