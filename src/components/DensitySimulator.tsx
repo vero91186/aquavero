@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
-import { SPECIES_CATALOG, searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import {
   DENSITY_LIMIT,
   DENSITY_SCALE_MAX,
@@ -15,7 +15,7 @@ import {
 } from '@/lib/density';
 import { createClient } from '@/lib/supabase/client';
 import { TankSimulationView } from '@/components/TankSimulationView';
-import { Gauge, ListChecks, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
+import { Gauge, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
 
 const LEVEL_STYLES: Record<DensityLevelId, { tile: string; box: string }> = {
   aere: { tile: 'bg-emerald-100 text-emerald-700', box: 'bg-emerald-50 text-emerald-700' },
@@ -23,17 +23,6 @@ const LEVEL_STYLES: Record<DensityLevelId, { tile: string; box: string }> = {
   charge: { tile: 'bg-amber-100 text-amber-700', box: 'bg-amber-50 text-amber-700' },
   surcharge: { tile: 'bg-red-100 text-red-700', box: 'bg-red-50 text-red-700' },
 };
-
-// Peuplement prévu pour le Juwel Rio 180, tailles adultes du catalogue.
-const PLANNED_POPULATION: [string, number][] = [
-  ['Néon bleu', 30],
-  ['Corydoras sterbai', 8],
-  ['Otocinclus', 6],
-  ['Ancistrus (bristlenose)', 1],
-  ['Escargot Neritina', 4],
-  ['Crevette Red Cherry', 20],
-  ['Crevette Amano', 8],
-];
 
 function fmt(n: number, digits = 0) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
@@ -138,30 +127,6 @@ export function DensitySimulator({
     ]);
     setQuery('');
     setSuggestions([]);
-  }
-
-  // Remplace le peuplement enregistré par la liste prévue, le temps de la simulation.
-  function loadPlanned() {
-    const zeroed: Record<string, number> = {};
-    base.forEach((l) => (zeroed[l.id] = 0));
-    setOverrides(zeroed);
-    setExtras(
-      PLANNED_POPULATION.flatMap(([name, quantity], i) => {
-        const sp = SPECIES_CATALOG.find((x) => x.commonName === name);
-        if (!sp || (sp.category !== 'fish' && sp.category !== 'invertebrate')) return [];
-        return [
-          {
-            id: `planned-${i}`,
-            name: sp.commonName,
-            sizeCm: sp.adultSizeCm,
-            quantity,
-            kind: sp.category as 'fish' | 'invertebrate',
-            hypothetical: true,
-            zone: sp.swimZone,
-          },
-        ];
-      })
-    );
   }
 
   function reset() {
@@ -315,14 +280,6 @@ export function DensitySimulator({
               pèsent pas dans le calcul. Renseigne-la dans leur fiche du peuplement.
             </p>
           )}
-
-          <button
-            type="button"
-            onClick={loadPlanned}
-            className="mt-3 flex items-center gap-1.5 rounded-full border border-teal-300 bg-teal-50 px-3.5 py-1.5 text-xs font-medium text-teal-800 transition hover:bg-teal-100"
-          >
-            <ListChecks size={14} /> Charger mon peuplement prévu (30 néons, 8 corydoras, 6 otocinclus, 1 ancistrus, 4 néritines, 20 Red Cherry, 8 Amano)
-          </button>
 
           <div className="relative mt-3">
             <input
