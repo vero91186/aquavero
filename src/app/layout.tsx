@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Hanken_Grotesk, Young_Serif } from "next/font/google";
 import "./globals.css";
 
@@ -16,6 +16,11 @@ const titre = Young_Serif({
 export const metadata: Metadata = {
   title: "AquaTrack AI",
   description: "Le suivi de votre aquarium : paramètres, population, produits et conseils.",
+  appleWebApp: { capable: true, title: "AquaTrack", statusBarStyle: "black-translucent" },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0f2a22",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
