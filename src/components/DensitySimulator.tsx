@@ -13,8 +13,9 @@ import {
   type DensityLine,
   type DensityLevelId,
 } from '@/lib/density';
+import { createClient } from '@/lib/supabase/client';
 import { TankSimulationView } from '@/components/TankSimulationView';
-import { Gauge, Minus, Plus, RotateCcw, X } from 'lucide-react';
+import { Gauge, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
 
 const LEVEL_STYLES: Record<DensityLevelId, { tile: string; box: string }> = {
   aere: { tile: 'bg-emerald-100 text-emerald-700', box: 'bg-emerald-50 text-emerald-700' },
@@ -32,18 +33,53 @@ function fmt(n: number, digits = 0) {
 // mais tout ce qu'on y change (quantités, espèces ajoutées) reste hypothétique :
 // rien n'est écrit en base.
 export function DensitySimulator({
+  tankId,
   livestock,
-  netLiters,
-  grossLiters,
+  netLiters: savedNet,
+  grossLiters: savedGross,
   lengthCm,
   heightCm,
+  onUpdated,
 }: {
+  tankId: string;
   livestock: Livestock[];
   netLiters: number;
   grossLiters: number | null;
+  onUpdated?: () => void;
   lengthCm?: number | null;
   heightCm?: number | null;
 }) {
+  const supabase = createClient();
+  // Les volumes se corrigent ici sans quitter l'écran ; ils ne sont écrits en
+  // base que sur demande (bouton « Enregistrer les volumes »).
+  const [draftNet, setDraftNet] = useState<string | null>(null);
+  const [draftGross, setDraftGross] = useState<string | null>(null);
+  const [savingVol, setSavingVol] = useState(false);
+  const [volError, setVolError] = useState<string | null>(null);
+  const netInput = draftNet ?? (savedNet > 0 ? String(savedNet) : '');
+  const grossInput = draftGross ?? (savedGross ? String(savedGross) : '');
+  const netLiters = parseFloat(netInput) || 0;
+  const grossLiters = parseFloat(grossInput) || null;
+  const volDirty = draftNet !== null || draftGross !== null;
+  const netEqualsGross = grossLiters !== null && netLiters >= grossLiters;
+
+  async function saveVolumes() {
+    setSavingVol(true);
+    setVolError(null);
+    const { error } = await supabase
+      .from('tanks')
+      .update({ volume_liters: netLiters, gross_volume_liters: grossLiters })
+      .eq('id', tankId);
+    setSavingVol(false);
+    if (error) {
+      setVolError(`Enregistrement impossible : ${error.message}`);
+      return;
+    }
+    setDraftNet(null);
+    setDraftGross(null);
+    onUpdated?.();
+  }
+
   const base = useMemo(() => linesFromLivestock(livestock), [livestock]);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<DensityLine[]>([]);
@@ -111,15 +147,74 @@ export function DensitySimulator({
         <h3 className="font-semibold text-slate-900">Simulateur de densité</h3>
       </div>
       <p className="mb-4 text-xs text-slate-500">
-        Centimètres de poisson par litre d&apos;eau, calculés sur le volume des propriétés du bac et sur le
+        Centimètres de poisson par litre d&apos;eau, calculés sur les volumes ci-dessous et sur le
         peuplement. Change les quantités ou ajoute une espèce pour voir l&apos;effet : rien n&apos;est
         enregistré. Un invertébré compte pour {Math.round(INVERTEBRATE_COEF * 100)} % d&apos;un poisson de même
         longueur.
       </p>
 
+      <div className="mb-4 rounded-xl bg-slate-50 p-3">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-slate-600">Volume brut, aquarium vide (L)</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={grossInput}
+              onChange={(e) => setDraftGross(e.target.value)}
+              placeholder="ex. 180"
+              className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-xs font-medium text-slate-600">Volume réel, avec sol et décor (L)</span>
+            <input
+              type="number"
+              min="0"
+              inputMode="decimal"
+              value={netInput}
+              onChange={(e) => setDraftNet(e.target.value)}
+              placeholder="ex. 150"
+              className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+            />
+          </label>
+        </div>
+        {netEqualsGross && (
+          <p className="mt-2 flex items-start gap-1.5 text-xs text-amber-700">
+            <TriangleAlert size={14} className="mt-0.5 shrink-0" />
+            Le volume réel est égal au volume brut : le calcul sous-estime la densité. Le sol, le décor et le niveau
+            d&apos;eau retirent environ 15 à 20 %, soit près de 150 L pour un bac de 180 L brut.
+          </p>
+        )}
+        {volDirty && (
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={saveVolumes}
+              disabled={savingVol || netLiters <= 0}
+              className="flex items-center gap-1.5 rounded-full bg-teal-600 px-3.5 py-1.5 text-xs font-medium text-white transition hover:bg-teal-700 disabled:opacity-50"
+            >
+              <Save size={13} /> {savingVol ? 'Enregistrement…' : 'Enregistrer les volumes dans le bac'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDraftNet(null);
+                setDraftGross(null);
+              }}
+              className="text-xs text-slate-500 hover:underline"
+            >
+              Annuler
+            </button>
+          </div>
+        )}
+        {volError && <p className="mt-2 text-xs text-red-600">{volError}</p>}
+      </div>
+
       {netLiters <= 0 ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          Renseigne le volume du bac (Mon bac, Propriétés) pour lancer la simulation.
+          Renseigne le volume réel du bac pour lancer la simulation.
         </p>
       ) : (
         <>

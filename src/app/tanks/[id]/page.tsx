@@ -349,6 +349,8 @@ export default function TankDetailPage() {
         {section === 'peuplement' && peuplementSub === 'peuplement' && (
           <div className="space-y-6">
             <DensitySimulator
+              tankId={tank.id}
+              onUpdated={loadAll}
               livestock={livestock}
               netLiters={tank.volume_liters}
               grossLiters={tank.gross_volume_liters ?? null}
