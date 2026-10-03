@@ -10,8 +10,10 @@ import {
   Tooltip,
   Legend,
   ReferenceLine,
+  ReferenceArea,
   ResponsiveContainer,
 } from 'recharts';
+import { CyclingInsights } from '@/components/CyclingInsights';
 import { createClient } from '@/lib/supabase/client';
 import type { CyclingDose, CyclingStatus, Tank, WaterTest } from '@/types/database';
 import {
@@ -153,7 +155,6 @@ export function CyclingPanel({
   const chartData = [...tests]
     .sort((a, b) => new Date(a.tested_at).getTime() - new Date(b.tested_at).getTime())
     .map((t) => ({
-      dateLabel: new Date(t.tested_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
       timestamp: new Date(t.tested_at).getTime(),
       Ammoniac: t.ammonia_ppm,
       Nitrites: t.nitrite_ppm,
@@ -215,6 +216,8 @@ export function CyclingPanel({
         </div>
       </div>
 
+      <CyclingInsights tank={tank} tests={tests} doses={doses} />
+
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">Les étapes du cyclage</h3>
         <div className="space-y-3">
@@ -259,23 +262,29 @@ export function CyclingPanel({
             Ammoniac et nitrites doivent redescendre vers 0 pendant que les nitrates apparaissent.
             {doseMarkers.length > 0 && ' Les traits pointillés marquent tes apports d’ammoniac.'}
           </p>
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={300}>
             <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-              <XAxis dataKey="dateLabel" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip />
+              <CartesianGrid strokeDasharray="3 3" stroke="#d5dfda" />
+              <XAxis
+                dataKey="timestamp"
+                type="number"
+                scale="time"
+                domain={['dataMin', 'dataMax']}
+                tickFormatter={(v: number) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                tick={{ fontSize: 12 }}
+              />
+              <YAxis tick={{ fontSize: 12 }} unit=" ppm" width={64} />
+              <Tooltip
+                labelFormatter={(v) => new Date(Number(v)).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
+              />
               <Legend wrapperStyle={{ fontSize: 12 }} />
-              <Line type="monotone" dataKey="Ammoniac" stroke="#dc2626" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-              <Line type="monotone" dataKey="Nitrites" stroke="#f59e0b" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-              <Line type="monotone" dataKey="Nitrates" stroke="#6366f1" strokeWidth={2} dot={{ r: 3 }} connectNulls />
-              {doseMarkers.map((d) => {
-                const label = new Date(d.dosed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
-                const match = chartData.find((c) => c.dateLabel === label);
-                return match ? (
-                  <ReferenceLine key={d.id} x={label} stroke="#94a3b8" strokeDasharray="4 4" />
-                ) : null;
-              })}
+              <ReferenceArea y1={0} y2={0.25} fill="#3b8056" fillOpacity={0.12} label={{ value: 'cible 0', fontSize: 11, fill: '#2f6f47', position: 'insideTopRight' }} />
+              <Line type="monotone" dataKey="Ammoniac" stroke="#c2410c" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+              <Line type="monotone" dataKey="Nitrites" stroke="#e0a23a" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+              <Line type="monotone" dataKey="Nitrates" stroke="#4f5fb3" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />
+              {doseMarkers.map((d) => (
+                <ReferenceLine key={d.id} x={new Date(d.dosed_at).getTime()} stroke="#62766d" strokeDasharray="4 4" />
+              ))}
             </LineChart>
           </ResponsiveContainer>
         </div>
