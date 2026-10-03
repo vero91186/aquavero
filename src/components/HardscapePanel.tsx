@@ -6,12 +6,25 @@ import type { HardscapeItem, HardscapeKind } from '@/types/database';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
+import { ConfidenceBadge, SourcesLine, SummaryDetails, CONFIDENCE_STYLES, type Confidence } from '@/components/research-ui';
 import { Trash2, Pencil, Check, X, Search, Loader2, Sparkles } from 'lucide-react';
 
 const KIND_LABELS: Record<HardscapeKind, string> = {
   rock: 'Roche',
   wood: 'Racine / bois',
 };
+
+interface HardscapeResearchResult {
+  identified_name: string | null;
+  material: string | null;
+  purpose: string | null;
+  water_effect: string | null;
+  preparation: string | null;
+  confidence: Confidence;
+  source_url: string | null;
+  sources: { title: string; url: string }[];
+  note: string;
+}
 
 export function HardscapePanel({
   tankId,
@@ -39,7 +52,7 @@ export function HardscapePanel({
   const [savingEdit, setSavingEdit] = useState(false);
 
   const [researching, setResearching] = useState(false);
-  const [research, setResearch] = useState<{ water_effect: string; preparation: string; note: string } | null>(null);
+  const [research, setResearch] = useState<HardscapeResearchResult | null>(null);
   const [researchError, setResearchError] = useState<string | null>(null);
 
   async function handleResearch() {
@@ -77,18 +90,31 @@ export function HardscapePanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Recherche automatique d'une photo sur internet à partir du nom (le
-    // mot-clé "aquarium" améliore la pertinence des résultats).
-    const photoUrl = await fetchAutoPhoto(`${name} aquarium`, 'hardscape');
+    // Nom complet trouvé par la recherche IA, à défaut celui tapé.
+    const finalName = research?.identified_name ?? name;
+    // Photo : page identifiée par la fiche en priorité, sinon banque d'images
+    // libres recoupée avec le nom (mieux vaut aucune photo qu'une photo fausse).
+    const photoUrl = await fetchAutoPhoto(`${finalName} aquarium`, 'hardscape', research?.source_url);
+    // Une rubrique par ligne, affichée par SummaryDetails dans la liste.
     const aiSummary = research
-      ? [research.water_effect, research.preparation, research.note].filter(Boolean).join(' — ')
+      ? [
+          research.confidence !== 'confirmé' ? `Fiabilité : ${CONFIDENCE_STYLES[research.confidence].label}` : null,
+          research.purpose ? `À quoi ça sert : ${research.purpose}` : null,
+          research.material ? `Nature : ${research.material}` : null,
+          research.water_effect ? `Effet sur l'eau : ${research.water_effect}` : null,
+          research.preparation ? `Préparation : ${research.preparation}` : null,
+          research.note ? `Précautions : ${research.note}` : null,
+          research.source_url ? `Source : ${research.source_url}` : null,
+        ]
+          .filter(Boolean)
+          .join('\n') || null
       : null;
 
     await supabase.from('hardscape_items').insert({
       tank_id: tankId,
       user_id: user.id,
       kind,
-      name,
+      name: finalName,
       quantity: parseInt(quantity, 10) || 1,
       notes: notes || null,
       photo_url: photoUrl,
@@ -188,7 +214,7 @@ export function HardscapePanel({
             className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-800 disabled:opacity-50"
           >
             {researching ? <Loader2 size={13} className="animate-spin" /> : <Search size={13} />}
-            Rechercher &quot;{name || '...'}&quot; avec l&apos;IA (effet sur l&apos;eau, préparation)
+            Rechercher &quot;{name || '...'}&quot; avec l&apos;IA (nature, usage, effet sur l&apos;eau, préparation)
           </button>
           {researching && (
             <span className="text-xs text-slate-400">Peut prendre quelques secondes si l&apos;IA est très sollicitée.</span>
@@ -199,13 +225,19 @@ export function HardscapePanel({
 
         {research && (
           <div className="mt-3 space-y-1.5 rounded-lg border border-teal-200 bg-teal-50/50 p-3">
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
               <Sparkles size={14} className="text-teal-600" />
-              <p className="text-sm font-medium text-slate-800">Fiche IA — {name}</p>
+              <p className="text-sm font-medium text-slate-800">
+                Fiche IA — {research.identified_name ?? name}
+              </p>
+              <ConfidenceBadge confidence={research.confidence} />
             </div>
+            {research.material && <p className="text-xs text-slate-600">Nature : {research.material}</p>}
+            {research.purpose && <p className="text-xs text-slate-700">À quoi ça sert : {research.purpose}</p>}
             {research.water_effect && <p className="text-xs text-slate-600">Effet sur l&apos;eau : {research.water_effect}</p>}
             {research.preparation && <p className="text-xs text-slate-600">Préparation : {research.preparation}</p>}
-            {research.note && <p className="text-xs text-slate-500">{research.note}</p>}
+            {research.note && <p className="text-xs text-slate-500">Précautions : {research.note}</p>}
+            <SourcesLine sourceUrl={research.source_url} sources={research.sources} />
             <button
               type="button"
               onClick={applyResearchToNotes}
@@ -289,11 +321,7 @@ export function HardscapePanel({
                         {item.quantity}× {item.name}
                       </span>
                       {item.notes && <span className="ml-2 text-xs text-slate-400">{item.notes}</span>}
-                      {item.ai_summary && (
-                        <div className="mt-0.5 flex items-start gap-1 text-xs text-teal-600">
-                          <Sparkles size={11} className="mt-0.5 shrink-0" /> {item.ai_summary}
-                        </div>
-                      )}
+                      {item.ai_summary && <SummaryDetails summary={item.ai_summary} />}
                     </div>
                   </div>
                   <div className="flex items-center gap-1">

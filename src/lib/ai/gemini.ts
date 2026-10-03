@@ -435,25 +435,116 @@ export async function researchSpecies(name: string) {
   };
 }
 
-const HARDSCAPE_RESEARCH_SYSTEM_PROMPT = `Tu es un expert en décors d'aquarium (roches, bois et
+// Ancien prompt « de mémoire », conservé en repli si la recherche web est
+// indisponible : la fiche est alors marquée comme simple estimation.
+const HARDSCAPE_FALLBACK_SYSTEM_PROMPT = `Tu es un expert en décors d'aquarium (roches, bois et
 racines), y compris les noms commerciaux français couramment utilisés en aquariophilie et
 aquascaping, même quand ils sont une traduction ou une adaptation d'un nom anglais (ex. "racine
 araignée" ou "bois araignée" = spiderwood ; "racine de tourbière"/"racine de mangrove" = bogwood/
-mangrove wood ; "bois de mopani" = mopani wood ; "racine de tourbière" = moorwood). Avant de conclure
-que tu ne connais pas un matériau, pense à sa traduction anglaise probable et à ses variantes
-d'orthographe ou de nom commercial. On te donne le nom d'un matériau. Tu donnes une fiche
-synthétique : son effet éventuel sur le pH ou la dureté de l'eau (ex. matériau calcaire qui durcit et
-alcalinise l'eau, bois qui l'acidifie et la teinte via les tanins), la préparation nécessaire avant
-utilisation le cas échéant (faire bouillir, faire tremper plusieurs jours, brosser), et un point de
-vigilance si pertinent. Ce n'est que si vraiment aucun matériau d'aquariophilie connu ne correspond,
-même approximativement, que tu le dis clairement plutôt que d'inventer une fiche. Réponds uniquement
-avec un objet JSON de la forme :
-{"water_effect": "...", "preparation": "...", "note": "..."}`;
+mangrove wood ; "bois de mopani" = mopani wood). Avant de conclure que tu ne connais pas un
+matériau, pense à sa traduction anglaise probable et à ses variantes de nom commercial. Tu n'as pas
+accès à internet : à partir de tes seules connaissances, tu donnes une fiche prudente : ce que c'est
+("material"), à quoi il sert dans un aquarium ("purpose"), son effet éventuel sur le pH ou la dureté
+("water_effect"), la préparation nécessaire avant utilisation ("preparation") et un point de
+vigilance ("note"). Si aucun matériau d'aquariophilie connu ne correspond, dis-le clairement plutôt
+que d'inventer une fiche. Réponds uniquement avec un objet JSON de la forme :
+{"material": "...", "purpose": "...", "water_effect": "...", "preparation": "...", "note": "..."}`;
 
-export async function researchHardscape(name: string) {
-  const prompt = `Fiche sur ce matériau de décor d'aquarium : "${name}".`;
-  const text = await callGemini([{ text: prompt }], HARDSCAPE_RESEARCH_SYSTEM_PROMPT);
-  return JSON.parse(text) as { water_effect: string; preparation: string; note: string };
+const HARDSCAPE_SYSTEM_PROMPT = `Tu es un expert en décors d'aquarium (roches, bois et racines), y
+compris les noms commerciaux français couramment utilisés en aquariophilie et aquascaping, même
+quand ils sont une traduction d'un nom anglais (ex. « racine araignée » = spiderwood ; « racine de
+tourbière » = moorwood/bogwood ; « bois de mopani » = mopani wood ; « roche dragon » = ohko/dragon
+stone ; « roche de lave » = lava rock). Pense à la traduction anglaise probable et aux variantes de
+nom avant de conclure que tu ne connais pas un matériau.
+
+Utilise la recherche web pour identifier précisément le matériau demandé et lire des sources
+sérieuses : fabricant ou revendeur spécialisé en aquariophilie, magasin d'aquascaping, guide
+reconnu. Ne te contente pas d'un matériau « similaire ».
+
+Règles de précision :
+- identified_name : nom courant en français utilisé en aquariophilie (avec le nom anglais ou
+  commercial entre parenthèses s'il aide à le reconnaître), ou null si non identifiable.
+- material : ce que c'est, en une phrase (nature, origine, aspect).
+- purpose : à quoi il sert dans un aquarium, concrètement (abri, surface de fixation pour plantes
+  et mousses, surface pour les bactéries, structure du décor...), pour un débutant.
+- water_effect : effet sur le pH, la dureté (GH/KH) et la couleur de l'eau, d'après les sources
+  (matériau calcaire qui durcit et alcalinise ; bois qui libère des tanins, acidifie légèrement et
+  teinte en brun ; roche inerte, etc.). Dis « aucun effet notable » si c'est le cas ; null si
+  introuvable.
+- preparation : la préparation nécessaire avant mise en eau (brossage, ébouillantage, trempage de
+  plusieurs jours pour un bois, test à l'acide pour une roche) avec durées quand les sources en
+  donnent ; null si rien n'est nécessaire ou introuvable.
+- confidence : "confirmé" si ces informations viennent de sources qui décrivent ce matériau
+  précis ; "estimation" si tu t'appuies sur un matériau voisin ou une source indirecte ; "inconnu"
+  si le matériau n'est pas identifiable (alors les autres champs sont null).
+- source_url : URL exacte d'une page réellement consultée qui décrit ce matériau, ou null.
+  N'invente jamais d'URL.
+- note : points de vigilance réels (flottaison, bords coupants, risque de calcaire, bois non traité,
+  pesticides sur les bois ramassés dehors...). Si confidence n'est pas "confirmé", dis-le ici.
+
+Réponds uniquement avec un objet JSON, sans texte autour, de la forme :
+{"identified_name": "...", "material": "...", "purpose": "...", "water_effect": "...",
+"preparation": "...", "confidence": "confirmé|estimation|inconnu", "source_url": "...",
+"note": "..."}`;
+
+export interface HardscapeResearch {
+  identified_name: string | null;
+  material: string | null;
+  purpose: string | null;
+  water_effect: string | null;
+  preparation: string | null;
+  confidence: ProductConfidence;
+  source_url: string | null;
+  sources: GroundingSource[];
+  note: string;
+}
+
+export function normalizeHardscapeResearch(
+  raw: Record<string, unknown>,
+  sources: GroundingSource[]
+): HardscapeResearch {
+  let confidence: ProductConfidence =
+    raw.confidence === 'confirmé' || raw.confidence === 'estimation' || raw.confidence === 'inconnu'
+      ? raw.confidence
+      : 'estimation';
+  const sourceUrl = httpUrlOrNull(raw.source_url);
+  if (confidence === 'confirmé' && !sourceUrl && sources.length === 0) confidence = 'estimation';
+  const unknown = confidence === 'inconnu';
+  const field = (v: unknown) => (unknown ? null : stringOrNull(v));
+  return {
+    identified_name: stringOrNull(raw.identified_name),
+    material: field(raw.material),
+    purpose: field(raw.purpose),
+    water_effect: field(raw.water_effect),
+    preparation: field(raw.preparation),
+    confidence,
+    source_url: sourceUrl,
+    sources: sources.slice(0, 5),
+    note: stringOrNull(raw.note) ?? '',
+  };
+}
+
+export async function researchHardscape(name: string): Promise<HardscapeResearch> {
+  try {
+    const { text, sources } = await callGeminiGrounded(
+      [{ text: `Matériau de décor d'aquarium à identifier et documenter : "${name}".` }],
+      HARDSCAPE_SYSTEM_PROMPT
+    );
+    return normalizeHardscapeResearch(extractJsonObject(text) as Record<string, unknown>, sources);
+  } catch {
+    const text = await callGemini(
+      [{ text: `Fiche sur ce matériau de décor d'aquarium : "${name}".` }],
+      HARDSCAPE_FALLBACK_SYSTEM_PROMPT
+    );
+    const raw = JSON.parse(text) as Record<string, unknown>;
+    const result = normalizeHardscapeResearch({ ...raw, confidence: 'estimation' }, []);
+    return {
+      ...result,
+      note: ['Fiche issue des connaissances générales de l’IA (recherche web indisponible).', result.note]
+        .filter(Boolean)
+        .join(' '),
+    };
+  }
 }
 
 const TANK_CHECKUP_SYSTEM_PROMPT = `Tu es l'assistant aquariophile intégré à AquaTrack AI, façon "AI

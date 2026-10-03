@@ -7,6 +7,7 @@ import { computeShelfLife } from '@/lib/shelf-life';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
+import { ConfidenceBadge, CONFIDENCE_STYLES, SourcesLine, SummaryDetails, type Confidence } from '@/components/research-ui';
 import { Search, Loader2, Trash2, Pencil, Check, X, Plus, AlertTriangle, RotateCw } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
@@ -17,8 +18,6 @@ const CATEGORY_LABELS: Record<ProductCategory, string> = {
   test_kit: 'Test / kit',
   other: 'Autre',
 };
-
-type Confidence = 'confirmé' | 'estimation' | 'inconnu';
 
 interface ResearchResult {
   identified_name: string | null;
@@ -32,55 +31,6 @@ interface ResearchResult {
   source_url: string | null;
   sources: { title: string; url: string }[];
   note: string;
-}
-
-const CONFIDENCE_STYLES: Record<Confidence, { label: string; className: string }> = {
-  confirmé: { label: 'Confirmé par une source', className: 'bg-emerald-100 text-emerald-700' },
-  estimation: { label: 'Estimation — à vérifier sur l’étiquette', className: 'bg-amber-100 text-amber-700' },
-  inconnu: { label: 'Produit non identifié', className: 'bg-red-100 text-red-700' },
-};
-
-function hostOf(url: string) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
-}
-
-// Affiche la description enregistrée d'un produit (à quoi il sert, mode
-// d'emploi, précautions, source). Ligne « Source : » rendue en lien cliquable.
-function SummaryDetails({ summary }: { summary: string }) {
-  const lines = summary.split('\n').filter(Boolean);
-  const purposeLine = lines.find((l) => l.startsWith('À quoi ça sert :'));
-  const sourceLine = lines.find((l) => l.startsWith('Source : '));
-  const rest = lines.filter((l) => l !== purposeLine && l !== sourceLine);
-  const sourceUrl = sourceLine?.slice('Source : '.length).trim();
-  const safeSource = sourceUrl && /^https?:\/\//i.test(sourceUrl) ? sourceUrl : null;
-  return (
-    <div className="mt-1 text-xs text-slate-500">
-      {purposeLine && <p className="text-slate-600">{purposeLine}</p>}
-      {(rest.length > 0 || safeSource) && (
-        <details className="mt-0.5">
-          <summary className="cursor-pointer text-teal-700">Plus de détails</summary>
-          <div className="mt-1 space-y-0.5">
-            {rest.map((l, i) => (
-              <p key={i}>{l}</p>
-            ))}
-            {safeSource && (
-              <p>
-                Source :{' '}
-                <a href={safeSource} target="_blank" rel="noopener noreferrer" className="text-teal-700 underline">
-                  {hostOf(safeSource)}
-                </a>
-              </p>
-            )}
-          </div>
-        </details>
-      )}
-      {!purposeLine && rest.length === 0 && !safeSource && <p>{summary}</p>}
-    </div>
-  );
 }
 
 export function ProductsPanel({
@@ -287,11 +237,7 @@ export function ProductsPanel({
             )}
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-sm font-medium text-slate-800">{CATEGORY_LABELS[result.category]}</p>
-              <span
-                className={`rounded-full px-2 py-0.5 text-xs font-medium ${CONFIDENCE_STYLES[result.confidence].className}`}
-              >
-                {CONFIDENCE_STYLES[result.confidence].label}
-              </span>
+              <ConfidenceBadge confidence={result.confidence} />
             </div>
             {result.purpose && (
               <p className="text-sm text-slate-700">
@@ -319,29 +265,7 @@ export function ProductsPanel({
                 <span className="font-medium">Précautions :</span> {result.note}
               </p>
             )}
-            {(result.source_url || result.sources.length > 0) && (
-              <p className="text-xs text-slate-500">
-                Sources :{' '}
-                {(result.source_url
-                  ? [{ title: '', url: result.source_url }, ...result.sources.filter((x) => x.url !== result.source_url)]
-                  : result.sources
-                )
-                  .slice(0, 3)
-                  .map((src, i) => (
-                    <span key={src.url}>
-                      {i > 0 && ' · '}
-                      <a
-                        href={src.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-teal-700 underline"
-                      >
-                        {src.title || hostOf(src.url)}
-                      </a>
-                    </span>
-                  ))}
-              </p>
-            )}
+            <SourcesLine sourceUrl={result.source_url} sources={result.sources} />
             <button
               type="button"
               onClick={handleAddToList}

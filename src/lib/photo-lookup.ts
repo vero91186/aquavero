@@ -174,6 +174,12 @@ export async function findPhotoOnWeb(
       const inat = await searchINaturalist(clean);
       if (inat) return inat;
     } else {
+      // Décor : la page déjà identifiée par la fiche IA (si elle existe) illustre
+      // ce matériau précis ; sinon banque d'images libres, recoupée avec le nom.
+      if (hintUrl) {
+        const fromPage = await imageFromProductPage(hintUrl);
+        if (fromPage) return fromPage;
+      }
       const openverse = await searchOpenverse(clean);
       if (openverse) return openverse;
     }
