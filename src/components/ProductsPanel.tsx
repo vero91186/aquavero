@@ -18,12 +18,32 @@ const CATEGORY_LABELS: Record<ProductCategory, string> = {
   other: 'Autre',
 };
 
+type Confidence = 'confirmé' | 'estimation' | 'inconnu';
+
 interface ResearchResult {
+  identified_name: string | null;
   category: ProductCategory;
-  dose_info: string;
+  dose_info: string | null;
   dose_ml_per_100l: number | null;
   shelf_life_days_after_opening: number | null;
+  confidence: Confidence;
+  source_url: string | null;
+  sources: { title: string; url: string }[];
   note: string;
+}
+
+const CONFIDENCE_STYLES: Record<Confidence, { label: string; className: string }> = {
+  confirmé: { label: 'Confirmé par une source', className: 'bg-emerald-100 text-emerald-700' },
+  estimation: { label: 'Estimation — à vérifier sur l’étiquette', className: 'bg-amber-100 text-amber-700' },
+  inconnu: { label: 'Produit non identifié', className: 'bg-red-100 text-red-700' },
+};
+
+function hostOf(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
 }
 
 export function ProductsPanel({
@@ -90,9 +110,17 @@ export function ProductsPanel({
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    // Recherche automatique d'une photo du produit sur internet (le mot-clé
-    // "aquarium" améliore la pertinence des résultats pour un nom de produit).
-    const photoUrl = await fetchAutoPhoto(`${name} aquarium`);
+    // Photo prise sur la page du produit (celle déjà identifiée par la fiche si
+    // elle existe), pas dans une banque d'images : mieux vaut aucune photo qu'une
+    // photo sans rapport.
+    const photoUrl = await fetchAutoPhoto(result.identified_name ?? name, 'product', result.source_url);
+    const summary = [
+      result.confidence !== 'confirmé' ? `(${CONFIDENCE_STYLES[result.confidence].label})` : null,
+      result.note || null,
+      result.source_url ? `Source : ${result.source_url}` : null,
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     await supabase.from('products').insert({
       tank_id: tankId,
@@ -102,7 +130,7 @@ export function ProductsPanel({
       dose_info: result.dose_info || null,
       dose_ml_per_100l: result.dose_ml_per_100l,
       shelf_life_days_after_opening: result.shelf_life_days_after_opening,
-      ai_summary: result.note || null,
+      ai_summary: summary || null,
       photo_url: photoUrl,
     });
     setSaving(false);
@@ -204,16 +232,29 @@ export function ProductsPanel({
           <GoogleSearchLink query={`${name} aquarium`} />
         </div>
         <p className="mt-2 text-xs text-slate-400">
-          Fiche générée par IA à partir de ses connaissances générales sur ce type de produit — vérifie
-          toujours le dosage et la conservation indiqués sur l&apos;étiquette de ton produit.
+          L&apos;IA cherche la notice du fabricant sur le web et indique si le produit est confirmé ou
+          seulement estimé — vérifie toujours le dosage sur l&apos;étiquette de ton produit. Pour une
+          meilleure précision, indique la marque et la contenance (ex. « Seachem Prime 500 mL »).
         </p>
 
         {result && (
           <div className="mt-4 space-y-2 rounded-lg bg-teal-50 px-3 py-3">
-            <p className="text-sm font-medium text-slate-800">{CATEGORY_LABELS[result.category]}</p>
+            {result.identified_name && (
+              <p className="text-sm font-semibold text-slate-900">{result.identified_name}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-sm font-medium text-slate-800">{CATEGORY_LABELS[result.category]}</p>
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${CONFIDENCE_STYLES[result.confidence].className}`}
+              >
+                {CONFIDENCE_STYLES[result.confidence].label}
+              </span>
+            </div>
             {result.dose_info && <p className="text-sm text-slate-600">{result.dose_info}</p>}
             {result.dose_ml_per_100l !== null && (
-              <p className="text-sm text-slate-600">Dosage estimé : {result.dose_ml_per_100l} mL / 100 L</p>
+              <p className="text-sm text-slate-600">
+                {result.confidence === 'confirmé' ? 'Dosage' : 'Dosage estimé'} : {result.dose_ml_per_100l} mL / 100 L
+              </p>
             )}
             {result.shelf_life_days_after_opening !== null && (
               <p className="text-sm text-slate-600">
@@ -221,6 +262,29 @@ export function ProductsPanel({
               </p>
             )}
             {result.note && <p className="text-xs text-slate-500">{result.note}</p>}
+            {(result.source_url || result.sources.length > 0) && (
+              <p className="text-xs text-slate-500">
+                Sources :{' '}
+                {(result.source_url
+                  ? [{ title: '', url: result.source_url }, ...result.sources.filter((x) => x.url !== result.source_url)]
+                  : result.sources
+                )
+                  .slice(0, 3)
+                  .map((src, i) => (
+                    <span key={src.url}>
+                      {i > 0 && ' · '}
+                      <a
+                        href={src.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-teal-700 underline"
+                      >
+                        {src.title || hostOf(src.url)}
+                      </a>
+                    </span>
+                  ))}
+              </p>
+            )}
             <button
               type="button"
               onClick={handleAddToList}

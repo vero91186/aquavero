@@ -19,7 +19,7 @@ function sleep(ms: number) {
 const RETRYABLE_STATUSES = new Set([429, 500, 503]);
 const MAX_ATTEMPTS = 3;
 
-async function callGemini(parts: GeminiPart[], systemInstruction: string) {
+async function postGemini(body: Record<string, unknown>) {
   const apiKey = process.env.GOOGLE_API_KEY;
   if (!apiKey) {
     throw new Error(
@@ -34,19 +34,10 @@ async function callGemini(parts: GeminiPart[], systemInstruction: string) {
     const res = await fetch(`${API_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        system_instruction: { parts: [{ text: systemInstruction }] },
-        contents: [{ role: 'user', parts }],
-        generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
-      }),
+      body: JSON.stringify(body),
     });
 
-    if (res.ok) {
-      const data = await res.json();
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) throw new Error("Réponse Gemini vide ou inattendue.");
-      return text as string;
-    }
+    if (res.ok) return res.json();
 
     lastStatus = res.status;
     lastBody = await res.text();
@@ -64,6 +55,54 @@ async function callGemini(parts: GeminiPart[], systemInstruction: string) {
     );
   }
   throw new Error(`Erreur Gemini (${lastStatus}) : ${lastBody}`);
+}
+
+async function callGemini(parts: GeminiPart[], systemInstruction: string) {
+  const data = await postGemini({
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: 'user', parts }],
+    generationConfig: { temperature: 0.4, responseMimeType: 'application/json' },
+  });
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new Error("Réponse Gemini vide ou inattendue.");
+  return text as string;
+}
+
+export interface GroundingSource {
+  title: string;
+  url: string;
+}
+
+// Variante avec recherche Google activée : le modèle peut lire des pages web
+// (notices fabricants, fiches revendeurs) au lieu de répondre de mémoire. Le
+// mode JSON strict n'est pas combinable avec les outils : on extrait donc
+// l'objet JSON du texte, et on renvoie aussi les sources effectivement
+// consultées (métadonnées de « grounding »).
+async function callGeminiGrounded(parts: GeminiPart[], systemInstruction: string) {
+  const data = await postGemini({
+    system_instruction: { parts: [{ text: systemInstruction }] },
+    contents: [{ role: 'user', parts }],
+    tools: [{ google_search: {} }],
+    generationConfig: { temperature: 0.1 },
+  });
+  const candidate = data.candidates?.[0];
+  const text = (candidate?.content?.parts ?? [])
+    .map((p: GeminiPart) => p.text ?? '')
+    .join('');
+  if (!text) throw new Error('Réponse Gemini vide ou inattendue.');
+  const chunks: { web?: { uri?: string; title?: string } }[] =
+    candidate?.groundingMetadata?.groundingChunks ?? [];
+  const sources: GroundingSource[] = chunks
+    .filter((c) => c.web?.uri)
+    .map((c) => ({ title: c.web?.title ?? '', url: c.web!.uri! }));
+  return { text: text as string, sources };
+}
+
+export function extractJsonObject(text: string): unknown {
+  const first = text.indexOf('{');
+  const last = text.lastIndexOf('}');
+  if (first === -1 || last <= first) throw new Error('Réponse IA sans objet JSON exploitable.');
+  return JSON.parse(text.slice(first, last + 1));
 }
 
 const CHAT_SYSTEM_PROMPT = `Tu es l'assistant aquariophile intégré à AquaTrack AI. Tu réponds en français,
@@ -185,33 +224,172 @@ export async function identifyItemFromPhoto(
   };
 }
 
-const PRODUCT_SYSTEM_PROMPT = `Tu es un expert produits d'aquariophilie. On te donne le nom (et parfois
-la marque) d'un produit du commerce (conditionneur d'eau, engrais, nourriture, media filtrant, test
-kit...). À partir de tes connaissances générales sur ce type de produit, tu donnes une fiche
-synthétique : sa catégorie la plus probable, son usage/dosage typique en une phrase, et si c'est un
-conditionneur d'eau (déchlorinant), une estimation du dosage usuel en mL pour 100 L d'eau neuve
-(beaucoup de conditionneurs se dosent autour de 5 mL/100L, mais certains sont plus concentrés —
-indique ta meilleure estimation, ou null si tu ne peux pas l'estimer raisonnablement). Donne aussi
-une estimation de la durée de conservation typique de ce type de produit UNE FOIS OUVERT, en jours
-(par exemple environ 60 jours pour de la nourriture en flocons ouverte, 365 jours ou plus pour un
-conditionneur d'eau ou un engrais liquide bien fermé, null si vraiment impossible à estimer). Précise
-aussi un point de vigilance si pertinent (dosage à ne pas dépasser, incompatibilité, conditions de
-conservation, etc). Tu n'as pas accès à internet : si tu ne reconnais pas ce produit précis,
-base-toi sur les produits similaires de sa catégorie et dis-le clairement dans la note. Réponds
+// Ancien prompt « de mémoire », conservé en repli si la recherche web de Gemini
+// est indisponible : la fiche est alors marquée comme simple estimation.
+const PRODUCT_FALLBACK_SYSTEM_PROMPT = `Tu es un expert produits d'aquariophilie. On te donne le nom (et
+parfois la marque) d'un produit du commerce. Tu n'as pas accès à internet : à partir de tes seules
+connaissances générales, tu donnes une fiche prudente — catégorie la plus probable, usage/dosage
+typique en une phrase, estimation du dosage en mL pour 100 L d'eau neuve SEULEMENT pour un
+conditionneur d'eau (null si tu ne peux pas l'estimer raisonnablement), durée de conservation typique
+une fois ouvert en jours (null si impossible à estimer) et un point de vigilance. Si tu ne reconnais
+pas ce produit précis, base-toi sur sa catégorie et dis-le clairement dans la note. Réponds
 uniquement avec un objet JSON de la forme :
 {"category": "conditioner|fertilizer|food|filter_media|test_kit|other", "dose_info": "...",
 "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0, "note": "..."}`;
 
-export async function researchProduct(name: string) {
-  const prompt = `Donne-moi une fiche sur ce produit d'aquariophilie : "${name}".`;
-  const text = await callGemini([{ text: prompt }], PRODUCT_SYSTEM_PROMPT);
-  return JSON.parse(text) as {
-    category: 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
-    dose_info: string;
-    dose_ml_per_100l: number | null;
-    shelf_life_days_after_opening: number | null;
-    note: string;
+const PRODUCT_SYSTEM_PROMPT = `Tu es un expert produits d'aquariophilie. Utilise la recherche web pour
+identifier EXACTEMENT le produit demandé (marque, gamme, contenance) et lire sa notice ou sa fiche
+officielle : le site du fabricant en priorité, sinon un revendeur spécialisé sérieux. Ne te contente
+pas d'un produit « similaire ».
+
+Règles de précision :
+- dose_info : la consigne du fabricant reformulée fidèlement, avec les chiffres et unités d'origine
+  (ex. « 1 mL pour 10 L d'eau neuve »). Rien d'inventé : si aucune consigne n'est trouvée, null.
+- dose_ml_per_100l : uniquement si la dose du fabricant s'exprime en volume de produit par volume
+  d'eau ; convertis-la en mL pour 100 L (« 5 mL pour 200 L » → 2.5 ; « 1 mL pour 10 L » → 10).
+  Dose en bouchons, pressions, grammes, tablettes ou introuvable → null (et explique dans dose_info).
+- shelf_life_days_after_opening : seulement si la fiche donne une durée après ouverture (symbole PAO,
+  « à utiliser dans les X mois ») ; sinon null.
+- confidence : "confirmé" si la dose et l'usage viennent d'une source fabricant ou revendeur pour ce
+  produit exact ; "estimation" si tu as dû t'appuyer sur un produit voisin ou une source indirecte ;
+  "inconnu" si le produit n'est pas identifiable (alors dose_ml_per_100l et shelf_life à null).
+- identified_name : nom complet tel qu'inscrit sur l'emballage (marque + produit + contenance si
+  connue), ou null.
+- source_url : URL exacte de la page produit ou notice que tu as réellement consultée, ou null.
+  N'invente jamais d'URL.
+- note : points de vigilance réels (dose maximale, incompatibilités, conservation). Si
+  confidence n'est pas "confirmé", dis-le clairement ici.
+
+Réponds uniquement avec un objet JSON, sans texte autour, de la forme :
+{"identified_name": "...", "category": "conditioner|fertilizer|food|filter_media|test_kit|other",
+"dose_info": "...", "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0,
+"confidence": "confirmé|estimation|inconnu", "source_url": "...", "note": "..."}`;
+
+export type ProductConfidence = 'confirmé' | 'estimation' | 'inconnu';
+type ProductCategoryId = 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
+
+export interface ProductResearch {
+  identified_name: string | null;
+  category: ProductCategoryId;
+  dose_info: string | null;
+  dose_ml_per_100l: number | null;
+  shelf_life_days_after_opening: number | null;
+  confidence: ProductConfidence;
+  source_url: string | null;
+  sources: GroundingSource[];
+  note: string;
+}
+
+const PRODUCT_CATEGORIES: ProductCategoryId[] = [
+  'conditioner',
+  'fertilizer',
+  'food',
+  'filter_media',
+  'test_kit',
+  'other',
+];
+
+function positiveNumberOrNull(v: unknown, max: number): number | null {
+  const n = typeof v === 'string' ? parseFloat(v.replace(',', '.')) : v;
+  return typeof n === 'number' && Number.isFinite(n) && n > 0 && n <= max ? n : null;
+}
+
+function stringOrNull(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null' ? v.trim() : null;
+}
+
+function httpUrlOrNull(v: unknown): string | null {
+  const s = stringOrNull(v);
+  if (!s) return null;
+  try {
+    const u = new URL(s);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+// Remet en forme et borne la réponse du modèle : catégorie connue, doses
+// plausibles, URL valide, niveau de confiance cohérent avec ce qui est rempli.
+export function normalizeProductResearch(
+  raw: Record<string, unknown>,
+  sources: GroundingSource[]
+): ProductResearch {
+  const category = PRODUCT_CATEGORIES.includes(raw.category as ProductCategoryId)
+    ? (raw.category as ProductCategoryId)
+    : 'other';
+  let confidence: ProductConfidence =
+    raw.confidence === 'confirmé' || raw.confidence === 'estimation' || raw.confidence === 'inconnu'
+      ? raw.confidence
+      : 'estimation';
+  const sourceUrl = httpUrlOrNull(raw.source_url);
+  // « confirmé » sans aucune source consultée n'est pas crédible.
+  if (confidence === 'confirmé' && !sourceUrl && sources.length === 0) confidence = 'estimation';
+  const unknown = confidence === 'inconnu';
+  return {
+    identified_name: stringOrNull(raw.identified_name),
+    category,
+    dose_info: stringOrNull(raw.dose_info),
+    // Un dosage en mL/100 L au-delà de 500 est presque sûrement une erreur de conversion.
+    dose_ml_per_100l: unknown ? null : positiveNumberOrNull(raw.dose_ml_per_100l, 500),
+    shelf_life_days_after_opening: unknown ? null : positiveNumberOrNull(raw.shelf_life_days_after_opening, 3650),
+    confidence,
+    source_url: sourceUrl,
+    sources: sources.slice(0, 5),
+    note: stringOrNull(raw.note) ?? '',
   };
+}
+
+export async function researchProduct(name: string): Promise<ProductResearch> {
+  const prompt = `Produit à identifier et documenter : "${name}".`;
+  try {
+    const { text, sources } = await callGeminiGrounded([{ text: prompt }], PRODUCT_SYSTEM_PROMPT);
+    return normalizeProductResearch(extractJsonObject(text) as Record<string, unknown>, sources);
+  } catch {
+    // Recherche web indisponible ou réponse inexploitable : repli sur une fiche
+    // de mémoire, clairement présentée comme une estimation.
+    const text = await callGemini(
+      [{ text: `Donne-moi une fiche sur ce produit d'aquariophilie : "${name}".` }],
+      PRODUCT_FALLBACK_SYSTEM_PROMPT
+    );
+    const raw = JSON.parse(text) as Record<string, unknown>;
+    const result = normalizeProductResearch({ ...raw, confidence: 'estimation' }, []);
+    return {
+      ...result,
+      note: ['Fiche issue des connaissances générales de l’IA (recherche web indisponible).', result.note]
+        .filter(Boolean)
+        .join(' '),
+    };
+  }
+}
+
+const PRODUCT_PAGE_SYSTEM_PROMPT = `Utilise la recherche web pour trouver la page produit officielle
+(site du fabricant en priorité, sinon un revendeur spécialisé en aquariophilie) du produit demandé,
+avec une photo du produit. Donne l'URL exacte de la page que tu as réellement consultée, jamais une
+URL inventée, ou null si tu ne trouves pas ce produit précis. Réponds uniquement avec un objet JSON :
+{"product_page_url": "..."}`;
+
+// Pages web candidates pour illustrer un produit : celle citée par le modèle
+// d'abord, puis les sources de la recherche (URL de redirection Google, que
+// fetch suit jusqu'à la vraie page).
+export async function searchProductPages(name: string): Promise<string[]> {
+  try {
+    const { text, sources } = await callGeminiGrounded(
+      [{ text: `Page produit officielle de : "${name}".` }],
+      PRODUCT_PAGE_SYSTEM_PROMPT
+    );
+    const urls: string[] = [];
+    try {
+      const url = httpUrlOrNull((extractJsonObject(text) as Record<string, unknown>).product_page_url);
+      if (url) urls.push(url);
+    } catch {
+      // Pas de JSON exploitable : les sources du grounding suffisent.
+    }
+    for (const src of sources) urls.push(src.url);
+    return Array.from(new Set(urls)).slice(0, 5);
+  } catch {
+    return [];
+  }
 }
 
 const SPECIES_RESEARCH_SYSTEM_PROMPT = `Tu es un expert aquariophile. On te donne un nom (commun ou

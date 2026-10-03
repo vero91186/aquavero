@@ -79,7 +79,7 @@ export function HardscapePanel({
 
     // Recherche automatique d'une photo sur internet à partir du nom (le
     // mot-clé "aquarium" améliore la pertinence des résultats).
-    const photoUrl = await fetchAutoPhoto(`${name} aquarium`);
+    const photoUrl = await fetchAutoPhoto(`${name} aquarium`, 'hardscape');
     const aiSummary = research
       ? [research.water_effect, research.preparation, research.note].filter(Boolean).join(' — ')
       : null;

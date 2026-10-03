@@ -297,7 +297,7 @@ export function LivestockPanel({
 
     // Recherche automatique d'une photo sur internet à partir du nom (scientifique
     // en priorité, plus fiable pour trouver la bonne espèce).
-    const photoUrl = await fetchAutoPhoto(scientificName || name);
+    const photoUrl = await fetchAutoPhoto(scientificName || name, 'species');
 
     const { error } = await supabase.from('livestock').insert({
       tank_id: tankId,
