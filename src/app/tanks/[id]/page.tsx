@@ -177,11 +177,13 @@ export default function TankDetailPage() {
             <div className="min-w-0">
               <h1 className="truncate text-3xl leading-tight sm:text-4xl">{tank.name}</h1>
               <p className="mt-1 text-sm text-teal-200">
-                <span className="text-lg font-semibold text-sable">{tank.gross_volume_liters ?? tank.volume_liters} L</span>{' '}
-                d&apos;{tank.water_type === 'freshwater' ? 'eau douce' : tank.water_type === 'saltwater' ? 'eau de mer' : 'eau saumâtre'}
-                {tank.gross_volume_liters && tank.gross_volume_liters !== tank.volume_liters && (
-                  <span className="text-teal-300">, dont environ {tank.volume_liters} L d&apos;eau réelle</span>
+                <span className="text-lg font-semibold text-sable">{tank.volume_liters} L</span> d&apos;eau réelle
+                {tank.gross_volume_liters && (
+                  <>
+                    , <span className="text-lg font-semibold text-sable">{tank.gross_volume_liters} L</span> bruts
+                  </>
                 )}
+                , {tank.water_type === 'freshwater' ? 'eau douce' : tank.water_type === 'saltwater' ? 'eau de mer' : 'eau saumâtre'}
               </p>
             </div>
             <button
