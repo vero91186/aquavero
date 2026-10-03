@@ -19,6 +19,7 @@ import { StockingCalculator } from '@/components/StockingCalculator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { ScannerPanel } from '@/components/ScannerPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
+import { EquipmentPanel } from '@/components/EquipmentPanel';
 import { HardscapePanel } from '@/components/HardscapePanel';
 import { ProductsPanel } from '@/components/ProductsPanel';
 import type { MaintenanceTaskType } from '@/types/database';
@@ -44,7 +45,7 @@ import {
 // pour rester lisible), chacune éventuellement subdivisée en sous-onglets —
 // plutôt qu'une seule rangée de 11 onglets à faire défiler.
 type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'scanner' | 'assistant';
-type BacSub = 'proprietes' | 'hardscape' | 'produits';
+type BacSub = 'proprietes' | 'materiel' | 'hardscape' | 'produits';
 type EauSub = 'parametres' | 'cyclage';
 type PeuplementSub = 'peuplement' | 'plantes';
 
@@ -60,6 +61,7 @@ const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
 
 const BAC_SUBS: { key: BacSub; label: string }[] = [
   { key: 'proprietes', label: 'Propriétés' },
+  { key: 'materiel', label: 'Matériel' },
   { key: 'hardscape', label: 'Roches & racines' },
   { key: 'produits', label: 'Produits' },
 ];
@@ -331,6 +333,7 @@ export default function TankDetailPage() {
           </div>
         )}
         {section === 'bac' && bacSub === 'proprietes' && <TankPropertiesPanel tank={tank} livestock={livestock} onUpdated={loadAll} />}
+        {section === 'bac' && bacSub === 'materiel' && <EquipmentPanel tank={tank} onUpdated={loadAll} />}
         {section === 'bac' && bacSub === 'hardscape' && (
           <HardscapePanel tankId={tankId} items={hardscape} onUpdated={loadAll} />
         )}

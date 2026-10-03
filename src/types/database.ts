@@ -203,3 +203,18 @@ export interface AiDiagnostic {
 // Le client Supabase n'est volontairement pas branché sur un generic
 // Database strict (voir src/lib/supabase/client.ts) : les résultats de
 // requêtes sont castés manuellement vers ces types côté composants.
+
+export type EquipmentKind = 'aquarium' | 'filter' | 'pump' | 'heater' | 'light' | 'co2' | 'other';
+
+export interface TankEquipment {
+  id: string;
+  tank_id: string;
+  user_id: string;
+  kind: EquipmentKind;
+  name: string;
+  specs: string | null;
+  power_w: number | null;
+  flow_lph: number | null;
+  notes: string | null;
+  created_at: string;
+}
