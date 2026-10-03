@@ -125,7 +125,9 @@ export function ProductsPanel({
     await supabase.from('products').insert({
       tank_id: tankId,
       user_id: user.id,
-      name,
+      // Nom complet trouvé par la recherche (marque + produit + contenance),
+      // à défaut celui tapé par l'utilisateur.
+      name: result.identified_name ?? name,
       category: result.category,
       dose_info: result.dose_info || null,
       dose_ml_per_100l: result.dose_ml_per_100l,
