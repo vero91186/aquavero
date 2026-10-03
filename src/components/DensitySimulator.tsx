@@ -13,6 +13,7 @@ import {
   type DensityLine,
   type DensityLevelId,
 } from '@/lib/density';
+import { TankSimulationView } from '@/components/TankSimulationView';
 import { Gauge, Minus, Plus, RotateCcw, X } from 'lucide-react';
 
 const LEVEL_STYLES: Record<DensityLevelId, { tile: string; box: string }> = {
@@ -34,10 +35,14 @@ export function DensitySimulator({
   livestock,
   netLiters,
   grossLiters,
+  lengthCm,
+  heightCm,
 }: {
   livestock: Livestock[];
   netLiters: number;
   grossLiters: number | null;
+  lengthCm?: number | null;
+  heightCm?: number | null;
 }) {
   const base = useMemo(() => linesFromLivestock(livestock), [livestock]);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
@@ -81,6 +86,7 @@ export function DensitySimulator({
         quantity: 1,
         kind: s.category as 'fish' | 'invertebrate',
         hypothetical: true,
+        zone: s.swimZone,
       },
     ]);
     setQuery('');
@@ -213,6 +219,14 @@ export function DensitySimulator({
               </ul>
             )}
           </div>
+
+          <TankSimulationView
+            lines={lines}
+            lengthCm={lengthCm || 100}
+            heightCm={heightCm || 50}
+            level={level.id}
+            ratio={result.ratioNet}
+          />
 
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <div className="rounded-lg bg-slate-50 p-3">

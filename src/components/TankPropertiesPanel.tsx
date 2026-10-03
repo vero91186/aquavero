@@ -195,6 +195,8 @@ export function TankPropertiesPanel({
         livestock={livestock}
         netLiters={parseFloat(form.volume_liters) || 0}
         grossLiters={parseFloat(form.gross_volume_liters) || null}
+        lengthCm={parseFloat(form.length_cm) || null}
+        heightCm={parseFloat(form.height_cm) || null}
       />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
