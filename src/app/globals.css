@@ -1,26 +1,73 @@
 @import "tailwindcss";
 
+/* Palette « eau de bac planté » : gris-vert froids, vert mousse, sable. */
+@theme {
+  --color-slate-50: #f4f7f5;
+  --color-slate-100: #e8eeeb;
+  --color-slate-200: #d5dfda;
+  --color-slate-300: #b6c5be;
+  --color-slate-400: #8a9d95;
+  --color-slate-500: #62766d;
+  --color-slate-600: #485a52;
+  --color-slate-700: #364640;
+  --color-slate-800: #25322d;
+  --color-slate-900: #16211d;
+
+  --color-teal-50: #eef6f0;
+  --color-teal-100: #d7eadd;
+  --color-teal-200: #b1d6bd;
+  --color-teal-300: #85bb98;
+  --color-teal-400: #55996f;
+  --color-teal-500: #3b8056;
+  --color-teal-600: #2f6f47;
+  --color-teal-700: #265a39;
+  --color-teal-800: #1f4730;
+  --color-teal-900: #183725;
+
+  --color-abysse: #0f2a22;
+  --color-abysse-2: #17382e;
+  --color-sable: #e6d3a3;
+  --color-brume: #f4f7f5;
+
+  --font-sans: var(--font-corps), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-titre), ui-serif, Georgia, serif;
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
+  --background: #f4f7f5;
+  --foreground: #16211d;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-corps), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Non stratifié : prend le pas sur les utilitaires de poids de police. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-titre), ui-serif, Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-teal-500);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--color-teal-200);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

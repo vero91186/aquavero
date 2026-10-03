@@ -30,9 +30,9 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Créer un compte</h1>
+    <div className="flex min-h-screen items-center justify-center bg-abysse px-4">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-8 shadow-xl">
+        <h1 className="text-3xl text-slate-900">Créer un compte</h1>
         <p className="text-sm text-slate-500">Un compte pour synchroniser tes bacs sur tous tes appareils.</p>
 
         {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
@@ -64,7 +64,7 @@ export default function SignupPage() {
         <button
           type="submit"
           disabled={loading}
-          className="w-full rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+          className="w-full rounded-full bg-teal-600 px-3 py-2.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
         >
           {loading ? 'Création…' : 'Créer mon compte'}
         </button>

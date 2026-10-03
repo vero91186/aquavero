@@ -166,16 +166,17 @@ export default function TankDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-5xl px-4 py-4">
-          <Link href="/dashboard" className="flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800">
+      <header className="bg-abysse text-white">
+        <div className="mx-auto max-w-5xl px-4 pt-4 pb-5">
+          <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-teal-200 hover:text-white">
             <ArrowLeft size={16} /> Mes bacs
           </Link>
-          <div className="mt-2 flex items-center justify-between">
-            <div>
-              <h1 className="text-xl font-semibold text-slate-900">{tank.name}</h1>
-              <p className="text-sm text-slate-500">
-                {tank.volume_liters} L · {tank.water_type === 'freshwater' ? 'eau douce' : tank.water_type === 'saltwater' ? 'eau de mer' : 'eau saumâtre'}
+          <div className="mt-3 flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="truncate text-3xl leading-tight sm:text-4xl">{tank.name}</h1>
+              <p className="mt-1 text-sm text-teal-200">
+                <span className="text-lg font-semibold text-sable">{tank.volume_liters} L</span>{' '}
+                d&apos;{tank.water_type === 'freshwater' ? 'eau douce' : tank.water_type === 'saltwater' ? 'eau de mer' : 'eau saumâtre'}
               </p>
             </div>
             <button
@@ -183,20 +184,20 @@ export default function TankDetailPage() {
                 setAssistantMode('chat');
                 setSection('assistant');
               }}
-              className="flex items-center gap-1 rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white hover:bg-teal-700"
+              className="flex shrink-0 items-center gap-1.5 rounded-full bg-sable px-4 py-2 text-sm font-semibold text-abysse transition hover:bg-white"
             >
               <Sparkles size={16} /> Assistant IA
             </button>
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 pb-2">
+        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 pb-3">
           {SECTIONS.map((s) => (
             <button
               key={s.key}
               onClick={() => setSection(s.key)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition ${
-                section === s.key ? 'bg-teal-600 text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                section === s.key ? 'bg-white text-abysse' : 'text-teal-100 hover:bg-white/10 hover:text-white'
               }`}
             >
               {s.icon} {s.label}
@@ -205,18 +206,20 @@ export default function TankDetailPage() {
         </nav>
 
         {activeSubTabs && (
-          <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto border-t border-slate-100 px-4 py-2">
-            {activeSubTabs.map((s) => (
-              <button
-                key={s.key}
-                onClick={s.onClick}
-                className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
-                  s.active ? 'bg-teal-50 text-teal-700' : 'text-slate-400 hover:text-slate-700'
-                }`}
-              >
-                {s.label}
-              </button>
-            ))}
+          <div className="border-t border-white/10 bg-abysse-2">
+            <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2">
+              {activeSubTabs.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={s.onClick}
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
+                    s.active ? 'bg-sable text-abysse' : 'text-teal-200 hover:text-white'
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </header>
