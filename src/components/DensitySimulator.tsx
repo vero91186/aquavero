@@ -228,7 +228,7 @@ export function DensitySimulator({
                 {result.ratioGross !== null ? fmt(result.ratioGross, 2) : '—'}
               </p>
               <p className="mt-1 text-xs text-slate-500">
-                {grossLiters ? `sur ${fmt(grossLiters, 0)} L` : 'volume brut non renseigné'}
+                {grossLiters ? `sur ${fmt(grossLiters, 0)} L` : 'volume brut (aquarium vide) non renseigné'}
               </p>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">

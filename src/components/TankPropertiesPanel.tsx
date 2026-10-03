@@ -149,7 +149,7 @@ export function TankPropertiesPanel({
               type="number"
               step="0.1"
               min="0"
-              placeholder="annoncé par le fabricant"
+              placeholder="aquarium vide, sans rien dedans"
               value={form.gross_volume_liters}
               onChange={(e) => set('gross_volume_liters', e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
