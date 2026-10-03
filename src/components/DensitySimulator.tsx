@@ -30,11 +30,18 @@ function fmt(n: number, digits = 0) {
 // peuplement réellement enregistré et du volume saisi dans les propriétés,
 // mais tout ce qu'on y change (quantités, espèces ajoutées) reste hypothétique :
 // rien n'est écrit en base.
-export function DensitySimulator({ livestock, netLiters }: { livestock: Livestock[]; netLiters: number }) {
+export function DensitySimulator({
+  livestock,
+  netLiters,
+  grossLiters,
+}: {
+  livestock: Livestock[];
+  netLiters: number;
+  grossLiters: number | null;
+}) {
   const base = useMemo(() => linesFromLivestock(livestock), [livestock]);
   const [overrides, setOverrides] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<DensityLine[]>([]);
-  const [grossLiters, setGrossLiters] = useState('');
   const [flow, setFlow] = useState('');
   const [query, setQuery] = useState('');
   const [suggestions, setSuggestions] = useState<SpeciesReference[]>([]);
@@ -46,7 +53,7 @@ export function DensitySimulator({ livestock, netLiters }: { livestock: Livestoc
   const result = computeDensity(
     lines,
     netLiters,
-    parseFloat(grossLiters) || null,
+    grossLiters,
     parseFloat(flow) || null
   );
   const level = densityLevel(result.ratioNet);
@@ -220,15 +227,9 @@ export function DensitySimulator({ livestock, netLiters }: { livestock: Livestoc
               <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
                 {result.ratioGross !== null ? fmt(result.ratioGross, 2) : '—'}
               </p>
-              <input
-                type="number"
-                min="0"
-                inputMode="decimal"
-                placeholder="Volume brut (L)"
-                value={grossLiters}
-                onChange={(e) => setGrossLiters(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1 text-xs"
-              />
+              <p className="mt-1 text-xs text-slate-500">
+                {grossLiters ? `sur ${fmt(grossLiters, 0)} L` : 'volume brut non renseigné'}
+              </p>
             </div>
             <div className="rounded-lg bg-slate-50 p-3">
               <p className="text-xs text-slate-400">Litres par animal</p>

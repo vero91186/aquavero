@@ -25,6 +25,7 @@ export function TankPropertiesPanel({
   const [form, setForm] = useState({
     name: tank.name,
     volume_liters: String(tank.volume_liters),
+    gross_volume_liters: tank.gross_volume_liters !== null && tank.gross_volume_liters !== undefined ? String(tank.gross_volume_liters) : '',
     water_type: tank.water_type,
     length_cm: tank.length_cm !== null ? String(tank.length_cm) : '',
     width_cm: tank.width_cm !== null ? String(tank.width_cm) : '',
@@ -44,6 +45,7 @@ export function TankPropertiesPanel({
   });
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -53,9 +55,8 @@ export function TankPropertiesPanel({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await supabase
-      .from('tanks')
-      .update({
+    setSaveError(null);
+    const payload = {
         name: form.name,
         volume_liters: parseFloat(form.volume_liters) || tank.volume_liters,
         water_type: form.water_type,
@@ -74,10 +75,25 @@ export function TankPropertiesPanel({
         tap_chlorine_total_mg_l: form.tap_chlorine_total_mg_l ? parseFloat(form.tap_chlorine_total_mg_l) : null,
         tap_temperature_c: form.tap_temperature_c ? parseFloat(form.tap_temperature_c) : null,
         tap_conductivity_us_cm: form.tap_conductivity_us_cm ? parseFloat(form.tap_conductivity_us_cm) : null,
-      })
+    };
+    const grossLiters = form.gross_volume_liters ? parseFloat(form.gross_volume_liters) : null;
+    let { error } = await supabase
+      .from('tanks')
+      .update({ ...payload, gross_volume_liters: grossLiters })
       .eq('id', tank.id);
+    if (error && /gross_volume_liters/.test(error.message)) {
+      // Colonne absente : la migration 0010 n'est pas encore appliquée. On
+      // enregistre le reste pour ne rien perdre, et on le dit.
+      ({ error } = await supabase.from('tanks').update(payload).eq('id', tank.id));
+      if (!error) {
+        setSaveError(
+          "Le reste est enregistré, mais pas le volume brut : applique d'abord la migration 0010_gross_volume.sql dans Supabase."
+        );
+      }
+    }
+    if (error) setSaveError(error.message);
     setSaving(false);
-    setSaved(true);
+    setSaved(!error);
     onUpdated();
   }
 
@@ -115,15 +131,27 @@ export function TankPropertiesPanel({
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">Litrage et dimensions</h3>
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-5">
           <div className="space-y-1">
-            <label className="text-xs font-medium text-slate-600">Volume (L)</label>
+            <label className="text-xs font-medium text-slate-600">Volume réel (L)</label>
             <input
               type="number"
               step="0.1"
               min="0"
               value={form.volume_liters}
               onChange={(e) => set('volume_liters', e.target.value)}
+              className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-slate-600">Volume brut (L)</label>
+            <input
+              type="number"
+              step="0.1"
+              min="0"
+              placeholder="annoncé par le fabricant"
+              value={form.gross_volume_liters}
+              onChange={(e) => set('gross_volume_liters', e.target.value)}
               className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
             />
           </div>
@@ -163,7 +191,11 @@ export function TankPropertiesPanel({
         </div>
       </div>
 
-      <DensitySimulator livestock={livestock} netLiters={parseFloat(form.volume_liters) || 0} />
+      <DensitySimulator
+        livestock={livestock}
+        netLiters={parseFloat(form.volume_liters) || 0}
+        grossLiters={parseFloat(form.gross_volume_liters) || null}
+      />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">Sol et éclairage</h3>
@@ -300,6 +332,7 @@ export function TankPropertiesPanel({
       >
         <Save size={16} /> {saving ? 'Enregistrement…' : saved ? 'Enregistré' : 'Enregistrer'}
       </button>
+      {saveError && <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">{saveError}</p>}
     </form>
   );
 }
