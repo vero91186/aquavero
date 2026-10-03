@@ -87,7 +87,7 @@ export default function DashboardPage() {
                 className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-teal-400"
               >
                 <p className="text-4xl font-semibold tracking-tight text-teal-700">
-                  {tank.volume_liters}
+                  {tank.gross_volume_liters ?? tank.volume_liters}
                   <span className="ml-1 text-base font-medium text-slate-400">L</span>
                 </p>
                 <h2 className="mt-3 text-xl text-slate-900">{tank.name}</h2>
