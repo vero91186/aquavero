@@ -111,15 +111,15 @@ export function DensitySimulator({
         <h3 className="font-semibold text-slate-900">Simulateur de densité</h3>
       </div>
       <p className="mb-4 text-xs text-slate-500">
-        Centimètres de poisson par litre d&apos;eau, calculés sur le volume saisi ci-dessus et sur le
-        peuplement du bac. Change les quantités ou ajoute une espèce pour voir l&apos;effet : rien n&apos;est
+        Centimètres de poisson par litre d&apos;eau, calculés sur le volume des propriétés du bac et sur le
+        peuplement. Change les quantités ou ajoute une espèce pour voir l&apos;effet : rien n&apos;est
         enregistré. Un invertébré compte pour {Math.round(INVERTEBRATE_COEF * 100)} % d&apos;un poisson de même
         longueur.
       </p>
 
       {netLiters <= 0 ? (
         <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          Renseigne le volume du bac pour lancer la simulation.
+          Renseigne le volume du bac (Mon bac, Propriétés) pour lancer la simulation.
         </p>
       ) : (
         <>

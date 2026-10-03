@@ -15,7 +15,7 @@ import { LivestockPanel } from '@/components/LivestockPanel';
 import { MaintenancePanel } from '@/components/MaintenancePanel';
 import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
-import { StockingCalculator } from '@/components/StockingCalculator';
+import { DensitySimulator } from '@/components/DensitySimulator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { ScannerPanel } from '@/components/ScannerPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
@@ -332,7 +332,7 @@ export default function TankDetailPage() {
             <PopulationOverview tank={tank} livestock={livestock} />
           </div>
         )}
-        {section === 'bac' && bacSub === 'proprietes' && <TankPropertiesPanel tank={tank} livestock={livestock} onUpdated={loadAll} />}
+        {section === 'bac' && bacSub === 'proprietes' && <TankPropertiesPanel tank={tank} onUpdated={loadAll} />}
         {section === 'bac' && bacSub === 'materiel' && <EquipmentPanel tank={tank} onUpdated={loadAll} />}
         {section === 'bac' && bacSub === 'hardscape' && (
           <HardscapePanel tankId={tankId} items={hardscape} onUpdated={loadAll} />
@@ -348,7 +348,13 @@ export default function TankDetailPage() {
         )}
         {section === 'peuplement' && peuplementSub === 'peuplement' && (
           <div className="space-y-6">
-            <StockingCalculator tank={tank} livestock={livestock} />
+            <DensitySimulator
+              livestock={livestock}
+              netLiters={tank.volume_liters}
+              grossLiters={tank.gross_volume_liters ?? null}
+              lengthCm={tank.length_cm}
+              heightCm={tank.height_cm}
+            />
             <LivestockPanel
               tankId={tankId}
               livestock={livestock}
