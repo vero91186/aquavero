@@ -319,7 +319,7 @@ export function searchSpecies(query: string): SpeciesReference[] {
     return words.every((w) => hay.includes(w));
   });
   hits.sort((a, b) => Number(norm(b.commonName).startsWith(q)) - Number(norm(a.commonName).startsWith(q)));
-  return hits.slice(0, 10);
+  return hits.slice(0, 15);
 }
 
 // Effectif minimal conseillé pour une espèce de banc (null si elle n'en a pas

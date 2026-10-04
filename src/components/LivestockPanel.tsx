@@ -148,7 +148,7 @@ export function LivestockPanel({
         : [];
     // Évite les doublons si une espèce IA porte le même nom qu'une entrée du catalogue.
     const seen = new Set(fromCatalog.map((s) => s.scientificName.toLowerCase()));
-    return [...fromCatalog, ...fromCustom.filter((s) => !seen.has(s.scientificName.toLowerCase()))].slice(0, 10);
+    return [...fromCatalog, ...fromCustom.filter((s) => !seen.has(s.scientificName.toLowerCase()))].slice(0, 15);
   }
 
   function handleNameChange(value: string) {
