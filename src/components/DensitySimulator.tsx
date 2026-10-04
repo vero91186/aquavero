@@ -119,9 +119,9 @@ export function DensitySimulator({
 
   // Espèces de remplacement : même type et même étage, taille voisine, tempérament paisible,
   // compatibles avec le volume du bac, et pas déjà présentes.
-  function alternativesFor(l: DensityLine): SpeciesReference[] {
+  function alternativesFor(l: DensityLine, zoneOverride?: 'top' | 'mid' | 'bottom'): SpeciesReference[] {
     const present = new Set(lines.map((x) => (x.scientificName ?? x.name).toLowerCase()));
-    const zone = l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid');
+    const zone = zoneOverride ?? (l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid'));
     const vol = grossLiters && grossLiters > 0 ? grossLiters : netLiters;
     return SPECIES_CATALOG.filter(
       (c) =>
@@ -563,6 +563,111 @@ export function DensitySimulator({
               })}
             </div>
           </div>
+
+          {(() => {
+            const over = zoneStats.filter((z) => z.ratio >= 1.5 && z.liters > 0);
+            if (over.length === 0) return null;
+            const zoneName = (z: string) => (z === 'top' ? 'Surface' : z === 'mid' ? 'Milieu' : 'Fond');
+            const zoneOfLine = (l: DensityLine) => (l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid'));
+            const eqPer = (l: DensityLine) => Math.max(0.1, l.sizeCm * (l.kind === 'invertebrate' ? INVERTEBRATE_COEF : 1));
+            return (
+              <div className="mt-3 space-y-3 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
+                <p className="text-sm font-medium text-amber-900">Solutions pour les étages trop chargés</p>
+                {over.map((z) => {
+                  const inZone = lines.filter((l) => l.quantity > 0 && zoneOfLine(l) === z.zone);
+                  const heavy = [...inZone].sort((a, b) => eqPer(b) * b.quantity - eqPer(a) * a.quantity);
+                  const toRemove = z.cm - 1.25 * z.liters;
+                  const roomZone = zoneStats
+                    .filter((o) => o.zone !== z.zone && o.ratio < 1)
+                    .sort((a, b) => a.ratio - b.ratio)[0];
+                  const fishLine = heavy.find((l) => l.kind === 'fish');
+                  const moves =
+                    fishLine && roomZone
+                      ? alternativesFor(fishLine, roomZone.zone)
+                          .map((alt) => {
+                            const capacity = 1.25 * roomZone.liters - roomZone.cm;
+                            const min = schoolMinOf(alt) ?? 1;
+                            const add = Math.floor(capacity / alt.adultSizeCm);
+                            if (add < min) return null;
+                            const wanted = Math.min(add, Math.max(min, Math.round(toRemove / alt.adultSizeCm)));
+                            const remove = Math.min(fishLine.quantity, Math.max(1, Math.ceil((wanted * alt.adultSizeCm) / eqPer(fishLine))));
+                            return {
+                              alt,
+                              add: wanted,
+                              remove,
+                              afterRoom: (roomZone.cm + wanted * alt.adultSizeCm) / roomZone.liters,
+                              afterOver: (z.cm - remove * eqPer(fishLine)) / z.liters,
+                            };
+                          })
+                          .filter((m): m is NonNullable<typeof m> => m !== null)
+                          .sort((x, y) => Math.abs(x.alt.adultSizeCm - fishLine.sizeCm) - Math.abs(y.alt.adultSizeCm - fishLine.sizeCm))
+                          .slice(0, 4)
+                      : [];
+                  return (
+                    <div key={z.zone} className="space-y-2 rounded-lg bg-white p-2.5 text-sm">
+                      <p className="font-medium text-slate-800">
+                        {zoneName(z.zone)} : {fmt(z.ratio, 2)} cm/L, il faudrait retirer environ {fmt(toRemove, 0)} cm pour
+                        revenir à 1,25 cm/L.
+                      </p>
+                      <div>
+                        <p className="text-xs font-medium text-slate-600">1. Réduire</p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {heavy.slice(0, 3).map((l) => {
+                            const k = Math.min(l.quantity, Math.max(1, Math.ceil(toRemove / eqPer(l))));
+                            return (
+                              <button
+                                key={l.id}
+                                type="button"
+                                onClick={() => (l.hypothetical ? setExtraQty(l.id, l.quantity - k) : setQty(l.id, l.quantity - k))}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs hover:border-teal-400 hover:bg-teal-50"
+                              >
+                                Retirer {k} {l.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                      {fishLine && roomZone && moves.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-slate-600">
+                            2. Rééquilibrer : déplacer une partie des {fishLine.name} vers l&apos;étage{' '}
+                            {zoneName(roomZone.zone).toLowerCase()} ({fmt(roomZone.ratio, 2)} cm/L) avec un poisson de cet étage
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            {moves.map(({ alt, add, remove, afterRoom, afterOver }) => (
+                              <button
+                                key={alt.commonName}
+                                type="button"
+                                onClick={() => {
+                                  if (fishLine.hypothetical) setExtraQty(fishLine.id, fishLine.quantity - remove);
+                                  else setQty(fishLine.id, fishLine.quantity - remove);
+                                  addExtra(alt, add);
+                                }}
+                                className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left text-xs hover:border-teal-400 hover:bg-teal-50"
+                              >
+                                <span className="font-medium text-slate-800">
+                                  Retirer {remove} {fishLine.name}, ajouter {add} {alt.commonName}
+                                </span>
+                                <span className="block italic text-slate-500">{alt.scientificName}</span>
+                                <span className="text-slate-400">
+                                  {zoneName(z.zone)} : {fmt(afterOver, 2)} cm/L · {zoneName(roomZone.zone)} : {fmt(afterRoom, 2)} cm/L
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-600">
+                        3. Autres leviers : un bac plus grand, un brassage et un entretien renforcés (changes d&apos;eau plus
+                        fréquents), plus de cachettes et de plantes pour répartir les animaux
+                        {z.zone === 'bottom' ? ', et moins de poissons de fond ou de crevettes' : ''}.
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           {(() => {
             const plan = introductionPlan(lines);
