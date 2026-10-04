@@ -433,7 +433,7 @@ export default function TankDetailPage() {
           />
           </div>
         )}
-        {section === 'maladies' && <DiseasesPanel tankId={tankId} onGoToPrograms={() => setSection('entretien')} />}
+        {section === 'maladies' && <DiseasesPanel tankId={tankId} onJournalAdded={loadAll} onGoToPrograms={() => setSection('entretien')} />}
         {section === 'scanner' && (
           <ScannerPanel
             tankId={tankId}

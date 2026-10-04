@@ -27,7 +27,61 @@ import {
   type ObsRisk,
 } from '@/lib/observations';
 import { compressImageFile, fileToBase64 } from '@/lib/image';
-import { AlertTriangle, Camera, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
+import { AlertTriangle, BookPlus, Camera, Check, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
+
+// Ajoute une note « observation » au journal d'entretien du bac.
+function AddToJournal({
+  tankId,
+  text,
+  onAdded,
+}: {
+  tankId: string;
+  text: string;
+  onAdded?: () => void;
+}) {
+  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
+
+  async function add() {
+    setState('saving');
+    const supabase = createClient();
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) {
+      setState('error');
+      return;
+    }
+    const { error } = await supabase.from('maintenance_logs').insert({
+      tank_id: tankId,
+      user_id: data.user.id,
+      task_type: 'observation',
+      description: text,
+      performed_at: new Date().toISOString(),
+    });
+    if (error) {
+      setState('error');
+      return;
+    }
+    setState('done');
+    onAdded?.();
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={add}
+      disabled={state === 'saving' || state === 'done'}
+      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
+        state === 'done'
+          ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+          : state === 'error'
+            ? 'border-red-300 bg-red-50 text-red-700'
+            : 'border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100'
+      }`}
+    >
+      {state === 'done' ? <Check size={13} /> : <BookPlus size={13} />}
+      {state === 'done' ? 'Ajouté au journal' : state === 'error' ? 'Échec, réessayer' : 'Ajouter au journal'}
+    </button>
+  );
+}
 
 type Sub = 'scanner' | 'liste' | 'autre' | 'historique';
 
@@ -47,8 +101,10 @@ const SEVERITY_BADGE: Record<DiseaseSeverity, string> = {
 export function DiseasesPanel({
   tankId,
   onGoToPrograms,
+  onJournalAdded,
 }: {
   tankId: string;
+  onJournalAdded?: () => void;
   // Ouvre l'onglet Entretien, où l'on crée un programme de traitement avec début et fin.
   onGoToPrograms?: () => void;
 }) {
@@ -89,18 +145,22 @@ export function DiseasesPanel({
           onDone={() => setHistoryKey((k) => k + 1)}
         />
       )}
-      {sub === 'liste' && <DiseaseList openId={openId} setOpenId={setOpenId} onGoToPrograms={onGoToPrograms} />}
-      {sub === 'autre' && <OtherTab />}
+      {sub === 'liste' && <DiseaseList tankId={tankId} openId={openId} setOpenId={setOpenId} onGoToPrograms={onGoToPrograms} onJournalAdded={onJournalAdded} />}
+      {sub === 'autre' && <OtherTab tankId={tankId} onJournalAdded={onJournalAdded} />}
       {sub === 'historique' && <History tankId={tankId} refreshKey={historyKey} onOpenDisease={(id) => { setOpenId(id); setSub('liste'); }} />}
     </div>
   );
 }
 
 function DiseaseList({
+  tankId,
   openId,
   setOpenId,
   onGoToPrograms,
+  onJournalAdded,
 }: {
+  tankId: string;
+  onJournalAdded?: () => void;
   openId: string | null;
   setOpenId: (id: string | null) => void;
   onGoToPrograms?: () => void;
@@ -148,7 +208,7 @@ function DiseaseList({
       {list.length === 0 && <p className="text-sm text-slate-400">Aucune maladie ne correspond à cette recherche.</p>}
 
       {list.map((d) => (
-        <DiseaseCard key={d.id} d={d} open={openId === d.id} onToggle={() => setOpenId(openId === d.id ? null : d.id)} onGoToPrograms={onGoToPrograms} />
+        <DiseaseCard key={d.id} tankId={tankId} onJournalAdded={onJournalAdded} d={d} open={openId === d.id} onToggle={() => setOpenId(openId === d.id ? null : d.id)} onGoToPrograms={onGoToPrograms} />
       ))}
 
       <p className="flex items-start gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -161,11 +221,15 @@ function DiseaseList({
 }
 
 function DiseaseCard({
+  tankId,
+  onJournalAdded,
   d,
   open,
   onToggle,
   onGoToPrograms,
 }: {
+  tankId: string;
+  onJournalAdded?: () => void;
   d: Disease;
   open: boolean;
   onToggle: () => void;
@@ -221,6 +285,7 @@ function DiseaseCard({
             <span className="font-medium text-slate-800">Prévention : </span>
             {d.prevention}
           </p>
+          <AddToJournal tankId={tankId} onAdded={onJournalAdded} text={`Maladie suspectée : ${d.name}. ${d.symptoms.slice(0, 2).join(' ; ')}.`} />
           {onGoToPrograms && d.group !== 'plant' && (
             <button
               type="button"
@@ -320,16 +385,16 @@ interface ObsResult {
 
 const HINTS = ['Œuf / ponte', 'Algue', 'Bestiole', 'Autre'];
 
-function OtherTab() {
+function OtherTab({ tankId, onJournalAdded }: { tankId: string; onJournalAdded?: () => void }) {
   return (
     <div className="space-y-4">
-      <ObservationScan />
-      <ObservationList />
+      <ObservationScan tankId={tankId} onJournalAdded={onJournalAdded} />
+      <ObservationList tankId={tankId} onJournalAdded={onJournalAdded} />
     </div>
   );
 }
 
-function ObservationScan() {
+function ObservationScan({ tankId, onJournalAdded }: { tankId: string; onJournalAdded?: () => void }) {
   const [description, setDescription] = useState('');
   const [hint, setHint] = useState<string | null>(null);
   const [img, setImg] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
@@ -440,13 +505,18 @@ function ObservationScan() {
             </ol>
           )}
           {fiche && <p className="text-xs text-teal-700">Fiche correspondante : {fiche.name} (voir la liste ci-dessous)</p>}
+          <AddToJournal
+            tankId={tankId}
+            onAdded={onJournalAdded}
+            text={`${result.identification} (${OBS_RISK_LABELS[result.risk] ?? OBS_RISK_LABELS.watch}). ${result.explanation}${description.trim() ? ` Observé : ${description.trim()}` : ''}`}
+          />
         </div>
       )}
     </div>
   );
 }
 
-function ObservationList() {
+function ObservationList({ tankId, onJournalAdded }: { tankId: string; onJournalAdded?: () => void }) {
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<ObsGroup | 'all'>('all');
   const [openId, setOpenId] = useState<string | null>(null);
@@ -502,6 +572,7 @@ function ObservationList() {
                     <li key={a}>{a}</li>
                   ))}
                 </ul>
+                <AddToJournal tankId={tankId} onAdded={onJournalAdded} text={`${o.name} (${OBS_RISK_LABELS[o.risk]}). ${o.meaning}`} />
               </div>
             )}
           </article>
