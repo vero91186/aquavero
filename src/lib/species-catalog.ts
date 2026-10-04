@@ -2753,7 +2753,7 @@ export const SPECIES_CATALOG: SpeciesReference[] = [
     bioloadFactor: 2.8,
     adultSizeCm: 15,
     temperament: "paisible, territorial entre mâles, grotte requise",
-    minTankLiters: 120,
+    minTankLiters: 150,
     swimZone: "bottom",
     solitary: false,
     sexNote: "un seul mâle par bac en général",
@@ -4089,7 +4089,6 @@ const RATIO_BY_SCI: Record<string, [number, number]> = {
   "Betta imbellis": [1, 0],
   "Betta smaragdina": [1, 0],
   "Aphyosemion australe": [1, 2],
-  "Epiplatys annulatus": [1, 2],
   "Aplocheilus lineatus": [1, 2],
   "Fundulopanchax gardneri": [1, 2],
   "Pachypanchax playfairii": [1, 2],
@@ -4170,7 +4169,7 @@ export function sexRatioByName(
 // Étage de nage d'après le catalogue (nom commun ou scientifique), avec un
 // repli par genre pour les poissons de fond classiques. null si inconnu.
 const BOTTOM_GENERA =
-  /ancistrus|pl[ée]co|corydoras|brochis|aspidoras|dianema|scleromystax|pangio|kuhli|loche|botia|yasuhikotakia|otocinclus|hypancistrus|peckoltia|parotocinclus|rineloricaria|farlowella|synodontis|apistogramma|crossocheilus/i;
+  /ancistrus|pl[ée]co|corydoras|brochis|aspidoras|dianema|scleromystax|pangio|kuhli|\bloches?\b|botia|yasuhikotakia|otocinclus|hypancistrus|peckoltia|parotocinclus|rineloricaria|farlowella|synodontis|apistogramma|crossocheilus/i;
 export function swimZoneByName(
   name: string,
   scientific?: string | null,

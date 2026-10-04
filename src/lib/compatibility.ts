@@ -32,7 +32,7 @@ const PLANT_EATING_SNAIL = /pomacea|marisa|escargot pomme/;
 const HARMLESS_FISH =
   /otocinclus|ancistrus|corydoras|aspidoras|brochis|dianema|scleromystax|pangio|farlowella|rineloricaria|parotocinclus|peckoltia|hypancistrus|gasteropelecus|carnegiella|kryptopterus|nannostomus|copella|boraras|sundadanio|microdevario|axelrodia|symphysodon|discus|crossocheilus|siamois|chilodus|characidium|rhinogobius|gobie|tateurndina|boraras/;
 const STRONG_PREDATOR =
-  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|devario aequipinnatus|danio geant|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |macropodus|paradis|aphyosemion|fundulopanchax|killi/;
+  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|devario aequipinnatus|danio geant|cichlid|macropodus|paradis|aphyosemion|fundulopanchax|killi/;
 const SHRIMP_HUNTER =
   /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|botia|yasuhikotakia|macropodus|paradis|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |betta|combattant|trichopodus|trichogaster|gourami|sphaerichthys|tetrazona|barbodes|puntigrus|devario|melanotaenia|killi|aphyosemion|fundulopanchax|badis|dario|symphysodon|discus|carinotetraodon|globe|chromobotia|microctenopoma|neolamprologus/;
 const NIPPER =
