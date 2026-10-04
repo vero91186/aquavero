@@ -8,8 +8,19 @@ import { MapPin, Trash2, Wand2, Eraser } from 'lucide-react';
 
 type Pt = { x: number; y: number };
 
-const GREENS = ['#2f6f47', '#55996f', '#7aa63c', '#3b8056', '#8fb04a', '#1f4730', '#5f8f6b', '#a0b84e'];
-const FLOATING = /flottant|lentille|salvinia|pistia|limnobium|laitue|cératophylle flott/i;
+// Couleurs franchement distinctes (et lisibles sur le sable) : une par espèce.
+const PALETTE = ['#0f7a4f', '#d9480f', '#6741d9', '#c2255c', '#1c7ed6', '#8c5a2b', '#0b7285', '#9c36b5', '#5c940d', '#c92a2a'];
+
+type Shape = 'tuft' | 'rosette' | 'leaf' | 'moss' | 'fern' | 'floating' | 'stem';
+const SHAPES: { re: RegExp; shape: Shape; label: string }[] = [
+  { re: /flottant|lentille|salvinia|pistia|limnobium|laitue/i, shape: 'floating', label: 'flottante' },
+  { re: /vallis|sagittaria|jonc|herbe|gazon|eleocharis|hairgrass|ruban|cyperus/i, shape: 'tuft', label: 'herbe en ruban' },
+  { re: /crypto|echinodorus|épée|epee|sword|lilaea/i, shape: 'rosette', label: 'rosette' },
+  { re: /anubias|nymph|lotus|bucephalandra|spathiphyllum|aponogeton/i, shape: 'leaf', label: 'larges feuilles' },
+  { re: /mousse|moss|riccia|fissidens|monosolenium|pelia|christmas/i, shape: 'moss', label: 'mousse' },
+  { re: /foug[eè]re|fern|microsorum|bolbitis|ceratopteris/i, shape: 'fern', label: 'fougère' },
+];
+const shapeOf = (name: string) => SHAPES.find((x) => x.re.test(name)) ?? { shape: 'stem' as Shape, label: 'plante à tiges' };
 
 function hash(s: string) {
   let h = 2166136261;
@@ -33,6 +44,73 @@ function radiusOf(p: Livestock) {
   return Math.min(7, Math.max(4, 3.5 + h * 0.08));
 }
 
+function Glyph({ shape, r, color }: { shape: Shape; r: number; color: string }) {
+  const sw = Math.max(3, r * 0.14);
+  switch (shape) {
+    case 'tuft':
+      return (
+        <g stroke={color} strokeWidth={sw} strokeLinecap="round" fill="none">
+          {[-0.9, -0.45, 0, 0.45, 0.9].map((a, i) => (
+            <path key={i} d={`M ${a * r * 0.45} ${r * 0.8} Q ${a * r * 0.9} ${-r * 0.1} ${a * r * 1.1} ${-r * 0.95}`} />
+          ))}
+        </g>
+      );
+    case 'rosette':
+      return (
+        <g fill={color} fillOpacity={0.85}>
+          {Array.from({ length: 8 }, (_, i) => (
+            <ellipse key={i} cx={0} cy={-r * 0.5} rx={r * 0.24} ry={r * 0.52} transform={`rotate(${i * 45})`} />
+          ))}
+          <circle r={r * 0.2} fill="#fff" fillOpacity={0.9} />
+        </g>
+      );
+    case 'leaf':
+      return (
+        <g fill={color} fillOpacity={0.9}>
+          <ellipse cx={-r * 0.38} cy={-r * 0.1} rx={r * 0.4} ry={r * 0.62} transform={`rotate(-28 ${-r * 0.38} ${-r * 0.1})`} />
+          <ellipse cx={r * 0.38} cy={-r * 0.1} rx={r * 0.4} ry={r * 0.62} transform={`rotate(28 ${r * 0.38} ${-r * 0.1})`} />
+          <ellipse cx={0} cy={r * 0.12} rx={r * 0.42} ry={r * 0.66} />
+        </g>
+      );
+    case 'moss':
+      return (
+        <g>
+          <circle r={r * 0.85} fill={color} fillOpacity={0.45} stroke={color} strokeWidth={sw} strokeDasharray={`${sw * 0.8} ${sw * 1.4}`} strokeLinecap="round" />
+          <circle r={r * 0.45} fill={color} fillOpacity={0.7} />
+        </g>
+      );
+    case 'fern':
+      return (
+        <g stroke={color} strokeWidth={sw * 0.7} strokeLinecap="round" fill="none">
+          <path d={`M 0 ${r * 0.9} L 0 ${-r * 0.9}`} />
+          {[-0.6, -0.25, 0.1, 0.45, 0.78].map((y, i) => (
+            <path key={i} d={`M 0 ${y * r} L ${-r * 0.55 * (1 - Math.abs(y) * 0.3)} ${y * r - r * 0.28} M 0 ${y * r} L ${r * 0.55 * (1 - Math.abs(y) * 0.3)} ${y * r - r * 0.28}`} />
+          ))}
+        </g>
+      );
+    case 'floating':
+      return (
+        <g fill={color} fillOpacity={0.55} stroke={color} strokeWidth={sw * 0.6}>
+          <circle cx={-r * 0.35} cy={-r * 0.2} r={r * 0.38} />
+          <circle cx={r * 0.38} cy={-r * 0.1} r={r * 0.38} />
+          <circle cx={0} cy={r * 0.38} r={r * 0.38} />
+        </g>
+      );
+    default:
+      return (
+        <g stroke={color} strokeWidth={sw * 0.7} strokeLinecap="round" fill={color} fillOpacity={0.85}>
+          <path d={`M 0 ${r * 0.9} L 0 ${-r * 0.7}`} fill="none" />
+          {[-0.5, -0.1, 0.3].map((y, i) => (
+            <g key={i}>
+              <ellipse cx={-r * 0.38} cy={y * r} rx={r * 0.3} ry={r * 0.14} />
+              <ellipse cx={r * 0.38} cy={y * r - r * 0.12} rx={r * 0.3} ry={r * 0.14} />
+            </g>
+          ))}
+        </g>
+      );
+  }
+}
+
 export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Livestock[]; onUpdated: () => void }) {
   const supabase = createClient();
   const svgRef = useRef<SVGSVGElement>(null);
@@ -46,10 +124,10 @@ export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Live
   const [error, setError] = useState<string | null>(null);
 
   const posOf = (p: Livestock): Pt[] => local[p.id] ?? p.positions ?? [];
-  const colorOf = (i: number) => GREENS[i % GREENS.length];
+  const colorOf = (i: number) => PALETTE[i % PALETTE.length];
 
-  async function save(id: string, pts: Pt[]) {
-    setLocal((m) => ({ ...m, [id]: pts }));
+  async function save(id: string, pts: Pt[], skipLocal = false) {
+    if (!skipLocal) setLocal((m) => ({ ...m, [id]: pts }));
     const { error: err } = await supabase.from('livestock').update({ positions: pts }).eq('id', id);
     if (err) {
       setError("L'emplacement n'a pas pu être enregistré : lance la migration 0013_plant_positions.sql dans Supabase.");
@@ -117,6 +195,7 @@ export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Live
   // fond et sur les côtés, moyennes au milieu, petites à l'avant.
   async function autoPlace() {
     const all: { x: number; y: number; r: number }[] = [];
+    const updates: { id: string; pts: Pt[] }[] = [];
     plants.forEach((p) => posOf(p).forEach((q) => all.push({ ...q, r: radiusOf(p) })));
     for (const p of plants) {
       const missing = p.quantity - posOf(p).length;
@@ -138,8 +217,11 @@ export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Live
         pts.push(best);
         all.push({ ...best, r });
       }
-      await save(p.id, pts);
+      updates.push({ id: p.id, pts });
     }
+    // Affichage immédiat, enregistrement ensuite en parallèle.
+    setLocal((m) => ({ ...m, ...Object.fromEntries(updates.map((u) => [u.id, u.pts])) }));
+    await Promise.all(updates.map((u) => save(u.id, u.pts, true)));
   }
 
   async function clearAll() {
@@ -189,7 +271,12 @@ export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Live
                 active ? 'border-teal-600 bg-teal-600 text-white' : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
               }`}
             >
-              <span className="h-2.5 w-2.5 rounded-full" style={{ background: colorOf(i) }} />
+              <span
+                className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold text-white"
+                style={{ background: colorOf(i) }}
+              >
+                {i + 1}
+              </span>
               {p.species_common_name}
               <span className={active ? 'text-teal-100' : 'text-slate-400'}>
                 {placed}/{p.quantity}
@@ -235,28 +322,55 @@ export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Live
               const cx = pt.x * U;
               const cy = (D - pt.y) * U;
               const sel = selected?.id === p.id && selected.idx === idx;
-              const floating = FLOATING.test(p.species_common_name);
+              const color = colorOf(i);
+              const { shape } = shapeOf(p.species_common_name);
+              const badge = Math.max(11, r * 0.34);
               return (
                 <g key={`${p.id}-${idx}`} onPointerDown={(e) => onMarkerDown(e, p.id, idx)} className="cursor-grab">
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={r}
-                    fill={colorOf(i)}
-                    fillOpacity={floating ? 0.35 : 0.75}
-                    stroke={sel ? '#16211d' : colorOf(i)}
-                    strokeWidth={sel ? 5 : 2}
-                    strokeDasharray={floating ? '10 6' : undefined}
-                  />
-                  <text x={cx} y={cy + 7} textAnchor="middle" fontSize={Math.max(16, Math.min(26, r * 0.7))} fill="#fff" fontWeight={600} pointerEvents="none">
-                    {p.species_common_name.slice(0, 2).toUpperCase()}
-                  </text>
+                  <title>{p.species_common_name}</title>
+                  <circle cx={cx} cy={cy} r={r} fill="#fffdf5" fillOpacity={0.78} stroke={sel ? '#16211d' : color} strokeWidth={sel ? 5 : 3} />
+                  <g transform={`translate(${cx} ${cy})`} pointerEvents="none">
+                    <Glyph shape={shape} r={r * 0.82} color={color} />
+                  </g>
+                  <g transform={`translate(${cx + r * 0.72} ${cy - r * 0.72})`} pointerEvents="none">
+                    <circle r={badge} fill={color} stroke="#fff" strokeWidth={2.5} />
+                    <text y={badge * 0.36} textAnchor="middle" fontSize={badge * 1.1} fill="#fff" fontWeight={700}>
+                      {i + 1}
+                    </text>
+                  </g>
+                  {sel && (
+                    <text x={cx} y={cy + r + 22} textAnchor="middle" fontSize={22} fontWeight={700} fill="#16211d" stroke="#fffdf5" strokeWidth={5} paintOrder="stroke" pointerEvents="none">
+                      {p.species_common_name}
+                    </text>
+                  )}
                 </g>
               );
             })
           )}
         </svg>
       </div>
+
+      <ul className="mt-3 grid gap-x-4 gap-y-1.5 text-xs text-slate-600 sm:grid-cols-2">
+        {plants.map((p, i) => {
+          const sh = shapeOf(p.species_common_name);
+          return (
+            <li key={p.id} className="flex items-center gap-2">
+              <svg viewBox="-14 -14 28 28" className="h-6 w-6 shrink-0 rounded-full bg-[#fffdf5] ring-2" style={{ ['--tw-ring-color' as string]: colorOf(i) }}>
+                <Glyph shape={sh.shape} r={11} color={colorOf(i)} />
+              </svg>
+              <span>
+                <span className="font-semibold text-slate-800">
+                  {i + 1}. {p.species_common_name}
+                </span>
+                {scientificNameOf(p.species_common_name, p.species_scientific_name) && (
+                  <em className="text-slate-500"> {scientificNameOf(p.species_common_name, p.species_scientific_name)}</em>
+                )}
+                <span className="text-slate-400">, {sh.label}</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
 
       {selPlant && selPt && (
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
