@@ -15,6 +15,7 @@ import {
   type DensityLevelId,
 } from '@/lib/density';
 import { createClient } from '@/lib/supabase/client';
+import { introductionPlan } from '@/lib/introduction';
 import { DensityProjects } from '@/components/DensityProjects';
 import { TankSimulationView } from '@/components/TankSimulationView';
 import { Gauge, Shuffle, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
@@ -538,6 +539,47 @@ export function DensitySimulator({
               })}
             </div>
           </div>
+
+          {(() => {
+            const plan = introductionPlan(lines);
+            if (plan.length === 0) return null;
+            const cumulative: DensityLine[] = [];
+            return (
+              <div className="mt-4 rounded-xl border border-slate-200 p-3">
+                <p className="text-sm font-medium text-slate-800">Ordre d&apos;ajout conseillé</p>
+                <p className="mb-2 text-xs text-slate-500">
+                  Règle générale : on espace les ajouts et on laisse la filtration suivre. Teste l&apos;eau (nitrites, ammoniac)
+                  avant chaque étape.
+                </p>
+                <ol className="space-y-2">
+                  {plan.map((st) => {
+                    cumulative.push(...st.lines);
+                    const r = computeDensity(cumulative, netLiters, grossLiters, null);
+                    const lv = densityLevel(r.ratioNet);
+                    return (
+                      <li key={st.step} className="rounded-lg bg-slate-50 p-2.5">
+                        <div className="flex flex-wrap items-baseline justify-between gap-1">
+                          <p className="text-sm font-semibold text-slate-800">
+                            Étape {st.step} · {st.title}
+                          </p>
+                          <span className="text-xs text-slate-500">{st.timing}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-slate-500">{st.why}</p>
+                        <p className="mt-1 text-sm text-slate-800">
+                          {st.lines
+                            .map((l) => `${l.quantity} ${l.name}`)
+                            .join(' · ')}
+                        </p>
+                        <p className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${LEVEL_STYLES[lv.id].tile}`}>
+                          Charge après cette étape : {fmt(r.ratioNet, 2)} cm/L · {lv.label.toLowerCase()}
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            );
+          })()}
 
           <TankSimulationView
             lines={lines}
