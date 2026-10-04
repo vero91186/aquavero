@@ -1,4 +1,5 @@
 import type { DensityLine } from "@/lib/density";
+import { SPECIES_CATALOG } from "@/lib/species-catalog";
 
 // Évaluation des incompatibilités entre les espèces d'un peuplement : prédation,
 // harcèlement des nageoires, territorialité, paramètres d'eau opposés, eau douce
@@ -60,22 +61,122 @@ const CARIDINA =
 const NEOCARIDINA =
   /neocaridina|crevette (red cherry|blue dream|yellow|rili|black rose|orange sakura|bloody mary|green jade|blue velvet|snowball|carbon)/;
 
-const names = (ls: DensityLine[]) => Array.from(new Set(ls.map((l) => l.name)));
-const some = (ls: DensityLine[], re: RegExp) =>
-  ls.filter((l) => re.test(txt(l)));
+// Profil de comportement d'une espèce, déduit du catalogue (par nom) ou, pour
+// une espèce hors catalogue, renseigné par l'IA (voir /api/ai/species-traits).
+export interface SpeciesTraits {
+  marine: boolean;
+  shrimp: boolean;
+  ghostShrimp: boolean;
+  crayfish: boolean;
+  snail: boolean;
+  plantEatingSnail: boolean;
+  assassinSnail: boolean;
+  harmless: boolean; // ne s'attaque pas aux autres (loricariidés, corydoras…)
+  strongPredator: boolean; // avale les poissons plus petits
+  shrimpHunter: boolean;
+  eatsSnails: boolean;
+  nipper: boolean;
+  longfin: boolean;
+  labyrinth: boolean;
+  betta: boolean;
+  solitary: boolean; // un seul individu (ou un seul mâle) par bac
+  ancistrus: boolean;
+  dwarfCichlid: boolean;
+  territorial: boolean;
+  active: boolean;
+  shy: boolean;
+  hot: boolean;
+  cool: boolean;
+  soft: boolean;
+  hard: boolean;
+  caridina: boolean;
+  neocaridina: boolean;
+}
 
-export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
-  const lines = allLines.filter((l) => l.quantity > 0);
-  const fish = lines.filter((l) => l.kind === "fish" && !MARINE.test(txt(l)));
+export type PartialTraits = Partial<SpeciesTraits>;
+
+const stripped = (s: string) =>
+  s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+
+// Vrai si l'espèce se trouve dans le catalogue (nom commun ou scientifique).
+export function isCatalogSpecies(l: {
+  name: string;
+  scientificName?: string | null;
+}): boolean {
+  const n = stripped(l.name);
+  const sci = l.scientificName ? stripped(l.scientificName) : "";
+  return SPECIES_CATALOG.some(
+    (c) =>
+      stripped(c.commonName) === n ||
+      stripped(c.scientificName) === n ||
+      (sci !== "" && stripped(c.scientificName) === sci) ||
+      (n.length > 4 && stripped(c.commonName).includes(n)),
+  );
+}
+
+export function regexTraits(l: DensityLine): SpeciesTraits {
+  const t = txt(l);
+  const marine = MARINE.test(t);
+  const snail = l.kind === "invertebrate" && SNAIL.test(t);
+  const shrimpRe = l.kind === "invertebrate" && SHRIMP.test(t) && !snail;
+  return {
+    marine,
+    shrimp: shrimpRe,
+    ghostShrimp: /palaemonetes|fantome/.test(t),
+    crayfish: l.kind === "invertebrate" && CRAYFISH.test(t),
+    snail,
+    plantEatingSnail: PLANT_EATING_SNAIL.test(t),
+    assassinSnail: /anentome|clea|assassin/.test(t),
+    harmless: HARMLESS_FISH.test(t),
+    strongPredator: STRONG_PREDATOR.test(t),
+    shrimpHunter: SHRIMP_HUNTER.test(t),
+    eatsSnails: /botia|yasuhikotakia/.test(t),
+    nipper: NIPPER.test(t),
+    longfin: LONGFIN.test(t),
+    labyrinth: LABYRINTH.test(t),
+    betta: /betta|combattant/.test(t),
+    solitary: /betta|combattant/.test(t),
+    ancistrus: /ancistrus/.test(t),
+    dwarfCichlid: DWARF_CICHLID.test(t),
+    territorial: false,
+    active: ACTIVE.test(t),
+    shy: SHY.test(t),
+    hot: HOT.test(t),
+    cool: COOL.test(t),
+    soft: SOFT.test(t),
+    hard: HARD.test(t),
+    caridina: CARIDINA.test(t),
+    neocaridina: NEOCARIDINA.test(t),
+  };
+}
+
+const names = (ls: DensityLine[]) => Array.from(new Set(ls.map((l) => l.name)));
+
+export function evaluateCompatibility(
+  allLines: DensityLine[],
+  aiTraits: Record<string, PartialTraits> = {},
+): CompatIssue[] {
+  const present = allLines.filter((l) => l.quantity > 0);
+  const tr = new Map<DensityLine, SpeciesTraits>();
+  for (const l of present) {
+    const base = regexTraits(l);
+    const ai = isCatalogSpecies(l) ? undefined : aiTraits[stripped(l.name)];
+    tr.set(l, ai ? { ...base, ...ai } : base);
+  }
+  const T = (l: DensityLine) => tr.get(l) as SpeciesTraits;
+  const lines = present;
+  const fish = lines.filter((l) => l.kind === "fish" && !T(l).marine);
   const inverts = lines.filter(
-    (l) => l.kind === "invertebrate" && !MARINE.test(txt(l)),
+    (l) => l.kind === "invertebrate" && !T(l).marine,
   );
   const issues: CompatIssue[] = [];
   const add = (i: CompatIssue) => issues.push(i);
+  const pick = (ls: DensityLine[], f: (t: SpeciesTraits) => boolean) =>
+    ls.filter((l) => f(T(l)));
 
   // 1. Eau douce et eau de mer
-  const marine = lines.filter((l) => MARINE.test(txt(l)));
-  const fresh = lines.filter((l) => !MARINE.test(txt(l)));
+  const marine = pick(lines, (t) => t.marine);
+  const fresh = lines.filter((l) => !T(l).marine);
   if (marine.length > 0 && fresh.length > 0) {
     add({
       level: "danger",
@@ -90,8 +191,8 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   // 2. Gros poissons contre petits poissons
   const eaten = new Map<string, { by: Set<string>; strong: boolean }>();
   for (const a of fish) {
-    if (HARMLESS_FISH.test(txt(a)) || a.sizeCm <= 0) continue;
-    const strong = STRONG_PREDATOR.test(txt(a));
+    if (T(a).harmless || a.sizeCm <= 0) continue;
+    const strong = T(a).strongPredator;
     for (const b of fish) {
       if (a === b || b.sizeCm <= 0) continue;
       const ratio = a.sizeCm / b.sizeCm;
@@ -114,21 +215,14 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   }
 
   // 3. Crevettes et poissons chasseurs
-  const shrimps = inverts.filter(
-    (l) => SHRIMP.test(txt(l)) && !SNAIL.test(txt(l)),
-  );
+  const shrimps = pick(inverts, (t) => t.shrimp);
   if (shrimps.length > 0) {
     const hunters = fish.filter(
-      (l) =>
-        SHRIMP_HUNTER.test(txt(l)) ||
-        (l.sizeCm >= 9 && !HARMLESS_FISH.test(txt(l))),
+      (l) => T(l).shrimpHunter || (l.sizeCm >= 9 && !T(l).harmless),
     );
     if (hunters.length > 0) {
       const strong = hunters.some(
-        (l) =>
-          STRONG_PREDATOR.test(txt(l)) ||
-          /botia|yasuhikotakia/.test(txt(l)) ||
-          l.sizeCm >= 9,
+        (l) => T(l).strongPredator || T(l).eatsSnails || l.sizeCm >= 9,
       );
       add({
         level: strong ? "danger" : "warning",
@@ -149,8 +243,8 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
     }
   }
 
-  // 4. Écrevisses
-  const cray = inverts.filter((l) => CRAYFISH.test(txt(l)));
+  // 4. Écrevisses et crevettes fantômes
+  const cray = pick(inverts, (t) => t.crayfish);
   if (cray.length > 0) {
     if (shrimps.length > 0) {
       add({
@@ -172,10 +266,12 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
       });
     }
   }
-  const ghost = inverts.filter((l) => /palaemonetes|fantome/.test(txt(l)));
+  const ghost = pick(inverts, (t) => t.ghostShrimp);
   if (
     ghost.length > 0 &&
-    inverts.some((l) => NEOCARIDINA.test(txt(l)) || CARIDINA.test(txt(l)))
+    inverts.some(
+      (l) => (T(l).neocaridina || T(l).caridina) && !ghost.includes(l),
+    )
   ) {
     add({
       level: "warning",
@@ -188,14 +284,10 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   }
 
   // 5. Poissons qui mordillent les nageoires
-  const nippers = some(fish, NIPPER);
-  const longfins = fish.filter(
-    (l) => LONGFIN.test(txt(l)) && !nippers.includes(l),
-  );
+  const nippers = pick(fish, (t) => t.nipper);
+  const longfins = fish.filter((l) => T(l).longfin && !nippers.includes(l));
   if (nippers.length > 0 && longfins.length > 0) {
-    const sensitive = longfins.some((l) =>
-      /betta|combattant|pterophyllum|scalaire|symphysodon|discus/.test(txt(l)),
-    );
+    const sensitive = longfins.some((l) => T(l).shy);
     add({
       level: sensitive ? "danger" : "warning",
       title: "Mordillage de nageoires",
@@ -207,19 +299,21 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
 
   // 6. Territorialité
   for (const l of fish) {
-    const solitary = /betta|combattant/.test(txt(l));
-    if (solitary && l.quantity > 1) {
+    if (T(l).solitary && l.quantity > 1) {
       add({
         level: "danger",
         title: `Plusieurs ${l.name}`,
-        detail:
-          "Les mâles se battent jusqu’à la mort. Les femelles ensemble demandent un grand bac et beaucoup de cachettes.",
-        fix: `Garde 1 seul ${l.name} (un mâle), ou un groupe de 5 femelles ou plus dans un bac très planté.`,
+        detail: T(l).betta
+          ? "Les mâles se battent jusqu’à la mort. Les femelles ensemble demandent un grand bac et beaucoup de cachettes."
+          : "Cette espèce vit seule : les individus se battent entre eux.",
+        fix: T(l).betta
+          ? `Garde 1 seul ${l.name} (un mâle), ou un groupe de 5 femelles ou plus dans un bac très planté.`
+          : `Garde 1 seul ${l.name}.`,
         names: [l.name],
       });
     }
   }
-  const bettas = some(fish, /betta|combattant/);
+  const bettas = pick(fish, (t) => t.betta);
   if (bettas.length > 1 && bettas.every((b) => b.quantity === 1)) {
     add({
       level: "danger",
@@ -231,7 +325,7 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   }
   if (bettas.length > 0) {
     const labyOthers = fish.filter(
-      (l) => LABYRINTH.test(txt(l)) && !bettas.includes(l),
+      (l) => T(l).labyrinth && !bettas.includes(l),
     );
     if (labyOthers.length > 0) {
       add({
@@ -244,19 +338,17 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
       });
     }
   }
-  const plecoTotal = fish
-    .filter((l) => /ancistrus/.test(txt(l)))
-    .reduce((s, l) => s + l.quantity, 0);
-  if (plecoTotal >= 2) {
+  const plecos = pick(fish, (t) => t.ancistrus);
+  if (plecos.reduce((s, l) => s + l.quantity, 0) >= 2) {
     add({
       level: "warning",
       title: "Plusieurs Ancistrus",
       detail: "Les mâles se disputent les grottes et s’abîment les nageoires.",
       fix: "Un seul mâle, avec une ou deux femelles, et au moins une grotte par poisson.",
-      names: names(some(fish, /ancistrus/)),
+      names: names(plecos),
     });
   }
-  const dwarfs = some(fish, DWARF_CICHLID);
+  const dwarfs = pick(fish, (t) => t.dwarfCichlid);
   if (dwarfs.length >= 2) {
     add({
       level: "warning",
@@ -267,10 +359,24 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
       names: names(dwarfs),
     });
   }
+  // Espèces territoriales identifiées par l'IA (hors Betta, Ancistrus et cichlidés nains)
+  const terr = fish.filter(
+    (l) =>
+      T(l).territorial && !T(l).betta && !T(l).ancistrus && !T(l).dwarfCichlid,
+  );
+  if (terr.length >= 2 || terr.some((l) => l.quantity >= 2)) {
+    add({
+      level: "warning",
+      title: "Poissons territoriaux",
+      detail: `${names(terr).join(", ")} défendent un territoire : les mâles se poursuivent et se blessent dans un bac de cette taille.`,
+      fix: "Un seul mâle par espèce, des racines et des grottes qui coupent la vue.",
+      names: names(terr),
+    });
+  }
 
   // 7. Poissons très actifs avec des poissons timides
-  const active = some(fish, ACTIVE);
-  const shy = fish.filter((l) => SHY.test(txt(l)) && !active.includes(l));
+  const active = pick(fish, (t) => t.active);
+  const shy = fish.filter((l) => T(l).shy && !active.includes(l));
   if (active.length > 0 && shy.length > 0) {
     add({
       level: "warning",
@@ -282,8 +388,8 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   }
 
   // 8. Température
-  const hot = some(fish, HOT);
-  const cool = some(fish, COOL);
+  const hot = pick(fish, (t) => t.hot);
+  const cool = pick(fish, (t) => t.cool);
   if (hot.length > 0 && cool.length > 0) {
     add({
       level: "danger",
@@ -295,8 +401,8 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   }
 
   // 9. Eau douce et acide contre eau dure et alcaline
-  const soft = some([...fish, ...inverts], SOFT);
-  const hard = some(fish, HARD).filter((l) => !soft.includes(l));
+  const soft = pick([...fish, ...inverts], (t) => t.soft);
+  const hard = pick(fish, (t) => t.hard).filter((l) => !soft.includes(l));
   if (soft.length > 0 && hard.length > 0) {
     add({
       level: "warning",
@@ -306,14 +412,14 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
       names: [...names(soft), ...names(hard)],
     });
   }
-  const caridina = some(inverts, CARIDINA);
-  const neo = some(inverts, NEOCARIDINA);
+  const caridina = pick(inverts, (t) => t.caridina);
+  const neo = pick(inverts, (t) => t.neocaridina);
   if (caridina.length > 0 && neo.length > 0) {
     add({
       level: "warning",
       title: "Crevettes Caridina avec des Neocaridina",
       detail:
-        "Les Caridina (Crystal, Taiwan Bee…) veulent une eau douce et acide, les Neocaridina une eau plus dure. Les deux ne s’hybrident pas, mais l’un des deux groupes sera mal.",
+        "Les Caridina (Crystal, Taiwan Bee…) veulent une eau douce et acide, les Neocaridina une eau plus dure. L’un des deux groupes sera mal.",
       fix: "Sépare les deux, ou choisis uniquement des Neocaridina si ton eau est moyenne à dure.",
       names: [...names(caridina), ...names(neo)],
     });
@@ -331,8 +437,8 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
   }
 
   // 10. Escargots
-  const snails = inverts.filter((l) => SNAIL.test(txt(l)));
-  const planteEaters = snails.filter((l) => PLANT_EATING_SNAIL.test(txt(l)));
+  const snails = pick(inverts, (t) => t.snail);
+  const planteEaters = snails.filter((l) => T(l).plantEatingSnail);
   if (planteEaters.length > 0) {
     add({
       level: "warning",
@@ -342,7 +448,7 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
       names: names(planteEaters),
     });
   }
-  const assassin = snails.filter((l) => /anentome|clea|assassin/.test(txt(l)));
+  const assassin = snails.filter((l) => T(l).assassinSnail);
   const otherSnails = snails.filter((l) => !assassin.includes(l));
   if (assassin.length > 0 && otherSnails.length > 0) {
     add({
@@ -354,13 +460,13 @@ export function evaluateCompatibility(allLines: DensityLine[]): CompatIssue[] {
       names: [...names(assassin), ...names(otherSnails)],
     });
   }
-  const loaches = some(fish, /botia|yasuhikotakia/);
+  const loaches = pick(fish, (t) => t.eatsSnails);
   if (loaches.length > 0 && snails.length > 0) {
     add({
       level: "warning",
-      title: "Loches qui mangent les escargots",
+      title: "Poissons qui mangent les escargots",
       detail: `${names(loaches).join(", ")} chassent les escargots, surtout les petits.`,
-      fix: "Retire les escargots ou les loches.",
+      fix: "Retire les escargots ou ces poissons.",
       names: [...names(loaches), ...names(snails)],
     });
   }

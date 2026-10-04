@@ -791,3 +791,24 @@ export async function identifyObservation(params: {
     actions: string[];
   };
 }
+
+// Profil de comportement d'une espèce hors catalogue, pour l'évaluation des
+// incompatibilités du simulateur (voir src/lib/compatibility.ts).
+const TRAITS_SYSTEM_PROMPT = `Tu es un aquariophile expert. On te donne une espèce d'aquarium (nom commun, nom scientifique, type). Réponds UNIQUEMENT en JSON, avec des booléens prudents (true seulement si c'est bien établi pour l'espèce adulte) :
+{"marine": eau de mer, "shrimp": crevette d'eau douce, "crayfish": écrevisse, "snail": escargot, "plantEatingSnail": escargot qui mange les plantes saines, "assassinSnail": escargot qui mange d'autres escargots, "harmless": poisson très pacifique qui ne mange jamais d'autres poissons (corydoras, loricariidés, otocinclus…), "strongPredator": avale les poissons plus petits que lui, "shrimpHunter": mange les crevettes adultes ou jeunes, "eatsSnails": mange les escargots, "nipper": mordille les nageoires des autres, "longfin": a de longues nageoires fragiles, "labyrinth": poisson à labyrinthe (gourami, betta…), "solitary": doit vivre seul (ou un seul mâle) car il tue ses congénères, "territorial": mâles ou couples très territoriaux, "active": nageur très rapide et agité, "shy": timide, stressé par les nageurs agités, "hot": exige 28 °C ou plus, "cool": préfère 22 °C ou moins, "soft": exige une eau douce et acide (pH < 7), "hard": exige une eau dure et alcaline (pH > 7,5), "note": une phrase courte en français sur son caractère et ses compagnons à éviter}`;
+
+export async function analyzeSpeciesTraits(params: {
+  name: string;
+  scientificName?: string | null;
+  kind?: string;
+}) {
+  const text = await callGemini(
+    [
+      {
+        text: `Espèce : ${params.name}${params.scientificName ? ` (${params.scientificName})` : ''}${params.kind ? `, type : ${params.kind === 'invertebrate' ? 'invertébré' : 'poisson'}` : ''}.`,
+      },
+    ],
+    TRAITS_SYSTEM_PROMPT
+  );
+  return JSON.parse(text) as Record<string, boolean | string>;
+}

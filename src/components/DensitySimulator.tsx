@@ -1,7 +1,7 @@
 "use client";
 
 import { SpeciesThumb } from "@/components/SpeciesThumb";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Livestock } from "@/types/database";
 import {
   searchSpecies,
@@ -27,7 +27,11 @@ import {
 } from "@/lib/density";
 import { createClient } from "@/lib/supabase/client";
 import { introductionPlan } from "@/lib/introduction";
-import { evaluateCompatibility } from "@/lib/compatibility";
+import {
+  evaluateCompatibility,
+  isCatalogSpecies,
+  type PartialTraits,
+} from "@/lib/compatibility";
 import { DensityProjects } from "@/components/DensityProjects";
 import { TankSimulationView } from "@/components/TankSimulationView";
 import {
@@ -141,6 +145,69 @@ export function DensitySimulator({
     (l) => l.sizeCm <= 0 && (overrides[l.id] ?? l.quantity) > 0,
   );
   const modified = Object.keys(overrides).length > 0 || extras.length > 0;
+
+  // Espèces hors catalogue : leur profil de comportement est demandé à l'IA une
+  // seule fois, puis gardé dans le navigateur.
+  const [aiTraits, setAiTraits] = useState<
+    Record<string, PartialTraits & { note?: string }>
+  >({});
+  const askedTraits = useRef<Set<string>>(new Set());
+  const unknownKey = lines
+    .filter((l) => l.quantity > 0 && !isCatalogSpecies(l))
+    .map((l) => `${l.name}|${l.scientificName ?? ""}|${l.kind}`)
+    .join("§");
+  useEffect(() => {
+    if (!unknownKey) return;
+    let alive = true;
+    const STORE = "aquatrack-species-traits-v1";
+    const read = (): Record<string, PartialTraits & { note?: string }> => {
+      try {
+        return JSON.parse(localStorage.getItem(STORE) ?? "{}");
+      } catch {
+        return {};
+      }
+    };
+    (async () => {
+      for (const item of unknownKey.split("§")) {
+        const [name, sci, kind] = item.split("|");
+        const key = name
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim();
+        if (askedTraits.current.has(key)) continue;
+        askedTraits.current.add(key);
+        const cached = read()[key];
+        if (cached) {
+          if (alive) setAiTraits((t) => ({ ...t, [key]: cached }));
+          continue;
+        }
+        try {
+          const res = await fetch("/api/ai/species-traits", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, scientificName: sci || null, kind }),
+          });
+          if (!res.ok) continue;
+          const { traits } = await res.json();
+          if (!traits) continue;
+          try {
+            const all = read();
+            all[key] = traits;
+            localStorage.setItem(STORE, JSON.stringify(all));
+          } catch {
+            // stockage indisponible
+          }
+          if (alive) setAiTraits((t) => ({ ...t, [key]: traits }));
+        } catch {
+          // l'analyse IA est facultative
+        }
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [unknownKey]);
 
   function setQty(id: string, quantity: number) {
     setOverrides((o) => ({ ...o, [id]: Math.max(0, quantity) }));
@@ -932,7 +999,18 @@ export function DensitySimulator({
           })()}
 
           {(() => {
-            const issues = evaluateCompatibility(lines);
+            const issues = evaluateCompatibility(lines, aiTraits);
+            const unknown = lines.filter(
+              (l) => l.quantity > 0 && !isCatalogSpecies(l),
+            );
+            const norm = (n: string) =>
+              n
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .trim();
+            const analysed = unknown.filter((l) => aiTraits[norm(l.name)]);
+            const pending = unknown.length - analysed.length;
             const danger = issues.filter((i) => i.level === "danger").length;
             const warning = issues.filter((i) => i.level === "warning").length;
             const tone = {
@@ -989,10 +1067,17 @@ export function DensitySimulator({
                     </div>
                   </>
                 )}
+                {unknown.length > 0 && (
+                  <p className="mt-2 text-xs text-teal-700">
+                    {pending > 0
+                      ? `Analyse par l'IA de ${pending} espèce${pending > 1 ? "s" : ""} hors catalogue…`
+                      : `Hors catalogue, analysé par l'IA : ${analysed.map((l) => l.name).join(", ")}.`}
+                  </p>
+                )}
                 <p className="mt-2 text-[11px] text-slate-400">
                   Repères d&apos;aquariophilie : le caractère varie d&apos;un
-                  poisson à l&apos;autre, et seules les espèces du catalogue
-                  sont évaluées.
+                  poisson à l&apos;autre, et l&apos;analyse IA des espèces hors
+                  catalogue est moins sûre que le catalogue.
                 </p>
               </div>
             );
