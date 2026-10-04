@@ -122,7 +122,6 @@ export function DensitySimulator({
     const present = new Set(lines.map((x) => (x.scientificName ?? x.name).toLowerCase()));
     const zone = l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid');
     const vol = grossLiters && grossLiters > 0 ? grossLiters : netLiters;
-    const size = l.sizeCm > 0 ? l.sizeCm : 5;
     return SPECIES_CATALOG.filter(
       (c) =>
         c.category === l.kind &&
@@ -131,16 +130,33 @@ export function DensitySimulator({
         !present.has(c.commonName.toLowerCase()) &&
         c.minTankLiters <= vol &&
         !c.solitary &&
-        !/agressif|prédateur|inadapté|mange les/i.test(`${c.temperament}`) &&
-        Math.abs(c.adultSizeCm - size) <= Math.max(2, size * 0.4)
-    )
-      .sort((a, b) => Math.abs(a.adultSizeCm - size) - Math.abs(b.adultSizeCm - size))
-      .slice(0, 8);
+        !/agressif|prédateur|inadapté|mange les/i.test(`${c.temperament}`)
+    );
+  }
+
+  // Trois familles de taille : plus petites, voisines (±25 %), plus grandes.
+  function groupedAlternatives(l: DensityLine) {
+    const size = l.sizeCm > 0 ? l.sizeCm : 5;
+    const all = alternativesFor(l);
+    const dist = (a: SpeciesReference) => Math.abs(a.adultSizeCm - size);
+    const similar = all.filter((a) => Math.abs(a.adultSizeCm - size) <= size * 0.25).sort((a, b) => dist(a) - dist(b));
+    const smaller = all.filter((a) => a.adultSizeCm < size * 0.75).sort((a, b) => dist(a) - dist(b));
+    const larger = all.filter((a) => a.adultSizeCm > size * 1.25).sort((a, b) => dist(a) - dist(b));
+    return [
+      { title: 'Plus petites', items: smaller.slice(0, 6) },
+      { title: 'Taille voisine', items: similar.slice(0, 6) },
+      { title: 'Plus grandes', items: larger.slice(0, 6) },
+    ];
+  }
+
+  // Quantité qui garde la même charge (cm cumulés) avec l'espèce de remplacement.
+  function sameLoadQty(l: DensityLine, alt: SpeciesReference) {
+    if (l.sizeCm <= 0 || alt.adultSizeCm <= 0) return l.quantity;
+    return Math.max(1, Math.round((l.quantity * l.sizeCm) / alt.adultSizeCm));
   }
 
   // Remplace la ligne par l'alternative choisie, avec la même quantité.
-  function swapWith(l: DensityLine, alt: SpeciesReference) {
-    const qty = l.quantity;
+  function swapWith(l: DensityLine, alt: SpeciesReference, qty: number) {
     if (l.hypothetical) setExtras((list) => list.filter((x) => x.id !== l.id));
     else setQty(l.id, 0);
     addExtra(alt, qty);
@@ -390,25 +406,37 @@ export function DensitySimulator({
                 {altFor === l.id && (
                   <div className="mb-2 rounded-lg bg-slate-50 p-2">
                     <p className="mb-1 text-xs text-slate-500">
-                      Remplacer {l.quantity} {l.name} par une espèce voisine (même étage, taille proche, paisible) :
+                      Remplacer {l.quantity} {l.name} par une autre espèce paisible du même étage. La quantité proposée garde la même charge :
                     </p>
-                    {alternativesFor(l).length === 0 ? (
+                    {groupedAlternatives(l).every((g) => g.items.length === 0) ? (
                       <p className="text-xs text-slate-400">Aucune alternative dans le catalogue pour ce volume.</p>
                     ) : (
-                      <div className="flex flex-wrap gap-1.5">
-                        {alternativesFor(l).map((a) => (
-                          <button
-                            key={a.commonName}
-                            type="button"
-                            onClick={() => swapWith(l, a)}
-                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left text-xs hover:border-teal-400 hover:bg-teal-50"
-                          >
-                            <span className="font-medium text-slate-800">{a.commonName}</span>
-                            <span className="block italic text-slate-500">{a.scientificName}</span>
-                            <span className="text-slate-400">{a.adultSizeCm} cm</span>
-                          </button>
-                        ))}
-                      </div>
+                      groupedAlternatives(l).map((g) =>
+                        g.items.length === 0 ? null : (
+                          <div key={g.title} className="mb-1.5">
+                            <p className="mb-1 text-xs font-medium text-slate-600">{g.title}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {g.items.map((a) => {
+                                const q = sameLoadQty(l, a);
+                                return (
+                                  <button
+                                    key={a.commonName}
+                                    type="button"
+                                    onClick={() => swapWith(l, a, q)}
+                                    className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left text-xs hover:border-teal-400 hover:bg-teal-50"
+                                  >
+                                    <span className="font-medium text-slate-800">{a.commonName}</span>
+                                    <span className="block italic text-slate-500">{a.scientificName}</span>
+                                    <span className="text-slate-400">
+                                      {a.adultSizeCm} cm · {q} pour la même charge
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )
+                      )
                     )}
                   </div>
                 )}
