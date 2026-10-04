@@ -18,6 +18,7 @@ import { CyclingPanel } from '@/components/CyclingPanel';
 import { DensitySimulator } from '@/components/DensitySimulator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { ScannerPanel } from '@/components/ScannerPanel';
+import { DiseasesPanel } from '@/components/DiseasesPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
 import { TreatmentPrograms } from '@/components/TreatmentPrograms';
 import { programState, dateKey } from '@/lib/treatment';
@@ -42,12 +43,13 @@ import {
   Camera,
   AlertTriangle,
   ScanSearch,
+  Stethoscope,
 } from 'lucide-react';
 
 // Navigation à deux niveaux : quelques sections principales (peu nombreuses,
 // pour rester lisible), chacune éventuellement subdivisée en sous-onglets —
 // plutôt qu'une seule rangée de 11 onglets à faire défiler.
-type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'scanner' | 'assistant';
+type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'maladies' | 'scanner' | 'assistant';
 type BacSub = 'proprietes' | 'materiel' | 'hardscape' | 'produits';
 type EauSub = 'parametres' | 'cyclage';
 type PeuplementSub = 'peuplement' | 'plantes';
@@ -58,6 +60,7 @@ const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
   { key: 'eau', label: 'Eau', icon: <Waves size={15} /> },
   { key: 'peuplement', label: 'Peuplement', icon: <Fish size={15} /> },
   { key: 'entretien', label: 'Entretien', icon: <Wrench size={15} /> },
+  { key: 'maladies', label: 'Maladies', icon: <Stethoscope size={15} /> },
   { key: 'scanner', label: 'Scanner', icon: <Camera size={15} /> },
   { key: 'assistant', label: 'Assistant IA', icon: <Sparkles size={15} /> },
 ];
@@ -430,14 +433,14 @@ export default function TankDetailPage() {
           />
           </div>
         )}
+        {section === 'maladies' && <DiseasesPanel tankId={tankId} onGoToPrograms={() => setSection('entretien')} />}
         {section === 'scanner' && (
           <ScannerPanel
             tankId={tankId}
             onUpdated={loadAll}
             onNavigate={(target) => {
               if (target === 'assistant') {
-                setAssistantMode('diagnose');
-                setSection('assistant');
+                setSection('maladies');
               } else if (target === 'plantes') {
                 setSection('peuplement');
                 setPeuplementSub('plantes');

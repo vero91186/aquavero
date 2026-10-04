@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { fileToBase64, compressImageFile } from '@/lib/image';
+import { findDisease } from '@/lib/diseases';
 import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X } from 'lucide-react';
 
 interface ChatMessage {
@@ -160,7 +161,7 @@ interface DiagnosticResult {
   vet_referral: boolean;
 }
 
-function DiagnoseMode({ tankId }: { tankId: string }) {
+export function DiagnoseMode({ tankId, onOpenDisease, onDone }: { tankId: string; onOpenDisease?: (id: string) => void; onDone?: () => void }) {
   const [description, setDescription] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -172,10 +173,11 @@ function DiagnoseMode({ tankId }: { tankId: string }) {
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    const { base64, mimeType } = await fileToBase64(file);
+    const compressed = await compressImageFile(file);
+    const { base64, mimeType } = await fileToBase64(compressed);
     setImageBase64(base64);
     setImageMimeType(mimeType);
-    setImagePreview(URL.createObjectURL(file));
+    setImagePreview(URL.createObjectURL(compressed));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -199,6 +201,7 @@ function DiagnoseMode({ tankId }: { tankId: string }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setResult(data);
+      onDone?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
     } finally {
@@ -259,6 +262,16 @@ function DiagnoseMode({ tankId }: { tankId: string }) {
                 <li key={i}>{action}</li>
               ))}
             </ul>
+          )}
+
+          {onOpenDisease && findDisease(result.diagnostic.likely_condition) && (
+            <button
+              type="button"
+              onClick={() => onOpenDisease(findDisease(result.diagnostic.likely_condition)!.id)}
+              className="mt-3 rounded-full border border-current px-3 py-1 text-sm font-medium hover:bg-white/60"
+            >
+              Voir la fiche : {findDisease(result.diagnostic.likely_condition)!.name}
+            </button>
           )}
 
           {result.diagnostic.vet_referral && (

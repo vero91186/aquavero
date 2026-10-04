@@ -1,3 +1,4 @@
+import { DISEASE_NAMES } from '@/lib/diseases';
 // Client minimal pour l'API Gemini (Google AI Studio), texte + vision.
 // Clé attendue dans la variable d'environnement GOOGLE_API_KEY (serveur uniquement).
 
@@ -124,6 +125,8 @@ Doctor". On te donne le contexte d'un bac et une observation (texte et/ou photo)
 condition la plus probable, un niveau de confiance entre 0 et 1, un niveau de gravité, une liste
 d'actions recommandées concrètes, et si un avis vétérinaire ou d'un spécialiste est nécessaire.
 Tu n'es jamais catégorique : pour tout signe de gravité moyenne ou plus, tu recommandes de consulter.
+Quand la condition correspond à l'une de ces maladies connues, utilise exactement ce nom dans
+"likely_condition" : ${DISEASE_NAMES.join(' ; ')}.
 Réponds uniquement avec un objet JSON de la forme :
 {"likely_condition": "...", "confidence": 0.0, "severity": "low|medium|high|urgent",
 "recommended_actions": ["...", "..."], "vet_referral": true|false, "explanation": "..."}`;
