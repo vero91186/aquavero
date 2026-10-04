@@ -14,10 +14,13 @@ interface INatTaxon {
 // Première source : iNaturalist directement depuis le navigateur (l'API accepte
 // ces appels et ne bloque pas une connexion personnelle, contrairement à un
 // serveur d'hébergement). Le nom doit recouvrir la recherche pour être accepté.
-async function inatFromBrowser(query: string): Promise<string | null> {
+async function inatFromBrowser(
+  query: string,
+  rank = "species",
+): Promise<string | null> {
   try {
     const res = await fetch(
-      `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=8&rank=species`,
+      `https://api.inaturalist.org/v1/taxa?q=${encodeURIComponent(query)}&per_page=8&rank=${rank}`,
       { signal: AbortSignal.timeout(8000) },
     );
     if (!res.ok) return null;
@@ -42,6 +45,23 @@ async function inatFromBrowser(query: string): Promise<string | null> {
 // Photo d'une espèce, cherchée sur internet à partir du nom scientifique (plus
 // fiable que le nom commun). Les résultats sont gardés en mémoire et dans le
 // navigateur pour ne chercher qu'une fois par espèce.
+// Variétés d'élevage et espèces « sp. » : le nom exact n'a pas de fiche, on
+// retombe sur l'espèce (sans « var. ») puis sur le genre, qui montre une espèce
+// très proche (ex. Ancistrus voile : photo d'Ancistrus).
+function candidatesOf(sci: string): { q: string; rank: string }[] {
+  const clean = sci
+    .replace(/\bcf\.?\s*/gi, "")
+    .replace(/\s+var\.?\s+.*$/i, "")
+    .replace(/\s+(spp?\.?)(\s+.*)?$/i, "")
+    .trim();
+  const out: { q: string; rank: string }[] = [{ q: sci, rank: "species" }];
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (clean && clean !== sci && words.length >= 2)
+    out.push({ q: clean, rank: "species" });
+  if (words.length >= 1) out.push({ q: words[0], rank: "genus" });
+  return out.filter((c, i, a) => a.findIndex((x) => x.q === c.q) === i);
+}
+
 const memory = new Map<string, string | null>();
 const inflight = new Map<string, Promise<string | null>>();
 const STORE = "aquatrack-species-photos-v1";
@@ -73,7 +93,13 @@ function lookup(key: string, query: string): Promise<string | null> {
   }
   let p = inflight.get(key);
   if (!p) {
-    p = inatFromBrowser(query)
+    p = (async () => {
+      for (const c of candidatesOf(query)) {
+        const u = await inatFromBrowser(c.q, c.rank);
+        if (u) return u;
+      }
+      return null;
+    })()
       .then((u) => u ?? fetchAutoPhoto(query, "species"))
       .then((url) => {
         memory.set(key, url);
