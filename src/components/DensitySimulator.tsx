@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
-import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, SPECIES_CATALOG, type SpeciesReference } from '@/lib/species-catalog';
 import {
   computeZoneDensity,
   DENSITY_LIMIT,
@@ -17,7 +17,7 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { DensityProjects } from '@/components/DensityProjects';
 import { TankSimulationView } from '@/components/TankSimulationView';
-import { Gauge, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
+import { Gauge, Shuffle, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
 
 const LEVEL_STYLES: Record<DensityLevelId, { tile: string; box: string }> = {
   aere: { tile: 'bg-emerald-100 text-emerald-700', box: 'bg-emerald-50 text-emerald-700' },
@@ -114,6 +114,39 @@ export function DensitySimulator({
     setExtras((list) => list.map((l) => (l.id === id ? { ...l, quantity: Math.max(0, quantity) } : l)));
   }
 
+  const [altFor, setAltFor] = useState<string | null>(null);
+
+  // Espèces de remplacement : même type et même étage, taille voisine, tempérament paisible,
+  // compatibles avec le volume du bac, et pas déjà présentes.
+  function alternativesFor(l: DensityLine): SpeciesReference[] {
+    const present = new Set(lines.map((x) => (x.scientificName ?? x.name).toLowerCase()));
+    const zone = l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid');
+    const vol = grossLiters && grossLiters > 0 ? grossLiters : netLiters;
+    const size = l.sizeCm > 0 ? l.sizeCm : 5;
+    return SPECIES_CATALOG.filter(
+      (c) =>
+        c.category === l.kind &&
+        (l.kind === 'invertebrate' || c.swimZone === zone) &&
+        !present.has(c.scientificName.toLowerCase()) &&
+        !present.has(c.commonName.toLowerCase()) &&
+        c.minTankLiters <= vol &&
+        !c.solitary &&
+        !/agressif|prédateur|inadapté|mange les/i.test(`${c.temperament}`) &&
+        Math.abs(c.adultSizeCm - size) <= Math.max(2, size * 0.4)
+    )
+      .sort((a, b) => Math.abs(a.adultSizeCm - size) - Math.abs(b.adultSizeCm - size))
+      .slice(0, 8);
+  }
+
+  // Remplace la ligne par l'alternative choisie, avec la même quantité.
+  function swapWith(l: DensityLine, alt: SpeciesReference) {
+    const qty = l.quantity;
+    if (l.hypothetical) setExtras((list) => list.filter((x) => x.id !== l.id));
+    else setQty(l.id, 0);
+    addExtra(alt, qty);
+    setAltFor(null);
+  }
+
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
@@ -148,7 +181,7 @@ export function DensitySimulator({
     }
   }
 
-  function addExtra(s: SpeciesReference) {
+  function addExtra(s: SpeciesReference, quantity = 1) {
     if (s.category !== 'fish' && s.category !== 'invertebrate') return;
     setExtras((list) => [
       ...list,
@@ -157,7 +190,7 @@ export function DensitySimulator({
         name: s.commonName,
         scientificName: s.scientificName,
         sizeCm: s.adultSizeCm,
-        quantity: 1,
+        quantity,
         kind: s.category as 'fish' | 'invertebrate',
         hypothetical: true,
         zone: s.swimZone,
@@ -298,7 +331,8 @@ export function DensitySimulator({
             {group.map((l) => {
               const isExtra = !!l.hypothetical;
               return (
-                <div key={l.id} className="flex items-center gap-2 border-b border-slate-100 py-1.5 last:border-0">
+                <div key={l.id} className="border-b border-slate-100 last:border-0">
+                <div className="flex items-center gap-2 py-1.5">
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-slate-800">
                       {l.name}
@@ -315,6 +349,15 @@ export function DensitySimulator({
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      aria-label={`Alternatives à ${l.name}`}
+                      title="Voir des espèces alternatives"
+                      onClick={() => setAltFor(altFor === l.id ? null : l.id)}
+                      className={`rounded-lg border p-1.5 hover:bg-slate-50 ${altFor === l.id ? 'border-teal-400 text-teal-700' : 'border-slate-200 text-slate-500'}`}
+                    >
+                      <Shuffle size={14} />
+                    </button>
                     <button
                       type="button"
                       aria-label={`Retirer un ${l.name}`}
@@ -343,6 +386,32 @@ export function DensitySimulator({
                       </button>
                     )}
                   </div>
+                </div>
+                {altFor === l.id && (
+                  <div className="mb-2 rounded-lg bg-slate-50 p-2">
+                    <p className="mb-1 text-xs text-slate-500">
+                      Remplacer {l.quantity} {l.name} par une espèce voisine (même étage, taille proche, paisible) :
+                    </p>
+                    {alternativesFor(l).length === 0 ? (
+                      <p className="text-xs text-slate-400">Aucune alternative dans le catalogue pour ce volume.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {alternativesFor(l).map((a) => (
+                          <button
+                            key={a.commonName}
+                            type="button"
+                            onClick={() => swapWith(l, a)}
+                            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left text-xs hover:border-teal-400 hover:bg-teal-50"
+                          >
+                            <span className="font-medium text-slate-800">{a.commonName}</span>
+                            <span className="block italic text-slate-500">{a.scientificName}</span>
+                            <span className="text-slate-400">{a.adultSizeCm} cm</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 </div>
               );
             })}
