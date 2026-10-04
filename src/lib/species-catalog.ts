@@ -309,3 +309,24 @@ export function searchSpecies(query: string): SpeciesReference[] {
   hits.sort((a, b) => Number(norm(b.commonName).startsWith(q)) - Number(norm(a.commonName).startsWith(q)));
   return hits.slice(0, 10);
 }
+
+// Effectif minimal conseillé pour une espèce de banc (null si elle n'en a pas
+// besoin). Déduit du tempérament « grégaire » et de la taille : les très petits
+// poissons se sentent en sécurité à 8-10, les autres à 6, les grands à 5.
+export function schoolMinOf(ref: Pick<SpeciesReference, 'temperament' | 'adultSizeCm' | 'category' | 'commonName'>): number | null {
+  if (!/grégaire/i.test(ref.temperament)) return null;
+  if (ref.category === 'invertebrate') return /crevette/i.test(ref.commonName) ? 6 : null;
+  if (/corydoras|loche|pangio|botia|otocinclus/i.test(ref.commonName)) return 6;
+  if (ref.adultSizeCm <= 3.5) return 8;
+  if (ref.adultSizeCm <= 6.5) return 6;
+  return 5;
+}
+
+// Même chose à partir d'un nom enregistré (commun ou scientifique), pour les
+// lignes d'un peuplement. null si l'espèce est hors catalogue ou sans banc.
+export function schoolMinByName(name: string, scientific?: string | null): number | null {
+  const n = norm(name);
+  const sci = scientific ? norm(scientific) : null;
+  const hit = SPECIES_CATALOG.find((s) => norm(s.commonName) === n || (sci && norm(s.scientificName) === sci));
+  return hit ? schoolMinOf(hit) : null;
+}

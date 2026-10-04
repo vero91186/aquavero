@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
-import { searchSpecies, SPECIES_CATALOG, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, SPECIES_CATALOG, schoolMinOf, schoolMinByName, type SpeciesReference } from '@/lib/species-catalog';
 import {
   computeZoneDensity,
   DENSITY_LIMIT,
@@ -151,8 +151,9 @@ export function DensitySimulator({
 
   // Quantité qui garde la même charge (cm cumulés) avec l'espèce de remplacement.
   function sameLoadQty(l: DensityLine, alt: SpeciesReference) {
-    if (l.sizeCm <= 0 || alt.adultSizeCm <= 0) return l.quantity;
-    return Math.max(1, Math.round((l.quantity * l.sizeCm) / alt.adultSizeCm));
+    const min = schoolMinOf(alt) ?? 1;
+    if (l.sizeCm <= 0 || alt.adultSizeCm <= 0) return Math.max(l.quantity, min);
+    return Math.max(min, Math.round((l.quantity * l.sizeCm) / alt.adultSizeCm));
   }
 
   // Remplace la ligne par l'alternative choisie, avec la même quantité.
@@ -197,7 +198,8 @@ export function DensitySimulator({
     }
   }
 
-  function addExtra(s: SpeciesReference, quantity = 1) {
+  function addExtra(s: SpeciesReference, qty?: number) {
+    const quantity = qty ?? schoolMinOf(s) ?? 1;
     if (s.category !== 'fish' && s.category !== 'invertebrate') return;
     setExtras((list) => [
       ...list,
@@ -359,6 +361,15 @@ export function DensitySimulator({
                       )}
                     </p>
                     {l.scientificName && <p className="truncate text-xs italic text-slate-500">{l.scientificName}</p>}
+                    {(() => {
+                      const min = schoolMinByName(l.name, l.scientificName);
+                      if (!min || l.quantity <= 0) return null;
+                      return l.quantity < min ? (
+                        <p className="text-xs text-amber-700">
+                          Espèce de banc : {min} minimum conseillés, {l.quantity} seulement.
+                        </p>
+                      ) : null;
+                    })()}
                     <p className="text-xs text-slate-400">
                       {l.kind === 'fish' ? 'poisson' : 'invertébré'} ·{' '}
                       {l.sizeCm > 0 ? `${fmt(l.sizeCm, 1)} cm adulte` : 'taille adulte manquante'}
@@ -430,6 +441,7 @@ export function DensitySimulator({
                                     <span className="text-slate-400">
                                       {a.adultSizeCm} cm · {q} pour la même charge
                                     </span>
+                                    {schoolMinOf(a) && <span className="block text-teal-700">banc de {schoolMinOf(a)} minimum</span>}
                                   </button>
                                 );
                               })}
@@ -495,6 +507,7 @@ export function DensitySimulator({
                       <span className="font-medium text-slate-800">{s.commonName}</span>
                       <span className="text-xs text-slate-400">
                         <i>{s.scientificName}</i> · {s.adultSizeCm} cm · {s.category === 'fish' ? 'poisson' : 'invertébré'}
+                        {schoolMinOf(s) ? ` · banc de ${schoolMinOf(s)} mini` : ''}
                       </span>
                     </button>
                   </li>
