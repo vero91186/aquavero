@@ -232,10 +232,11 @@ connaissances générales, tu donnes une fiche prudente — catégorie la plus p
 typique en une phrase, estimation du dosage en mL pour 100 L d'eau neuve SEULEMENT pour un
 conditionneur d'eau (null si tu ne peux pas l'estimer raisonnablement), durée de conservation typique
 une fois ouvert en jours (null si impossible à estimer) et un point de vigilance. Si tu ne reconnais
-pas ce produit précis, base-toi sur sa catégorie et dis-le clairement dans la note. Donne aussi
+pas ce produit précis, base-toi sur sa catégorie et dis-le clairement dans la note. Un produit de bactéries liquides est de catégorie "bacteria" (traitement versé dans le bac, pas
+dans l'eau de remplacement). Donne aussi
 "purpose" (à quoi sert ce type de produit, en une ou deux phrases) et "usage" (comment et à quelle
 fréquence on l'emploie, en une ou deux phrases). Réponds uniquement avec un objet JSON de la forme :
-{"category": "conditioner|fertilizer|food|filter_media|test_kit|other", "purpose": "...",
+{"category": "conditioner|bacteria|fertilizer|food|filter_media|test_kit|other", "purpose": "...",
 "usage": "...", "dose_info": "...", "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0,
 "note": "..."}`;
 
@@ -245,6 +246,13 @@ officielle : le site du fabricant en priorité, sinon un revendeur spécialisé 
 pas d'un produit « similaire ».
 
 Règles de précision :
+Catégories : « conditioner » = anti-chlore / conditionneur ajouté à l'eau neuve à chaque changement
+d'eau. « bacteria » = bactéries nitrifiantes en flacon liquide (ex. Seachem Stability, Tetra
+SafeStart, Dennerle Bio Elixier) : ce sont des TRAITEMENTS versés directement dans le bac, jamais
+un produit d'eau de remplacement ; dans "usage", donne le schéma de traitement du fabricant (par
+exemple une dose par jour pendant une semaine à la mise en route, puis après un traitement
+médicamenteux, un nettoyage de filtre ou un gros changement d'eau) et précise « à verser dans le
+bac, pas dans l'eau de remplacement ».
 - purpose : à quoi sert le produit, concrètement, en une ou deux phrases claires pour un débutant
   (ex. « Neutralise le chlore et les chloramines de l'eau du robinet et détoxifie temporairement
   l'ammoniac et les nitrites »). Appuie-toi sur ce que dit le fabricant, sans slogan marketing.
@@ -268,12 +276,12 @@ Règles de précision :
   confidence n'est pas "confirmé", dis-le clairement ici.
 
 Réponds uniquement avec un objet JSON, sans texte autour, de la forme :
-{"identified_name": "...", "category": "conditioner|fertilizer|food|filter_media|test_kit|other",
+{"identified_name": "...", "category": "conditioner|bacteria|fertilizer|food|filter_media|test_kit|other",
 "purpose": "...", "usage": "...", "dose_info": "...", "dose_ml_per_100l": 0.0, "shelf_life_days_after_opening": 0,
 "confidence": "confirmé|estimation|inconnu", "source_url": "...", "note": "..."}`;
 
 export type ProductConfidence = 'confirmé' | 'estimation' | 'inconnu';
-type ProductCategoryId = 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
+type ProductCategoryId = 'conditioner' | 'bacteria' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
 
 export interface ProductResearch {
   identified_name: string | null;
@@ -291,6 +299,7 @@ export interface ProductResearch {
 
 const PRODUCT_CATEGORIES: ProductCategoryId[] = [
   'conditioner',
+  'bacteria',
   'fertilizer',
   'food',
   'filter_media',

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types/database';
+import { productCategoryOf } from '@/lib/products';
 import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical } from 'lucide-react';
@@ -14,7 +15,8 @@ function toDatetimeLocal(iso: string): string {
 }
 
 function isDosable(p: Product) {
-  return p.dose_ml_per_100l !== null || p.category === 'fertilizer' || p.category === 'conditioner';
+  const c = productCategoryOf(p);
+  return p.dose_ml_per_100l !== null || c === 'fertilizer' || c === 'conditioner' || c === 'bacteria';
 }
 
 function fmtMl(n: number) {
@@ -66,7 +68,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   const [selectedProductId, setSelectedProductId] = useState('');
   const [newPhotoUrl, setNewPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const conditionerProducts = (products ?? []).filter((p) => p.category === 'conditioner');
+  const conditionerProducts = (products ?? []).filter((p) => productCategoryOf(p) === 'conditioner');
   const dosableProducts = (products ?? []).filter(isDosable);
   const [now] = useState(() => Date.now());
   const [dosingProductId, setDosingProductId] = useState('');
@@ -259,7 +261,9 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
               .map((p) => {
                 const per = p.dose_ml_per_100l as number;
                 const full = (per * tank.volume_liters) / 100;
-                const isCond = p.category === 'conditioner';
+                const cat = productCategoryOf(p);
+                const isCond = cat === 'conditioner';
+                const isBact = cat === 'bacteria';
                 return (
                   <div key={p.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
                     <p className="font-medium">{p.name}</p>
@@ -267,6 +271,10 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                       {isCond ? (
                         <>
                           {fmtMl(full * 0.25)} pour 25 % d&apos;eau neuve, <span className="font-semibold text-sable">{fmtMl(full * 0.5)}</span> pour 50 %
+                        </>
+                      ) : isBact ? (
+                        <>
+                          <span className="font-semibold text-sable">{fmtMl(full)}</span> par traitement, dans le bac
                         </>
                       ) : (
                         <>
@@ -439,6 +447,12 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                         </p>
                       </div>
                     </div>
+                    {productCategoryOf(dosingProduct) === 'bacteria' && (
+                      <p className="mt-2 rounded-lg bg-white px-3 py-2 text-xs text-teal-900">
+                        Bactéries liquides : un traitement à verser directement dans le bac, pas dans l&apos;eau de
+                        remplacement. Évite de les mélanger au conditionneur dans le même seau.
+                      </p>
+                    )}
                     {dosingProduct.dose_info && <p className="mt-2 text-sm text-slate-600">{dosingProduct.dose_info}</p>}
                     {dosingExpiry && dosingExpiry.getTime() < now && (
                       <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">

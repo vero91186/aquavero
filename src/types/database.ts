@@ -50,7 +50,7 @@ export interface HardscapeItem {
   created_at: string;
 }
 
-export type ProductCategory = 'conditioner' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
+export type ProductCategory = 'conditioner' | 'bacteria' | 'fertilizer' | 'food' | 'filter_media' | 'test_kit' | 'other';
 
 export interface Product {
   id: string;

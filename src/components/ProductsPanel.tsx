@@ -8,10 +8,12 @@ import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { ConfidenceBadge, CONFIDENCE_STYLES, SourcesLine, SummaryDetails, type Confidence } from '@/components/research-ui';
+import { productCategoryOf } from '@/lib/products';
 import { Search, Loader2, Trash2, Pencil, Check, X, Plus, AlertTriangle, RotateCw } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<ProductCategory, string> = {
   conditioner: "Conditionneur d'eau",
+  bacteria: 'Bactéries (traitement)',
   fertilizer: 'Engrais',
   food: 'Nourriture',
   filter_media: 'Media filtrant',
@@ -113,7 +115,7 @@ export function ProductsPanel({
       .filter(Boolean)
       .join('\n');
 
-    await supabase.from('products').insert({
+    const row = {
       tank_id: tankId,
       user_id: user.id,
       // Nom complet trouvé par la recherche (marque + produit + contenance),
@@ -125,7 +127,13 @@ export function ProductsPanel({
       shelf_life_days_after_opening: result.shelf_life_days_after_opening,
       ai_summary: summary || null,
       photo_url: photoUrl,
-    });
+    };
+    const { error: insertError } = await supabase.from('products').insert(row);
+    // Migration 0015 pas encore lancée : la catégorie « bacteria » est refusée, on enregistre en « autre »
+    // (le nom suffit à reconnaître des bactéries dans l'entretien).
+    if (insertError && row.category === 'bacteria') {
+      await supabase.from('products').insert({ ...row, category: 'other' });
+    }
     setSaving(false);
     setName('');
     setResult(null);
@@ -146,7 +154,7 @@ export function ProductsPanel({
     setEditingId(p.id);
     setEditForm({
       name: p.name,
-      category: p.category,
+      category: productCategoryOf(p),
       dose_info: p.dose_info ?? '',
       dose_ml_per_100l: p.dose_ml_per_100l !== null ? String(p.dose_ml_per_100l) : '',
       opened_at: p.opened_at ?? '',
@@ -161,19 +169,20 @@ export function ProductsPanel({
 
   async function saveEdit(id: string) {
     setSavingEdit(true);
-    await supabase
-      .from('products')
-      .update({
-        name: editForm.name,
-        category: editForm.category,
-        dose_info: editForm.dose_info || null,
-        dose_ml_per_100l: editForm.dose_ml_per_100l ? parseFloat(editForm.dose_ml_per_100l) : null,
-        opened_at: editForm.opened_at || null,
-        shelf_life_days_after_opening: editForm.shelf_life_days_after_opening
-          ? parseInt(editForm.shelf_life_days_after_opening, 10)
-          : null,
-      })
-      .eq('id', id);
+    const patch = {
+      name: editForm.name,
+      category: editForm.category,
+      dose_info: editForm.dose_info || null,
+      dose_ml_per_100l: editForm.dose_ml_per_100l ? parseFloat(editForm.dose_ml_per_100l) : null,
+      opened_at: editForm.opened_at || null,
+      shelf_life_days_after_opening: editForm.shelf_life_days_after_opening
+        ? parseInt(editForm.shelf_life_days_after_opening, 10)
+        : null,
+    };
+    const { error: updateError } = await supabase.from('products').update(patch).eq('id', id);
+    if (updateError && patch.category === 'bacteria') {
+      await supabase.from('products').update({ ...patch, category: 'other' }).eq('id', id);
+    }
     setSavingEdit(false);
     setEditingId(null);
     onUpdated();
@@ -305,7 +314,7 @@ export function ProductsPanel({
                     ))}
                   </select>
                 </div>
-                {editForm.category === 'conditioner' && (
+                {(editForm.category === 'conditioner' || editForm.category === 'bacteria' || editForm.category === 'fertilizer' || editForm.category === 'other') && (
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600">Dose (mL/100L)</label>
                     <input
@@ -371,7 +380,7 @@ export function ProductsPanel({
                   <div>
                     <span className="font-medium text-slate-800">{p.name}</span>
                     <span className="ml-2 text-xs text-slate-400">
-                      {CATEGORY_LABELS[p.category]}
+                      {CATEGORY_LABELS[productCategoryOf(p)]}
                       {p.dose_ml_per_100l !== null ? ` · ${p.dose_ml_per_100l} mL/100L` : ''}
                       {p.dose_info ? ` · ${p.dose_info}` : ''}
                     </span>
