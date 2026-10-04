@@ -14,6 +14,7 @@ import {
   type DensityLevelId,
 } from '@/lib/density';
 import { createClient } from '@/lib/supabase/client';
+import { DensityProjects } from '@/components/DensityProjects';
 import { TankSimulationView } from '@/components/TankSimulationView';
 import { Gauge, Minus, Plus, RotateCcw, Save, TriangleAlert, X } from 'lucide-react';
 
@@ -127,6 +128,14 @@ export function DensitySimulator({
     ]);
     setQuery('');
     setSuggestions([]);
+  }
+
+  // Ouvre un projet ou une alternative : remplace le peuplement enregistré par ses lignes, le temps de la simulation.
+  function loadProject(projectLines: DensityLine[]) {
+    const zeroed: Record<string, number> = {};
+    base.forEach((l) => (zeroed[l.id] = 0));
+    setOverrides(zeroed);
+    setExtras(projectLines);
   }
 
   function reset() {
@@ -413,6 +422,8 @@ export function DensitySimulator({
               </dd>
             </div>
           </dl>
+
+          <DensityProjects tankId={tankId} lines={lines} netLiters={netLiters} onLoad={loadProject} />
 
           <div className="mt-3 flex items-start justify-between gap-3">
             <p className="text-xs text-slate-400">

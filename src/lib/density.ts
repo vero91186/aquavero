@@ -116,3 +116,37 @@ export function densityLevel(ratio: number): DensityLevel {
     message: 'Surcharge probable : réduis la population ou vise un plus grand volume avant d’aller plus loin.',
   };
 }
+
+// Alternative « en proportion » : garde les mêmes espèces dans les mêmes
+// proportions, mais ajuste les quantités pour viser une densité donnée
+// (cm de poisson par litre d'eau réelle). On arrondit à l'entier inférieur,
+// puis on complète animal par animal tant que la cible n'est pas dépassée.
+export function scalePopulation(lines: DensityLine[], netLiters: number, targetRatio: number): DensityLine[] {
+  const usable = lines.filter((l) => l.quantity > 0 && l.sizeCm > 0);
+  if (netLiters <= 0 || usable.length === 0) return [];
+  const weight = (l: DensityLine) => l.sizeCm * (l.kind === 'invertebrate' ? INVERTEBRATE_COEF : 1);
+  const current = usable.reduce((s, l) => s + weight(l) * l.quantity, 0);
+  const budget = targetRatio * netLiters;
+  const f = budget / current;
+
+  const out = usable.map((l) => ({ ...l, quantity: Math.floor(l.quantity * f) }));
+  let total = out.reduce((s, l) => s + weight(l) * l.quantity, 0);
+
+  // Complète : on ajoute un animal à l'espèce la plus en retard sur sa proportion cible.
+  for (let guard = 0; guard < 500; guard++) {
+    let pick = -1;
+    let bestGap = 0;
+    out.forEach((l, i) => {
+      if (total + weight(l) > budget + 1e-9) return;
+      const gap = usable[i].quantity * f - l.quantity;
+      if (gap > bestGap) {
+        bestGap = gap;
+        pick = i;
+      }
+    });
+    if (pick < 0) break;
+    out[pick].quantity += 1;
+    total += weight(out[pick]);
+  }
+  return out.filter((l) => l.quantity > 0);
+}
