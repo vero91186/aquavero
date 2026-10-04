@@ -337,6 +337,19 @@ export function LivestockPanel({
     onUpdated();
   }
 
+  const [findingPhotoId, setFindingPhotoId] = useState<string | null>(null);
+  const [photoNote, setPhotoNote] = useState<string | null>(null);
+
+  // Cherche une photo pour un élément déjà enregistré qui n'en a pas.
+  async function handleFindPhoto(item: Livestock) {
+    setFindingPhotoId(item.id);
+    setPhotoNote(null);
+    const url = await fetchAutoPhoto(item.species_scientific_name || item.species_common_name, 'species');
+    setFindingPhotoId(null);
+    if (url) await handlePhotoChange(item.id, url);
+    else setPhotoNote(`Pas de photo fiable trouvée pour ${item.species_common_name} : ajoutes-en une avec l'appareil photo.`);
+  }
+
   async function handlePhotoChange(id: string, url: string | null) {
     await supabase.from('livestock').update({ photo_url: url }).eq('id', id);
     onUpdated();
@@ -577,6 +590,7 @@ export function LivestockPanel({
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">{listTitle ?? 'Peuplement actuel'}</h3>
+        {photoNote && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{photoNote}</p>}
         <div className="space-y-2">
           {filteredLivestock.map((item) =>
             editingId === item.id ? (
@@ -668,6 +682,16 @@ export function LivestockPanel({
                     onChange={(url) => handlePhotoChange(item.id, url)}
                   />
                   <div>
+                    {!item.photo_url && (
+                      <button
+                        type="button"
+                        onClick={() => handleFindPhoto(item)}
+                        disabled={findingPhotoId === item.id}
+                        className="mb-1 block rounded-full border border-teal-300 bg-teal-50 px-2.5 py-0.5 text-xs text-teal-800 hover:bg-teal-100 disabled:opacity-50"
+                      >
+                        {findingPhotoId === item.id ? 'Recherche…' : 'Trouver une photo'}
+                      </button>
+                    )}
                     <span className="font-medium text-slate-800">
                       {item.quantity}× {item.species_common_name}
                     </span>

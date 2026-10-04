@@ -156,6 +156,17 @@ async function findProductPhoto(query: string, hintUrl?: string | null): Promise
   return null;
 }
 
+// Variétés de plantes d'aquarium qui n'ont pas de fiche espèce (cultivars
+// d'aquariophilie) : une base d'espèces renverrait la plante « parente », qui
+// ne ressemble pas. On passe donc par des pages de fabricants/revendeurs.
+const CULTIVAR_ALIASES: { match: RegExp; query: string; pages: string[] }[] = [
+  {
+    match: /mousse\s+flamme|flame\s+moss|taxiphyllum.*flame/i,
+    pages: ['https://www.aquasabi.com/Taxiphyllum-sp-Flame-Moss'],
+    query: "Taxiphyllum sp. 'Flame' flame moss plante d'aquarium",
+  },
+];
+
 // Renvoie l'URL d'une image trouvée sur internet pour ce nom, ou null si rien
 // de pertinent n'a été trouvé. Ne lève jamais d'erreur (best-effort) : un
 // échec de recherche ne doit jamais bloquer l'ajout d'un élément.
@@ -171,6 +182,14 @@ export async function findPhotoOnWeb(
     if (kind === 'product') return await findProductPhoto(clean, hintUrl);
 
     if (kind === 'species') {
+      const cultivar = CULTIVAR_ALIASES.find((c) => c.match.test(clean));
+      if (cultivar) {
+        for (const page of cultivar.pages) {
+          const known = await imageFromProductPage(page);
+          if (known) return known;
+        }
+        return await findProductPhoto(cultivar.query, hintUrl);
+      }
       const inat = await searchINaturalist(clean);
       if (inat) return inat;
     } else {

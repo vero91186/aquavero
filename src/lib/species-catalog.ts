@@ -60,6 +60,7 @@ export const SPECIES_CATALOG: SpeciesReference[] = [
   { commonName: 'Cryptocoryne wendtii', scientificName: 'Cryptocoryne wendtii', category: 'plant', bioloadFactor: 0, adultSizeCm: 20, temperament: 'plante de premier plan/milieu, peu exigeante', minTankLiters: 20, swimZone: 'bottom', solitary: false },
   { commonName: 'Anubias nana', scientificName: 'Anubias barteri var. nana', category: 'plant', bioloadFactor: 0, adultSizeCm: 10, temperament: 'à fixer sur bois/roche, très peu exigeante', minTankLiters: 20, swimZone: 'bottom', solitary: false },
   { commonName: 'Mousse de Java', scientificName: 'Taxiphyllum barbieri', category: 'plant', bioloadFactor: 0, adultSizeCm: 5, temperament: 'à fixer, très peu exigeante', minTankLiters: 10, swimZone: 'bottom', solitary: false },
+  { commonName: 'Mousse flamme', scientificName: "Taxiphyllum sp. 'Flame'", category: 'plant', bioloadFactor: 0, adultSizeCm: 8, temperament: 'à fixer sur bois/roche, port dressé en flammes, très peu exigeante', minTankLiters: 10, swimZone: 'bottom', solitary: false },
   { commonName: 'Fougère de Java', scientificName: 'Microsorum pteropus', category: 'plant', bioloadFactor: 0, adultSizeCm: 15, temperament: 'à fixer sur bois/roche', minTankLiters: 20, swimZone: 'bottom', solitary: false },
 
   // --- Marin / récifal courant ---
