@@ -19,35 +19,37 @@ const TERRITORIAL =
 function stepOf(l: DensityLine): 1 | 2 | 3 | 4 {
   const name = `${l.name} ${l.scientificName ?? ''}`;
   if (SENSITIVE.test(name)) return 4;
-  if (l.kind === 'invertebrate') return /escargot|neritina|planorb|physe|clea|helen|tylomelania|bellamya|trompette/i.test(name) ? 2 : 3;
+  // Escargots et crevettes robustes d'abord : très peu de déchets, et la colonie
+  // s'installe avant l'arrivée des poissons.
+  if (l.kind === 'invertebrate') return 1;
   if (/corydoras|brochis|dianema/i.test(name)) return 2;
   if (TERRITORIAL.test(name)) return 3;
-  return 1;
+  return 2;
 }
 
 const STEPS: Omit<IntroStep, 'lines'>[] = [
   {
     step: 1,
-    title: 'Premiers poissons, robustes',
+    title: 'Escargots et crevettes robustes',
     timing: 'Après le rodage (nitrites à 0), jour 0',
-    why: 'Petits poissons de banc résistants : ils lancent la charge biologique en douceur. Par lots de 6 à 8 maximum.',
+    why: 'Ils produisent très peu de déchets et installent leur colonie avant les poissons, qui pourraient manger les bébés crevettes.',
   },
   {
     step: 2,
-    title: 'Poissons de fond et escargots',
-    timing: '2 semaines plus tard',
-    why: 'Le sol et le biofilm sont installés ; les corydoras et les escargots trouvent de quoi manger.',
+    title: 'Poissons robustes et corydoras',
+    timing: '2 à 3 semaines plus tard',
+    why: 'Petits poissons de banc résistants et corydoras, par lots de 6 à 8 maximum, pour lancer la charge en douceur.',
   },
   {
     step: 3,
-    title: 'Territoriaux et crevettes robustes',
-    timing: '4 semaines plus tard',
-    why: 'Ancistrus, loches, gouramis, cichlidés nains et crevettes Neocaridina : la filtration est stable et les algues/biofilm sont présents.',
+    title: 'Territoriaux',
+    timing: '4 à 6 semaines après l\'étape 1',
+    why: 'Ancistrus, loches, gouramis, cichlidés nains : la filtration est stable et les algues et le biofilm sont présents.',
   },
   {
     step: 4,
     title: 'Espèces sensibles',
-    timing: '8 à 12 semaines plus tard',
+    timing: '8 à 12 semaines après l\'étape 1',
     why: 'Otocinclus, apistogrammas, rasboras brillant, crevettes Caridina : ils exigent une eau mature et stable.',
   },
 ];
