@@ -8,7 +8,7 @@ import {
   scalePopulation,
   type DensityLine,
 } from '@/lib/density';
-import { FolderOpen, Save, Trash2, Layers } from 'lucide-react';
+import { FolderOpen, Save, Trash2, Layers, Pencil } from 'lucide-react';
 
 interface Scenario {
   id: string;
@@ -48,6 +48,8 @@ export function DensityProjects({
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data, error: err } = await supabase
@@ -92,7 +94,48 @@ export function DensityProjects({
 
   async function remove(id: string) {
     await supabase.from('density_scenarios').delete().eq('id', id);
+    if (editingId === id) {
+      setEditingId(null);
+      setName('');
+    }
     await load();
+  }
+
+  // Ouvre un projet enregistré pour le modifier : la simulation prend ses lignes,
+  // et « Mettre à jour » réécrit ce même projet.
+  function openProject(sc: Scenario) {
+    onLoad(asLoaded(sc.lines));
+    setEditingId(sc.id);
+    setName(sc.name);
+    setNotice(null);
+  }
+
+  async function updateProject() {
+    if (!editingId || !name.trim()) return;
+    setBusy(true);
+    const { error: err } = await supabase
+      .from('density_scenarios')
+      .update({
+        name: name.trim(),
+        lines: active.map((l) => ({ id: l.id, name: l.name, scientificName: l.scientificName, sizeCm: l.sizeCm, quantity: l.quantity, kind: l.kind, zone: l.zone })),
+        net_liters: netLiters,
+        ratio_net: Math.round(result.ratioNet * 1000) / 1000,
+      })
+      .eq('id', editingId);
+    setBusy(false);
+    if (err) {
+      setError(`Mise à jour impossible : ${err.message}`);
+      return;
+    }
+    setError(null);
+    setNotice(`Projet « ${name.trim()} » mis à jour.`);
+    await load();
+  }
+
+  function stopEditing() {
+    setEditingId(null);
+    setName('');
+    setNotice(null);
   }
 
   const asLoaded = (ls: DensityLine[]): DensityLine[] =>
@@ -133,7 +176,10 @@ export function DensityProjects({
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     <button
                       type="button"
-                      onClick={() => onLoad(asLoaded(a.lines))}
+                      onClick={() => {
+                        onLoad(asLoaded(a.lines));
+                        stopEditing();
+                      }}
                       className="rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
                     >
                       Simuler
@@ -156,6 +202,11 @@ export function DensityProjects({
 
       <section>
         <h4 className="mb-2 text-lg text-slate-900">Mes projets de peuplement</h4>
+        {editingId && (
+          <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
+            <Pencil size={13} /> Tu modifies un projet enregistré : change la simulation ci-dessus, puis mets-le à jour.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           <input
             value={name}
@@ -163,25 +214,50 @@ export function DensityProjects({
             placeholder="Nom du projet, par exemple Version avec corydoras en plus"
             className="min-w-[14rem] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
           />
+          {editingId && (
+            <button
+              type="button"
+              disabled={busy || active.length === 0 || !name.trim()}
+              onClick={updateProject}
+              className="flex items-center gap-1.5 rounded-full bg-teal-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-50"
+            >
+              <Save size={14} /> Mettre à jour le projet
+            </button>
+          )}
           <button
             type="button"
             disabled={busy || active.length === 0 || !name.trim()}
             onClick={async () => {
               await saveProject(active, name.trim());
-              setName('');
+              stopEditing();
             }}
-            className="flex items-center gap-1.5 rounded-full bg-teal-600 px-4 py-1.5 text-sm font-medium text-white transition hover:bg-teal-700 disabled:opacity-50"
+            className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
+              editingId
+                ? 'border border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100'
+                : 'bg-teal-600 text-white hover:bg-teal-700'
+            }`}
           >
-            <Save size={14} /> Enregistrer la simulation
+            <Save size={14} /> {editingId ? 'Enregistrer comme nouveau' : 'Enregistrer la simulation'}
           </button>
+          {editingId && (
+            <button type="button" onClick={stopEditing} className="rounded-full px-3 py-1.5 text-sm text-slate-500 hover:bg-slate-100">
+              Annuler
+            </button>
+          )}
         </div>
+        {notice && <p className="mt-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{notice}</p>}
         {error && <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{error}</p>}
 
         <div className="mt-3 space-y-2">
           {scenarios.map((s) => {
             const lvl = s.ratio_net !== null ? densityLevel(s.ratio_net) : null;
             return (
-              <div key={s.id} className="flex flex-wrap items-start justify-between gap-2 rounded-xl border border-slate-200 p-3">
+              <div
+                key={s.id}
+                className={`flex flex-wrap items-start justify-between gap-2 rounded-xl border p-3 ${
+                  editingId === s.id ? 'border-teal-400 bg-teal-50/40' : 'border-slate-200'
+                }`}
+              >
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-slate-900">{s.name}</p>
                   <p className="text-xs text-slate-500">
@@ -200,10 +276,10 @@ export function DensityProjects({
                 <div className="flex gap-1.5">
                   <button
                     type="button"
-                    onClick={() => onLoad(asLoaded(s.lines))}
+                    onClick={() => openProject(s)}
                     className="flex items-center gap-1 rounded-full border border-slate-200 px-2.5 py-1 text-xs text-slate-700 hover:bg-slate-50"
                   >
-                    <FolderOpen size={13} /> Ouvrir
+                    <FolderOpen size={13} /> {editingId === s.id ? 'En cours' : 'Ouvrir et modifier'}
                   </button>
                   <button
                     type="button"
