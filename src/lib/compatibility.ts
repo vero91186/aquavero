@@ -30,17 +30,17 @@ const SNAIL =
   /neritina|clithon|vittina|neripteron|planorb|physe|physa|pomacea|marisa|bellamya|tylomelania|melanoides|anentome|brotia|escargot|clea/;
 const PLANT_EATING_SNAIL = /pomacea|marisa|escargot pomme/;
 const HARMLESS_FISH =
-  /otocinclus|ancistrus|corydoras|aspidoras|brochis|dianema|scleromystax|pangio|farlowella|rineloricaria|parotocinclus|peckoltia|hypancistrus|gasteropelecus|carnegiella|kryptopterus|nannostomus|copella|boraras|sundadanio|microdevario|axelrodia|symphysodon|discus/;
+  /otocinclus|ancistrus|corydoras|aspidoras|brochis|dianema|scleromystax|pangio|farlowella|rineloricaria|parotocinclus|peckoltia|hypancistrus|gasteropelecus|carnegiella|kryptopterus|nannostomus|copella|boraras|sundadanio|microdevario|axelrodia|symphysodon|discus|crossocheilus|siamois|chilodus|characidium|rhinogobius|gobie|tateurndina|boraras/;
 const STRONG_PREDATOR =
   /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|devario aequipinnatus|danio geant|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |macropodus|paradis|aphyosemion|fundulopanchax|killi/;
 const SHRIMP_HUNTER =
-  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|botia|yasuhikotakia|macropodus|paradis|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |betta|combattant|trichopodus|trichogaster|gourami|sphaerichthys|tetrazona|barbodes|puntigrus|devario|melanotaenia|killi|aphyosemion|fundulopanchax|badis|dario|symphysodon|discus/;
+  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|botia|yasuhikotakia|macropodus|paradis|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |betta|combattant|trichopodus|trichogaster|gourami|sphaerichthys|tetrazona|barbodes|puntigrus|devario|melanotaenia|killi|aphyosemion|fundulopanchax|badis|dario|symphysodon|discus|carinotetraodon|globe|chromobotia|microctenopoma|neolamprologus/;
 const NIPPER =
-  /tetrazona|puntigrus|barbodes tetrazona|barbus tigre|barbus de sumatra|desmopuntius|pentazona|hyphessobrycon eques|serpae|gymnocorymbus|veuve|bande noire|anisitsi|buenos aires|moenkhausia sanctaefilomenae|yeux rouges|pethia conchonius|barbus rose/;
+  /tetrazona|puntigrus|barbodes tetrazona|barbus tigre|barbus de sumatra|desmopuntius|pentazona|hyphessobrycon eques|serpae|gymnocorymbus|veuve|bande noire|anisitsi|buenos aires|moenkhausia sanctaefilomenae|yeux rouges|pethia conchonius|barbus rose|carinotetraodon|gyrinocheilus/;
 const LONGFIN =
   /betta|combattant|pterophyllum|scalaire|symphysodon|discus|poecilia reticulata|guppy|trichopodus|trichogaster|gourami|poecilia velifera|molly voile|macropodus|iriatherina|xiphophorus hellerii|porte-epee/;
 const LABYRINTH =
-  /betta|combattant|trichopodus|trichogaster|gourami|macropodus|paradis|trichopsis|sphaerichthys/;
+  /betta|combattant|trichopodus|trichogaster|gourami|macropodus|paradis|trichopsis|sphaerichthys|malpulutta|ctenopoma|parosphromenus/;
 const DWARF_CICHLID =
   /apistogramma|pelvicachromis|nannacara|laetacara|cleithracara|mikrogeophagus|ram |nanochromis|taeniacara|dicrossus/;
 const ACTIVE =
@@ -53,9 +53,9 @@ const COOL =
   /tanichthys|neon chinois|oryzias|medaka|corydoras paleatus|poivre|carassius|macropodus|paradis|danio margaritatus/;
 // Eau douce et acide contre dure et alcaline
 const SOFT =
-  /paracheirodon axelrodi|cardinalis|hemigrammus rhodostomus|rummy|petitella|apistogramma|symphysodon|discus|cantonensis|logemanni|dennerli|cristal|crystal|taiwan|blue bolt|red nose|sulawesi|shadow panda|red wine|sphaerichthys|axelrodia|dicrossus|dario|mikrogeophagus ramirezi|ram papillon|nannostomus|hyphessobrycon rosaceus|voilier/;
+  /paracheirodon axelrodi|cardinalis|hemigrammus rhodostomus|rummy|petitella|apistogramma|symphysodon|discus|cantonensis|logemanni|dennerli|cristal|crystal|taiwan|blue bolt|red nose|sulawesi|shadow panda|red wine|sphaerichthys|axelrodia|dicrossus|dario|mikrogeophagus ramirezi|ram papillon|nannostomus|hyphessobrycon rosaceus|voilier|parosphromenus/;
 const HARD =
-  /poecilia|guppy|molly|platy|xiphophorus|limia|heterandria|xenotoca|goodeide|pachypanchax|melanotaenia|bedotia|telmatherina|porte-epee|endler|killi gardneri|aphyosemion/;
+  /poecilia|guppy|molly|platy|xiphophorus|limia|heterandria|xenotoca|goodeide|pachypanchax|melanotaenia|bedotia|telmatherina|porte-epee|endler|killi gardneri|aphyosemion|neolamprologus|phalloceros|nothobranchius|dermogenys/;
 const CARIDINA =
   /\bcaridina (cf\. )?(cantonensis|logemanni|dennerli|gracilirostris)|cristal|crystal|taiwan|blue bolt|red nose|sulawesi|shadow panda|red wine/;
 const NEOCARIDINA =
@@ -130,7 +130,7 @@ export function regexTraits(l: DensityLine): SpeciesTraits {
     harmless: HARMLESS_FISH.test(t),
     strongPredator: STRONG_PREDATOR.test(t),
     shrimpHunter: SHRIMP_HUNTER.test(t),
-    eatsSnails: /botia|yasuhikotakia/.test(t),
+    eatsSnails: /botia|yasuhikotakia|chromobotia|carinotetraodon|globe/.test(t),
     nipper: NIPPER.test(t),
     longfin: LONGFIN.test(t),
     labyrinth: LABYRINTH.test(t),
