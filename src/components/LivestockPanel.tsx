@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { PlantInfo, CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
-import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, sexRatioOf, schoolMinOf, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { scientificNameOf } from '@/lib/species-catalog';
@@ -508,6 +508,11 @@ export function LivestockPanel({
                     >
                       <span className="font-medium text-slate-800">{s.commonName}</span>
                       <span className="text-xs italic text-slate-400">{s.scientificName}</span>
+                      {(schoolMinOf(s) || sexRatioOf(s)) && (
+                        <span className="text-xs text-teal-700">
+                          {[schoolMinOf(s) ? `banc de ${schoolMinOf(s)} mini` : null, sexRatioOf(s)?.label].filter(Boolean).join(' · ')}
+                        </span>
+                      )}
                     </button>
                   </li>
                 ))}

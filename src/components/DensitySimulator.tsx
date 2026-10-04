@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
-import { searchSpecies, SPECIES_CATALOG, schoolMinOf, schoolMinByName, minTankByName, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, SPECIES_CATALOG, schoolMinOf, schoolMinByName, minTankByName, sexRatioOf, sexRatioByName, sexSplit, type SpeciesReference } from '@/lib/species-catalog';
 import {
   computeZoneDensity,
   DENSITY_LIMIT,
@@ -372,6 +372,18 @@ export function DensitySimulator({
                       ) : null;
                     })()}
                     {(() => {
+                      const ratio = sexRatioByName(l.name, l.scientificName);
+                      if (!ratio || l.quantity <= 0) return null;
+                      const { males, females } = sexSplit(l.quantity, ratio);
+                      const text =
+                        l.quantity === 1
+                          ? `1 individu : ${ratio.label}.`
+                          : ratio.female === 0
+                            ? `Proportion conseillée : ${l.quantity > 1 ? '1 mâle seul, pas de second mâle' : '1 mâle'}${females > 0 ? ` (ou ${l.quantity} femelles)` : ''}.`
+                            : `Proportion conseillée : ${males} mâle${males > 1 ? 's' : ''} + ${females} femelle${females > 1 ? 's' : ''} (${ratio.label}).`;
+                      return <p className="text-xs text-teal-700">{text}</p>;
+                    })()}
+                    {(() => {
                       const minL = minTankByName(l.name, l.scientificName);
                       const vol = grossLiters && grossLiters > 0 ? grossLiters : netLiters;
                       if (!minL || l.quantity <= 0 || minL <= vol) return null;
@@ -453,6 +465,7 @@ export function DensitySimulator({
                                       {a.adultSizeCm} cm · {q} pour la même charge
                                     </span>
                                     {schoolMinOf(a) && <span className="block text-teal-700">banc de {schoolMinOf(a)} minimum</span>}
+                                    {sexRatioOf(a) && <span className="block text-teal-700">{sexRatioOf(a)?.label}</span>}
                                   </button>
                                 );
                               })}
@@ -519,6 +532,7 @@ export function DensitySimulator({
                       <span className="text-xs text-slate-400">
                         <i>{s.scientificName}</i> · {s.adultSizeCm} cm · {s.category === 'fish' ? 'poisson' : 'invertébré'}
                         {schoolMinOf(s) ? ` · banc de ${schoolMinOf(s)} mini` : ''}
+                        {sexRatioOf(s) ? ` · ${sexRatioOf(s)?.label}` : ''}
                       </span>
                     </button>
                   </li>

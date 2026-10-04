@@ -431,3 +431,62 @@ export function minTankByName(name: string, scientific?: string | null): number 
   const hit = SPECIES_CATALOG.find((s) => norm(s.commonName) === n || (sci && norm(s.scientificName) === sci));
   return hit && hit.minTankLiters > 0 ? hit.minTankLiters : null;
 }
+
+// --- Proportion mâles / femelles conseillée ---
+export interface SexRatio {
+  male: number;
+  female: number; // 0 = un seul mâle, pas de femelle dans le groupe
+  label: string;
+}
+
+const RATIO_BY_SCI: Record<string, [number, number]> = {
+  'Poecilia reticulata': [1, 3], 'Poecilia wingei': [1, 3], 'Poecilia sphenops': [1, 3], 'Poecilia velifera': [1, 3],
+  'Xiphophorus maculatus': [1, 3], 'Xiphophorus variatus': [1, 3], 'Xiphophorus hellerii': [1, 3],
+  'Limia nigrofasciata': [1, 2], 'Heterandria formosa': [1, 2], 'Xenotoca eiseni': [1, 2],
+  'Mikrogeophagus ramirezi': [1, 1], 'Mikrogeophagus altispinosus': [1, 1], 'Pelvicachromis pulcher': [1, 1],
+  'Pelvicachromis taeniatus': [1, 1], 'Pelvicachromis subocellatus': [1, 1], 'Nannacara anomala': [1, 2],
+  'Laetacara curviceps': [1, 1], 'Laetacara dorsigera': [1, 1], 'Nanochromis parilus': [1, 1],
+  'Taeniacara candidi': [1, 2], 'Dicrossus filamentosus': [1, 2], 'Pterophyllum scalare': [1, 1],
+  'Betta splendens': [1, 0], 'Betta imbellis': [1, 0], 'Betta smaragdina': [1, 0],
+  'Aphyosemion australe': [1, 2], 'Epiplatys annulatus': [1, 2], 'Aplocheilus lineatus': [1, 2],
+  'Fundulopanchax gardneri': [1, 2], 'Pachypanchax playfairii': [1, 2],
+  'Iriatherina werneri': [1, 2], 'Pseudomugil gertrudae': [1, 2], 'Bedotia geayi': [1, 2],
+  'Trichogaster lalius': [1, 2], 'Trichogaster chuna': [1, 2], 'Trichogaster labiosa': [1, 2],
+  'Trichopodus leerii': [1, 2], 'Trichopodus trichopterus': [1, 2], 'Macropodus opercularis': [1, 1],
+};
+
+export function sexRatioOf(ref: { scientificName: string; category?: string }): SexRatio | null {
+  const sci = ref.scientificName;
+  let r: [number, number] | undefined = RATIO_BY_SCI[sci];
+  if (!r) {
+    if (/^Apistogramma/.test(sci)) r = [1, 3];
+    else if (/^Ancistrus/.test(sci)) r = [1, 2];
+    else if (/^Melanotaenia/.test(sci)) r = [1, 2];
+    else if (/^(Neocaridina|Caridina)/.test(sci)) r = [1, 1];
+  }
+  if (!r) return null;
+  const [male, female] = r;
+  const label =
+    female === 0
+      ? '1 seul mâle (jamais deux ensemble), ou un groupe de femelles'
+      : male === female
+        ? 'autant de mâles que de femelles, ou un couple'
+        : `${male} mâle pour ${female} femelles`;
+  return { male, female, label };
+}
+
+// Répartition conseillée pour un effectif donné (au moins 1 mâle quand il y en a besoin).
+export function sexSplit(quantity: number, ratio: SexRatio): { males: number; females: number } {
+  const q = Math.max(0, Math.round(quantity));
+  if (q === 0) return { males: 0, females: 0 };
+  if (ratio.female === 0) return { males: 1, females: q - 1 };
+  const males = Math.min(q, Math.max(1, Math.round((q * ratio.male) / (ratio.male + ratio.female))));
+  return { males, females: q - males };
+}
+
+export function sexRatioByName(name: string, scientific?: string | null): SexRatio | null {
+  const n = norm(name);
+  const sci = scientific ? norm(scientific) : null;
+  const hit = SPECIES_CATALOG.find((x) => norm(x.commonName) === n || (sci && norm(x.scientificName) === sci));
+  return hit ? sexRatioOf(hit) : null;
+}
