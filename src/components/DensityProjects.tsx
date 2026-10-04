@@ -81,7 +81,7 @@ export function DensityProjects({
       tank_id: tankId,
       user_id: userData.user.id,
       name: projectName,
-      lines: project.map((l) => ({ id: l.id, name: l.name, sizeCm: l.sizeCm, quantity: l.quantity, kind: l.kind, zone: l.zone })),
+      lines: project.map((l) => ({ id: l.id, name: l.name, scientificName: l.scientificName, sizeCm: l.sizeCm, quantity: l.quantity, kind: l.kind, zone: l.zone })),
       net_liters: netLiters,
       ratio_net: Math.round(r.ratioNet * 1000) / 1000,
     });

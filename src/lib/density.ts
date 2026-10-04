@@ -1,4 +1,5 @@
 import type { Livestock, SwimZone } from '@/types/database';
+import { scientificNameOf } from '@/lib/species-catalog';
 
 // Un invertébré (crevette, escargot) pèse moins sur le bac qu'un poisson de
 // même longueur : on le compte pour 30 % en « équivalent cm de poisson ».
@@ -9,6 +10,7 @@ export type DensityKind = 'fish' | 'invertebrate';
 export interface DensityLine {
   id: string;
   name: string;
+  scientificName?: string | null;
   sizeCm: number;
   quantity: number;
   kind: DensityKind;
@@ -47,6 +49,7 @@ export function linesFromLivestock(livestock: Livestock[]): DensityLine[] {
     .map((l) => ({
       id: l.id,
       name: l.species_common_name,
+      scientificName: scientificNameOf(l.species_common_name, l.species_scientific_name),
       sizeCm: l.adult_size_cm ?? 0,
       quantity: l.quantity,
       kind: l.category as DensityKind,

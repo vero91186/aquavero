@@ -78,3 +78,13 @@ export function searchSpecies(query: string): SpeciesReference[] {
     (s) => s.commonName.toLowerCase().includes(q) || s.scientificName.toLowerCase().includes(q)
   ).slice(0, 8);
 }
+
+const norm = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+// Nom scientifique à afficher : celui enregistré sur la fiche, sinon celui du
+// catalogue quand le nom commun correspond. Renvoie null si on ne le connaît pas.
+export function scientificNameOf(commonName: string, stored?: string | null): string | null {
+  if (stored && stored.trim()) return stored.trim();
+  const hit = SPECIES_CATALOG.find((s) => norm(s.commonName) === norm(commonName));
+  return hit ? hit.scientificName : null;
+}

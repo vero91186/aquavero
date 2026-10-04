@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Livestock, Tank } from '@/types/database';
+import { scientificNameOf } from '@/lib/species-catalog';
 import { MapPin, Trash2, Wand2, Eraser } from 'lucide-react';
 
 type Pt = { x: number; y: number };
@@ -261,7 +262,11 @@ export function PlantMap({ tank, plants, onUpdated }: { tank: Tank; plants: Live
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2 text-sm">
           <p className="flex items-center gap-1.5 text-slate-700">
             <MapPin size={15} className="text-teal-600" />
-            {selPlant.species_common_name} n°{(selected?.idx ?? 0) + 1}, à {Math.round(selPt.x)} cm du bord gauche et{' '}
+            {selPlant.species_common_name}
+            {scientificNameOf(selPlant.species_common_name, selPlant.species_scientific_name) && (
+              <em className="text-slate-500"> ({scientificNameOf(selPlant.species_common_name, selPlant.species_scientific_name)})</em>
+            )}{' '}
+            n°{(selected?.idx ?? 0) + 1}, à {Math.round(selPt.x)} cm du bord gauche et{' '}
             {Math.round(selPt.y)} cm de la vitre avant
           </p>
           <button type="button" onClick={removeSelected} className="flex items-center gap-1 text-xs text-slate-500 hover:text-red-600">

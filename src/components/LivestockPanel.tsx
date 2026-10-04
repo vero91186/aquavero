@@ -6,6 +6,7 @@ import type { CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/ty
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
+import { scientificNameOf } from '@/lib/species-catalog';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
@@ -695,9 +696,13 @@ export function LivestockPanel({
                     <span className="font-medium text-slate-800">
                       {item.quantity}× {item.species_common_name}
                     </span>
+                    {scientificNameOf(item.species_common_name, item.species_scientific_name) && (
+                      <span className="ml-2 text-sm italic text-slate-500">
+                        {scientificNameOf(item.species_common_name, item.species_scientific_name)}
+                      </span>
+                    )}
                     <span className="ml-2 text-xs text-slate-400">
                       {CATEGORY_LABELS[item.category]}
-                      {item.species_scientific_name ? ` · ${item.species_scientific_name}` : ''}
                       {item.category !== 'plant' ? ` · ${SWIM_ZONE_LABELS[item.swim_zone]}` : ''}
                       {item.temperament ? ` · ${item.temperament}` : ''}
                       {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}

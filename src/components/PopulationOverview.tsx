@@ -1,5 +1,6 @@
 'use client';
 
+import { scientificNameOf } from '@/lib/species-catalog';
 import type { Livestock, SwimZone, Tank } from '@/types/database';
 import { AlertTriangle, Info } from 'lucide-react';
 
@@ -101,7 +102,14 @@ export function PopulationOverview({ tank, livestock }: { tank: Tank; livestock:
           <div className="space-y-2">
             {bySpecies.map((l) => (
               <div key={l.id} className="flex items-center gap-3">
-                <span className="w-32 shrink-0 truncate text-sm text-slate-600">{l.species_common_name}</span>
+                <span className="w-44 shrink-0 text-sm leading-tight text-slate-600">
+                  <span className="block truncate">{l.species_common_name}</span>
+                  {scientificNameOf(l.species_common_name, l.species_scientific_name) && (
+                    <span className="block truncate text-xs italic text-slate-400">
+                      {scientificNameOf(l.species_common_name, l.species_scientific_name)}
+                    </span>
+                  )}
+                </span>
                 <div className="h-3 flex-1 overflow-hidden rounded-full bg-slate-100">
                   <div
                     className="h-full rounded-full bg-sky-500"

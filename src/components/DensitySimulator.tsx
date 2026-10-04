@@ -119,6 +119,7 @@ export function DensitySimulator({
       {
         id: `extra-${Date.now()}-${list.length}`,
         name: s.commonName,
+        scientificName: s.scientificName,
         sizeCm: s.adultSizeCm,
         quantity: 1,
         kind: s.category as 'fish' | 'invertebrate',
@@ -244,6 +245,7 @@ export function DensitySimulator({
                         </span>
                       )}
                     </p>
+                    {l.scientificName && <p className="truncate text-xs italic text-slate-500">{l.scientificName}</p>}
                     <p className="text-xs text-slate-400">
                       {l.kind === 'fish' ? 'poisson' : 'invertébré'} ·{' '}
                       {l.sizeCm > 0 ? `${fmt(l.sizeCm, 1)} cm adulte` : 'taille adulte manquante'}
