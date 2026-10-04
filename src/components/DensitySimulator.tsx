@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
-import { searchSpecies, SPECIES_CATALOG, schoolMinOf, schoolMinByName, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, SPECIES_CATALOG, schoolMinOf, schoolMinByName, minTankByName, type SpeciesReference } from '@/lib/species-catalog';
 import {
   computeZoneDensity,
   DENSITY_LIMIT,
@@ -370,6 +370,16 @@ export function DensitySimulator({
                           Espèce de banc : {min} minimum conseillés, {l.quantity} seulement.
                         </p>
                       ) : null;
+                    })()}
+                    {(() => {
+                      const minL = minTankByName(l.name, l.scientificName);
+                      const vol = grossLiters && grossLiters > 0 ? grossLiters : netLiters;
+                      if (!minL || l.quantity <= 0 || minL <= vol) return null;
+                      return (
+                        <p className="text-xs text-amber-700">
+                          Bac conseillé dès {minL} L pour cette espèce, le tien fait {fmt(vol, 0)} L.
+                        </p>
+                      );
                     })()}
                     <p className="text-xs text-slate-400">
                       {l.kind === 'fish' ? 'poisson' : 'invertébré'} ·{' '}

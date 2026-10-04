@@ -296,6 +296,39 @@ export const SPECIES_CATALOG: SpeciesReference[] = [
   { commonName: 'Ancistrus Calico', scientificName: 'Ancistrus sp. var. calico', category: 'fish', bioloadFactor: 2.3, adultSizeCm: 12, temperament: 'paisible, territorial entre mâles, grotte requise', minTankLiters: 100, swimZone: 'bottom', solitary: false, sexNote: 'un seul mâle par bac en général' },
   { commonName: 'Ancistrus Gold (doré)', scientificName: 'Ancistrus sp. var. gold', category: 'fish', bioloadFactor: 2.3, adultSizeCm: 12, temperament: 'paisible, territorial entre mâles, grotte requise', minTankLiters: 100, swimZone: 'bottom', solitary: false, sexNote: 'un seul mâle par bac en général' },
   { commonName: 'Ancistrus Starlight', scientificName: 'Ancistrus sp. var. starlight', category: 'fish', bioloadFactor: 2.3, adultSizeCm: 12, temperament: 'paisible, territorial entre mâles, grotte requise', minTankLiters: 100, swimZone: 'bottom', solitary: false, sexNote: 'un seul mâle par bac en général' },
+
+  // --- Compléments 4 ---
+  { commonName: 'Tétra bleu', scientificName: 'Mimagoniates microlepis', category: 'fish', bioloadFactor: 0.9, adultSizeCm: 6, temperament: 'paisible, grégaire', minTankLiters: 80, swimZone: 'mid', solitary: false },
+  { commonName: 'Tétra à queue rouge', scientificName: 'Aphyocharax rathbuni', category: 'fish', bioloadFactor: 0.8, adultSizeCm: 5, temperament: 'paisible, grégaire, très actif', minTankLiters: 80, swimZone: 'mid', solitary: false },
+  { commonName: 'Poisson-crayon à deux bandes', scientificName: 'Nannostomus eques', category: 'fish', bioloadFactor: 0.9, adultSizeCm: 6, temperament: 'paisible, nage en biais, timide', minTankLiters: 80, swimZone: 'top', solitary: false },
+  { commonName: 'Poisson projecteur', scientificName: 'Copella arnoldi', category: 'fish', bioloadFactor: 0.8, adultSizeCm: 7, temperament: 'paisible, saute, bac couvert', minTankLiters: 80, swimZone: 'top', solitary: false },
+  { commonName: 'Rasbora de porthole', scientificName: 'Rasbora cephalotaenia', category: 'fish', bioloadFactor: 1.5, adultSizeCm: 12, temperament: 'paisible, grégaire, actif', minTankLiters: 150, swimZone: 'mid', solitary: false },
+  { commonName: 'Rasbora tacheté nain', scientificName: 'Rasbora maculata', category: 'fish', bioloadFactor: 0.5, adultSizeCm: 2.5, temperament: 'paisible, grégaire', minTankLiters: 30, swimZone: 'mid', solitary: false },
+  { commonName: 'Barbus à damier', scientificName: 'Puntius oligolepis', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 5, temperament: 'paisible, grégaire', minTankLiters: 60, swimZone: 'mid', solitary: false },
+  { commonName: 'Poisson néon chinois', scientificName: 'Tanichthys albonubes', category: 'fish', bioloadFactor: 0.8, adultSizeCm: 4, temperament: 'paisible, grégaire, eau fraîche (16-22 °C)', minTankLiters: 40, swimZone: 'mid', solitary: false },
+  { commonName: 'Aspidoras nain', scientificName: 'Aspidoras pauciradiatus', category: 'fish', bioloadFactor: 0.6, adultSizeCm: 3.5, temperament: 'paisible, grégaire, fond', minTankLiters: 40, swimZone: 'bottom', solitary: false },
+  { commonName: 'Corydoras barbatus', scientificName: 'Scleromystax barbatus', category: 'fish', bioloadFactor: 1.5, adultSizeCm: 10, temperament: 'paisible, grégaire, fond, eau fraîche', minTankLiters: 100, swimZone: 'bottom', solitary: false },
+  { commonName: 'Poisson-bâton (Farlowella)', scientificName: 'Farlowella acus', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 15, temperament: 'paisible, sensible, courant et eau oxygénée', minTankLiters: 150, swimZone: 'bottom', solitary: false },
+  { commonName: 'Apistogramma hongsloi', scientificName: 'Apistogramma hongsloi', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 6, temperament: 'territorial en reproduction', minTankLiters: 80, swimZone: 'bottom', solitary: false },
+  { commonName: 'Apistogramma viejita', scientificName: 'Apistogramma viejita', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 6, temperament: 'territorial en reproduction', minTankLiters: 80, swimZone: 'bottom', solitary: false },
+  { commonName: 'Apistogramma trifasciata', scientificName: 'Apistogramma trifasciata', category: 'fish', bioloadFactor: 1.1, adultSizeCm: 6, temperament: 'territorial en reproduction', minTankLiters: 60, swimZone: 'bottom', solitary: false },
+  { commonName: 'Cichlidé Laetacara dorsigera', scientificName: 'Laetacara dorsigera', category: 'fish', bioloadFactor: 1.5, adultSizeCm: 7, temperament: 'paisible à territorial en reproduction', minTankLiters: 100, swimZone: 'bottom', solitary: false },
+  { commonName: 'Nanochromis nain', scientificName: 'Nanochromis parilus', category: 'fish', bioloadFactor: 1.8, adultSizeCm: 10, temperament: 'territorial en reproduction', minTankLiters: 100, swimZone: 'bottom', solitary: false },
+  { commonName: 'Betta smaragdina', scientificName: 'Betta smaragdina', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 6, temperament: 'territorial, mâles incompatibles entre eux', minTankLiters: 40, swimZone: 'top', solitary: false },
+  { commonName: 'Goodéidé rouge', scientificName: 'Xenotoca eiseni', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 6, temperament: 'actif, mâles insistants envers les femelles', minTankLiters: 80, swimZone: 'mid', solitary: false },
+  { commonName: 'Poisson arc-en-ciel à trois bandes', scientificName: 'Melanotaenia trifasciata', category: 'fish', bioloadFactor: 2.0, adultSizeCm: 12, temperament: 'paisible, grégaire, très actif', minTankLiters: 250, swimZone: 'mid', solitary: false },
+  { commonName: 'Telmatherina (sailfin silverside)', scientificName: 'Telmatherina ladigesi', category: 'fish', bioloadFactor: 0.8, adultSizeCm: 7, temperament: 'paisible, grégaire, actif', minTankLiters: 100, swimZone: 'top', solitary: false },
+  { commonName: 'Crevette Sulawesi (Cardinal)', scientificName: 'Caridina dennerli', category: 'invertebrate', bioloadFactor: 0.2, adultSizeCm: 2, temperament: 'exigeante : eau chaude et alcaline', minTankLiters: 40, swimZone: 'bottom', solitary: false },
+  { commonName: 'Crevette Green Jade', scientificName: 'Neocaridina davidi var. green', category: 'invertebrate', bioloadFactor: 0.15, adultSizeCm: 2, temperament: 'paisible, grégaire', minTankLiters: 20, swimZone: 'bottom', solitary: false },
+  { commonName: 'Crevette Blue Velvet', scientificName: 'Neocaridina davidi var. blue velvet', category: 'invertebrate', bioloadFactor: 0.15, adultSizeCm: 2, temperament: 'paisible, grégaire', minTankLiters: 20, swimZone: 'bottom', solitary: false },
+  { commonName: 'Crevette Snowball (Pearl White)', scientificName: 'Neocaridina davidi var. snowball', category: 'invertebrate', bioloadFactor: 0.15, adultSizeCm: 2, temperament: 'paisible, grégaire', minTankLiters: 20, swimZone: 'bottom', solitary: false },
+  { commonName: 'Crevette Carbon Rili', scientificName: 'Neocaridina davidi var. carbon rili', category: 'invertebrate', bioloadFactor: 0.15, adultSizeCm: 2, temperament: 'paisible, grégaire', minTankLiters: 20, swimZone: 'bottom', solitary: false },
+  { commonName: 'Crevette Shadow Panda', scientificName: 'Caridina cf. cantonensis var. shadow panda', category: 'invertebrate', bioloadFactor: 0.15, adultSizeCm: 2.5, temperament: 'paisible, exigeante sur l\'eau', minTankLiters: 20, swimZone: 'bottom', solitary: false },
+  { commonName: 'Crevette Red Wine', scientificName: 'Caridina cf. cantonensis var. red wine', category: 'invertebrate', bioloadFactor: 0.15, adultSizeCm: 2.5, temperament: 'paisible, exigeante sur l\'eau', minTankLiters: 20, swimZone: 'bottom', solitary: false },
+  { commonName: 'Escargot Pagode', scientificName: 'Brotia pagodula', category: 'invertebrate', bioloadFactor: 0.3, adultSizeCm: 4, temperament: 'paisible, vivipare', minTankLiters: 40, swimZone: 'bottom', solitary: false },
+  { commonName: 'Escargot pomme dorée', scientificName: 'Pomacea bridgesii', category: 'invertebrate', bioloadFactor: 0.5, adultSizeCm: 5, temperament: 'paisible, mange les plantes tendres', minTankLiters: 60, swimZone: 'bottom', solitary: false },
+  { commonName: 'Escargot lapin (Tylomelania)', scientificName: 'Tylomelania sp. rabbit', category: 'invertebrate', bioloadFactor: 0.4, adultSizeCm: 7, temperament: 'paisible, vivipare', minTankLiters: 60, swimZone: 'bottom', solitary: false },
+  { commonName: 'Écrevisse naine mexicaine (diminutus)', scientificName: 'Cambarellus diminutus', category: 'invertebrate', bioloadFactor: 0.4, adultSizeCm: 3, temperament: 'prédateur opportuniste des crevettes', minTankLiters: 30, swimZone: 'bottom', solitary: false },
 ];
 
 const norm = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
@@ -322,13 +355,61 @@ export function searchSpecies(query: string): SpeciesReference[] {
   return hits.slice(0, 15);
 }
 
-// Effectif minimal conseillé pour une espèce de banc (null si elle n'en a pas
-// besoin). Déduit du tempérament « grégaire » et de la taille : les très petits
-// poissons se sentent en sécurité à 8-10, les autres à 6, les grands à 5.
-export function schoolMinOf(ref: Pick<SpeciesReference, 'temperament' | 'adultSizeCm' | 'category' | 'commonName'>): number | null {
+// Effectif minimal conseillé par espèce (poissons de banc, crevettes en colonie,
+// poissons vivipares en groupe). Valeurs d'usage en aquariophilie, par nom
+// scientifique ; l'espèce absente de cette table n'a pas de minimum connu et
+// retombe sur une règle générale (voir schoolMinOf).
+const GROUP_MIN: Record<string, number> = {
+  // Tétras et apparentés
+  'Paracheirodon innesi': 10, 'Paracheirodon axelrodi': 10, 'Paracheirodon simulans': 10,
+  'Inpaichthys kerri': 6, 'Hyphessobrycon pulchripinnis': 6, 'Hemigrammus bleheri': 8, 'Hemigrammus rhodostomus': 8,
+  'Hyphessobrycon herbertaxelrodi': 6, 'Hyphessobrycon bentosi': 6, 'Nematobrycon palmeri': 6, 'Hyphessobrycon flammeus': 6,
+  'Phenacogrammus interruptus': 6, 'Hyphessobrycon amandae': 8, 'Thayeria boehlkei': 6, 'Thayeria obliqua': 6,
+  'Pristella maxillaris': 6, 'Moenkhausia sanctaefilomenae': 6, 'Moenkhausia pittieri': 6, 'Hyphessobrycon sweglesi': 6,
+  'Hyphessobrycon megalopterus': 6, 'Hemigrammus erythrozonus': 8, 'Petitella georgiae': 8, 'Hasemania nana': 6,
+  'Hemigrammus ocellifer': 6, 'Hyphessobrycon bifasciatus': 6, 'Hyphessobrycon peruvianus': 6, 'Hyphessobrycon rosaceus': 6,
+  'Hemigrammus rodwayi': 6, 'Gymnocorymbus ternetzi': 6, 'Gymnocorymbus thayeri': 6, 'Hyphessobrycon anisitsi': 6,
+  'Hyphessobrycon eques': 6, 'Axelrodia riesei': 8,
+  // Rasboras, danios, barbus
+  'Trigonostigma heteromorpha': 8, 'Trigonostigma espei': 8, 'Trigonostigma hengeli': 8, 'Microdevario kubotai': 8,
+  'Sundadanio axelrodi': 8, 'Boraras spp.': 10, 'Boraras brigittae': 10, 'Boraras urophthalmoides': 10, 'Boraras maculatus': 10,
+  'Rasbora trilineata': 8, 'Rasbora pauciperforata': 8, 'Rasbora einthovenii': 6, 'Rasbora kalochroma': 6,
+  'Danio rerio': 6, 'Danio rerio var. frankei': 6, 'Danio margaritatus': 8, 'Danio choprae': 6, 'Danio kerri': 6,
+  'Danio albolineatus': 6, 'Danio tinwini': 6, 'Devario aequipinnatus': 8,
+  'Puntigrus tetrazona': 8, 'Barbodes tetrazona': 8, 'Barbodes semifasciolatus': 6, 'Pethia conchonius': 6, 'Pethia padamya': 6,
+  'Pethia gelius': 8, 'Pethia nigrofasciata': 6, 'Pethia ticto': 6, 'Puntius vittatus': 6, 'Puntius titteya': 6,
+  'Desmopuntius pentazona': 6, 'Sahyadria denisonii': 6, 'Crossocheilus oblongus': 5,
+  // Poissons de fond
+  'Corydoras adolfoi': 6, 'Corydoras sterbai': 6, 'Corydoras pygmaeus': 8, 'Corydoras habrosus': 8, 'Corydoras hastatus': 8,
+  'Corydoras panda': 6, 'Corydoras aeneus': 6, 'Corydoras aeneus var. albino': 6, 'Corydoras duplicareus': 6,
+  'Corydoras trilineatus': 6, 'Corydoras leopardus': 6, 'Corydoras sp. CW': 6, 'Corydoras schwartzi': 6,
+  'Corydoras paleatus': 6, 'Corydoras axelrodi': 6, 'Brochis splendens': 6, 'Dianema urostriata': 6,
+  'Otocinclus sp.': 6, 'Otocinclus affinis': 6, 'Otocinclus macrospilus': 6, 'Parotocinclus maculicauda': 6,
+  'Pangio kuhlii': 6, 'Pangio oblonga': 6, 'Botia sidthimunki': 6, 'Yasuhikotakia morleti': 5, 'Yasuhikotakia modesta': 5,
+  'Botia striata': 5, 'Kryptopterus vitreolus': 6,
+  // Surface et poissons-crayons
+  'Gasteropelecus sternicla': 6, 'Gasteropelecus levis': 6, 'Carnegiella strigata': 6, 'Carnegiella marthae': 6,
+  'Nannostomus beckfordi': 6, 'Nannostomus trifasciatus': 6, 'Nannostomus marginatus': 8, 'Oryzias latipes': 6,
+  // Arcs-en-ciel
+  'Melanotaenia boesemani': 6, 'Melanotaenia praecox': 6, 'Melanotaenia lacustris': 6, 'Bedotia geayi': 6,
+  'Pseudomugil gertrudae': 8, 'Iriatherina werneri': 6,
+  // Vivipares : un petit groupe avec 2 à 3 femelles par mâle
+  'Poecilia reticulata': 3, 'Poecilia wingei': 3, 'Xiphophorus maculatus': 3, 'Xiphophorus variatus': 3,
+  'Xiphophorus hellerii': 3, 'Poecilia sphenops': 3, 'Poecilia velifera': 3, 'Limia nigrofasciata': 3,
+  // Crevettes : colonie d'au moins 10 (Neocaridina, Caridina d'élevage)
+  'Neocaridina davidi': 10, 'Neocaridina davidi var. blue': 10, 'Neocaridina davidi var. yellow': 10,
+  'Neocaridina davidi var. rili': 10, 'Neocaridina davidi var. black': 10, 'Neocaridina davidi var. orange': 10,
+  'Neocaridina davidi var. Bloody Mary': 10, 'Neocaridina palmata': 10, 'Caridina cantonensis': 10,
+  'Caridina logemanni': 10, 'Caridina cf. cantonensis var. blue': 10,
+  'Mimagoniates microlepis': 6, 'Aphyocharax rathbuni': 6, 'Nannostomus eques': 6, 'Copella arnoldi': 6, 'Rasbora cephalotaenia': 8, 'Rasbora maculata': 10, 'Puntius oligolepis': 6, 'Tanichthys albonubes': 8, 'Aspidoras pauciradiatus': 8, 'Scleromystax barbatus': 6, 'Xenotoca eiseni': 6, 'Melanotaenia trifasciata': 6, 'Telmatherina ladigesi': 8, 'Caridina dennerli': 10, 'Neocaridina davidi var. green': 10, 'Neocaridina davidi var. blue velvet': 10, 'Neocaridina davidi var. snowball': 10, 'Neocaridina davidi var. carbon rili': 10, 'Caridina cf. cantonensis var. shadow panda': 10, 'Caridina cf. cantonensis var. red wine': 10, 
+  'Caridina multidentata': 6, 'Caridina gracilirostris': 6, 'Atyopsis moluccensis': 3, 'Atya gabonensis': 3,
+};
+
+export function schoolMinOf(ref: Pick<SpeciesReference, 'temperament' | 'adultSizeCm' | 'category' | 'commonName'> & { scientificName?: string }): number | null {
+  if (ref.scientificName && GROUP_MIN[ref.scientificName] !== undefined) return GROUP_MIN[ref.scientificName];
+  // Hors table : règle générale sur le tempérament « grégaire » et la taille.
   if (!/grégaire/i.test(ref.temperament)) return null;
   if (ref.category === 'invertebrate') return /crevette/i.test(ref.commonName) ? 6 : null;
-  if (/corydoras|loche|pangio|botia|otocinclus/i.test(ref.commonName)) return 6;
   if (ref.adultSizeCm <= 3.5) return 8;
   if (ref.adultSizeCm <= 6.5) return 6;
   return 5;
@@ -341,4 +422,12 @@ export function schoolMinByName(name: string, scientific?: string | null): numbe
   const sci = scientific ? norm(scientific) : null;
   const hit = SPECIES_CATALOG.find((s) => norm(s.commonName) === n || (sci && norm(s.scientificName) === sci));
   return hit ? schoolMinOf(hit) : null;
+}
+
+// Volume minimal conseillé du catalogue pour une espèce, d'après son nom (null si hors catalogue).
+export function minTankByName(name: string, scientific?: string | null): number | null {
+  const n = norm(name);
+  const sci = scientific ? norm(scientific) : null;
+  const hit = SPECIES_CATALOG.find((s) => norm(s.commonName) === n || (sci && norm(s.scientificName) === sci));
+  return hit && hit.minTankLiters > 0 ? hit.minTankLiters : null;
 }
