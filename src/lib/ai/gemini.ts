@@ -753,3 +753,41 @@ export async function ocrTestStrip(imageBase64: string, imageMimeType: string) {
     confidence_note: string;
   };
 }
+
+const OBSERVATION_SYSTEM_PROMPT = `Tu identifies ce que l'on observe dans un aquarium d'eau douce, en dehors des
+maladies : œufs (poissons, crevettes, escargots), jeunes, algues et dépôts, bestioles (planaires, hydres,
+vers, copépodes), biofilm, moisissures. À partir d'une photo et/ou d'une description, tu donnes ce que
+c'est le plus probablement, une catégorie ("oeufs", "algues", "bestioles" ou "autre"), un niveau de
+confiance entre 0 et 1, si c'est dangereux ("none" = sans danger, "watch" = à surveiller, "act" = à
+traiter), une courte explication et une liste d'actions concrètes. Si une maladie d'un animal est
+probable, dis-le et conseille l'onglet des maladies. Si tu n'es pas sûr, dis-le plutôt que d'inventer.
+Réponds uniquement avec un objet JSON de la forme :
+{"identification": "...", "category": "oeufs|algues|bestioles|autre", "confidence": 0.0,
+"risk": "none|watch|act", "explanation": "...", "actions": ["..."]}`;
+
+export async function identifyObservation(params: {
+  description?: string;
+  hint?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
+}) {
+  const parts: GeminiPart[] = [
+    {
+      text: `Observation dans mon bac${params.hint ? ` (type indiqué : ${params.hint})` : ''} : ${
+        params.description ?? '(aucune description, se baser sur la photo)'
+      }`,
+    },
+  ];
+  if (params.imageBase64 && params.imageMimeType) {
+    parts.push({ inline_data: { mime_type: params.imageMimeType, data: params.imageBase64 } });
+  }
+  const text = await callGemini(parts, OBSERVATION_SYSTEM_PROMPT);
+  return JSON.parse(text) as {
+    identification: string;
+    category: 'oeufs' | 'algues' | 'bestioles' | 'autre';
+    confidence: number;
+    risk: 'none' | 'watch' | 'act';
+    explanation: string;
+    actions: string[];
+  };
+}

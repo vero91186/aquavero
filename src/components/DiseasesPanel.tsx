@@ -16,9 +16,26 @@ import {
   type DiseaseGroup,
   type DiseaseSeverity,
 } from '@/lib/diseases';
-import { AlertTriangle, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
+import {
+  OBSERVATIONS,
+  OBS_GROUP_LABELS,
+  OBS_RISK_LABELS,
+  findObservation,
+  searchObservations,
+  type Observation,
+  type ObsGroup,
+  type ObsRisk,
+} from '@/lib/observations';
+import { compressImageFile, fileToBase64 } from '@/lib/image';
+import { AlertTriangle, Camera, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
 
-type Sub = 'scanner' | 'liste' | 'historique';
+type Sub = 'scanner' | 'liste' | 'autre' | 'historique';
+
+const RISK_BADGE: Record<ObsRisk, string> = {
+  none: 'bg-emerald-100 text-emerald-800',
+  watch: 'bg-amber-100 text-amber-800',
+  act: 'bg-red-100 text-red-800',
+};
 
 const SEVERITY_BADGE: Record<DiseaseSeverity, string> = {
   low: 'bg-emerald-100 text-emerald-800',
@@ -42,6 +59,7 @@ export function DiseasesPanel({
   const tabs: { key: Sub; label: string }[] = [
     { key: 'scanner', label: 'Scanner un symptôme' },
     { key: 'liste', label: 'Liste des maladies' },
+    { key: 'autre', label: 'Autre (œufs, algues…)' },
     { key: 'historique', label: 'Historique' },
   ];
 
@@ -72,6 +90,7 @@ export function DiseasesPanel({
         />
       )}
       {sub === 'liste' && <DiseaseList openId={openId} setOpenId={setOpenId} onGoToPrograms={onGoToPrograms} />}
+      {sub === 'autre' && <OtherTab />}
       {sub === 'historique' && <History tankId={tankId} refreshKey={historyKey} onOpenDisease={(id) => { setOpenId(id); setSub('liste'); }} />}
     </div>
   );
@@ -287,5 +306,207 @@ function HistoryLink({ condition, onOpen }: { condition: string; onOpen: (id: st
     <button type="button" onClick={() => onOpen(d.id)} className="mt-1 text-xs text-teal-700 underline">
       Voir la fiche : {d.name}
     </button>
+  );
+}
+
+interface ObsResult {
+  identification: string;
+  category: string;
+  confidence: string;
+  risk: ObsRisk;
+  explanation: string;
+  actions: string[];
+}
+
+const HINTS = ['Œuf / ponte', 'Algue', 'Bestiole', 'Autre'];
+
+function OtherTab() {
+  return (
+    <div className="space-y-4">
+      <ObservationScan />
+      <ObservationList />
+    </div>
+  );
+}
+
+function ObservationScan() {
+  const [description, setDescription] = useState('');
+  const [hint, setHint] = useState<string | null>(null);
+  const [img, setImg] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ObsResult | null>(null);
+
+  async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const c = await compressImageFile(file);
+    const { base64, mimeType } = await fileToBase64(c);
+    setImg({ base64, mimeType, preview: URL.createObjectURL(c) });
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!description.trim() && !img) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch('/api/ai/identify-observation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: description || undefined,
+          hint: hint ?? undefined,
+          imageBase64: img?.base64,
+          imageMimeType: img?.mimeType,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setResult(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const fiche = result ? findObservation(result.identification) : null;
+
+  return (
+    <div className="space-y-3">
+      <form onSubmit={submit} className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="text-sm text-slate-500">
+          Une ponte, des petits points sur la vitre, une algue, une bestiole inconnue ? Décris ou photographie, l&apos;IA
+          identifie et dit s&apos;il faut agir. Pour un animal malade, utilise « Scanner un symptôme ».
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {HINTS.map((h) => (
+            <button
+              type="button"
+              key={h}
+              onClick={() => setHint(hint === h ? null : h)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                hint === h ? 'bg-teal-600 text-white' : 'border border-slate-200 text-slate-600'
+              }`}
+            >
+              {h}
+            </button>
+          ))}
+        </div>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+          placeholder="Ex : petites billes transparentes sur une feuille d'anubias, filaments verts sur le bois…"
+          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-700">
+            <Camera size={15} /> {img ? 'Changer la photo' : 'Ajouter une photo'}
+            <input type="file" accept="image/*" capture="environment" onChange={onPhoto} className="hidden" />
+          </label>
+          {img && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={img.preview} alt="" className="h-14 w-14 rounded-lg object-cover" />
+          )}
+          <button
+            type="submit"
+            disabled={loading || (!description.trim() && !img)}
+            className="ml-auto rounded-full bg-teal-600 px-4 py-1.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {loading ? 'Analyse…' : 'Identifier'}
+          </button>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+      </form>
+
+      {result && (
+        <div className="space-y-2 rounded-2xl border border-teal-300 bg-white p-4 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium text-slate-900">{result.identification}</p>
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${RISK_BADGE[result.risk] ?? RISK_BADGE.watch}`}>
+              {OBS_RISK_LABELS[result.risk] ?? OBS_RISK_LABELS.watch}
+            </span>
+            <span className="text-xs text-slate-400">confiance : {result.confidence}</span>
+          </div>
+          <p className="text-slate-600">{result.explanation}</p>
+          {result.actions?.length > 0 && (
+            <ol className="list-inside list-decimal space-y-0.5 text-slate-600">
+              {result.actions.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ol>
+          )}
+          {fiche && <p className="text-xs text-teal-700">Fiche correspondante : {fiche.name} (voir la liste ci-dessous)</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ObservationList() {
+  const [query, setQuery] = useState('');
+  const [group, setGroup] = useState<ObsGroup | 'all'>('all');
+  const [openId, setOpenId] = useState<string | null>(null);
+  const list = searchObservations(query).filter((o) => group === 'all' || o.group === group);
+
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-2.5 text-slate-400" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Chercher (œufs, alevins, algues, planaires…)"
+            className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm"
+          />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {(['all', 'oeufs', 'algues', 'bestioles', 'autre'] as const).map((g) => (
+            <button
+              key={g}
+              onClick={() => setGroup(g)}
+              className={`rounded-full px-3 py-1 text-xs font-medium ${
+                group === g ? 'bg-teal-600 text-white' : 'border border-slate-200 text-slate-600'
+              }`}
+            >
+              {g === 'all' ? `Toutes (${OBSERVATIONS.length})` : OBS_GROUP_LABELS[g]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {list.length === 0 && <p className="text-sm text-slate-400">Aucune fiche ne correspond.</p>}
+      {list.map((o: Observation) => {
+        const open = openId === o.id;
+        return (
+          <article key={o.id} className={`rounded-2xl border bg-white ${open ? 'border-teal-300' : 'border-slate-200'}`}>
+            <button onClick={() => setOpenId(open ? null : o.id)} className="flex w-full items-start justify-between gap-3 p-4 text-left">
+              <div>
+                <p className="font-medium text-slate-900">{o.name}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
+                  <span className={`rounded-full px-2 py-0.5 font-medium ${RISK_BADGE[o.risk]}`}>{OBS_RISK_LABELS[o.risk]}</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-600">{OBS_GROUP_LABELS[o.group]}</span>
+                </div>
+              </div>
+              <ChevronDown size={18} className={`mt-1 shrink-0 text-slate-400 transition ${open ? 'rotate-180' : ''}`} />
+            </button>
+            {open && (
+              <div className="space-y-2 border-t border-slate-100 p-4 text-sm text-slate-600">
+                <p><span className="font-medium text-slate-800">À quoi ça ressemble : </span>{o.looks}</p>
+                <p><span className="font-medium text-slate-800">Ce que c&apos;est : </span>{o.meaning}</p>
+                <ul className="list-inside list-disc space-y-0.5">
+                  {o.actions.map((a) => (
+                    <li key={a}>{a}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </article>
+        );
+      })}
+    </div>
   );
 }
