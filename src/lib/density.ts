@@ -158,6 +158,8 @@ export interface ZoneDensity {
   zone: SwimZone;
   cm: number; // cm équivalent poisson dans cette zone
   count: number;
+  fish: number;
+  invertebrates: number;
   liters: number; // un tiers du volume réel par zone
   ratio: number; // cm par litre de la zone
 }
@@ -171,13 +173,17 @@ export function computeZoneDensity(lines: DensityLine[], netLiters: number): Zon
   return zones.map((zone) => {
     let cm = 0;
     let count = 0;
+    let fish = 0;
+    let invertebrates = 0;
     for (const l of lines) {
       const z: SwimZone = l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid');
       if (z !== zone) continue;
       const qty = Math.max(0, l.quantity);
       count += qty;
+      if (l.kind === 'fish') fish += qty;
+      else invertebrates += qty;
       cm += Math.max(0, l.sizeCm) * qty * (l.kind === 'invertebrate' ? INVERTEBRATE_COEF : 1);
     }
-    return { zone, cm, count, liters, ratio: liters > 0 ? cm / liters : 0 };
+    return { zone, cm, count, fish, invertebrates, liters, ratio: liters > 0 ? cm / liters : 0 };
   });
 }

@@ -268,7 +268,34 @@ export function DensitySimulator({
             {lines.length === 0 && (
               <p className="text-sm text-slate-400">Aucun poisson ni invertébré au peuplement pour l&apos;instant.</p>
             )}
-            {lines.map((l) => {
+            {(
+              [
+                ['fish', 'Poissons'],
+                ['invertebrate', 'Invertébrés'],
+              ] as const
+            ).map(([kind, title]) => {
+              const group = lines.filter((x) => x.kind === kind);
+              if (group.length === 0) return null;
+              const n = group.reduce((a, x) => a + Math.max(0, x.quantity), 0);
+              const cm = group.reduce((a, x) => a + Math.max(0, x.sizeCm) * Math.max(0, x.quantity), 0);
+              const eq = kind === 'invertebrate' ? cm * INVERTEBRATE_COEF : cm;
+              return (
+                <div key={kind} className="mb-3">
+                  <div
+                    className={`mb-1 flex flex-wrap items-baseline justify-between gap-1 rounded-lg px-3 py-1.5 ${
+                      kind === 'fish' ? 'bg-sky-50 text-sky-800' : 'bg-violet-50 text-violet-800'
+                    }`}
+                  >
+                    <span className="text-sm font-semibold">
+                      {kind === 'fish' ? '🐟' : '🦐'} {title} · {n}
+                    </span>
+                    <span className="text-xs">
+                      {kind === 'fish'
+                        ? `${fmt(cm, 0)} cm comptés en entier`
+                        : `${fmt(cm, 0)} cm × ${INVERTEBRATE_COEF} = ${fmt(eq, 1)} cm équivalent poisson`}
+                    </span>
+                  </div>
+            {group.map((l) => {
               const isExtra = !!l.hypothetical;
               return (
                 <div key={l.id} className="flex items-center gap-2 border-b border-slate-100 py-1.5 last:border-0">
@@ -316,6 +343,9 @@ export function DensitySimulator({
                       </button>
                     )}
                   </div>
+                </div>
+              );
+            })}
                 </div>
               );
             })}
@@ -390,7 +420,8 @@ export function DensitySimulator({
                     <p className="text-xs font-medium">{label}</p>
                     <p className="text-lg font-semibold">{fmt(z.ratio, 2)} cm/L</p>
                     <p className="text-xs">
-                      {z.count} animal{z.count > 1 ? 'ux' : ''} · {fmt(z.cm, 0)} cm · {lv.label.toLowerCase()}
+                      {z.fish} poisson{z.fish > 1 ? 's' : ''}
+                      {z.invertebrates > 0 ? ` · ${z.invertebrates} invertébré${z.invertebrates > 1 ? 's' : ''}` : ''} · {fmt(z.cm, 0)} cm · {lv.label.toLowerCase()}
                     </p>
                   </div>
                 );
