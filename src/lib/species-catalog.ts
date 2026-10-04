@@ -71,6 +71,7 @@ export const SPECIES_CATALOG: SpeciesReference[] = [
   { commonName: 'Corail champignon', scientificName: 'Discosoma sp.', category: 'coral', bioloadFactor: 0.1, adultSizeCm: 5, temperament: 'peu exigeant, lumière modérée', minTankLiters: 60, swimZone: 'bottom', solitary: false },
 
   // --- Compléments : poissons et invertébrés courants ---
+  { commonName: 'Tétra royal', scientificName: 'Inpaichthys kerri', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 4, temperament: 'paisible, grégaire', minTankLiters: 60, swimZone: 'mid', solitary: false },
   { commonName: 'Tétra citron', scientificName: 'Hyphessobrycon pulchripinnis', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 5, temperament: 'paisible, grégaire', minTankLiters: 60, swimZone: 'mid', solitary: false },
   { commonName: 'Tétra à tête rouge', scientificName: 'Hemigrammus bleheri', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 5, temperament: 'paisible, grégaire', minTankLiters: 60, swimZone: 'mid', solitary: false },
   { commonName: 'Rasbora brillant (Rummy-nose)', scientificName: 'Hemigrammus rhodostomus', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 5, temperament: 'paisible, grégaire, sensible à la qualité d\'eau', minTankLiters: 80, swimZone: 'mid', solitary: false },
