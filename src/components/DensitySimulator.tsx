@@ -1,5 +1,6 @@
 'use client';
 
+import { SpeciesThumb } from '@/components/SpeciesThumb';
 import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
 import { searchSpecies, SPECIES_CATALOG, schoolMinOf, schoolMinByName, minTankByName, sexRatioOf, sexRatioByName, sexSplit, type SpeciesReference } from '@/lib/species-catalog';
@@ -352,6 +353,7 @@ export function DensitySimulator({
               return (
                 <div key={l.id} className="border-b border-slate-100 last:border-0">
                 <div className="flex items-center gap-2 py-1.5">
+                  <SpeciesThumb name={l.name} scientificName={l.scientificName} kind={l.kind} size={44} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-slate-800">
                       {l.name}
@@ -459,7 +461,8 @@ export function DensitySimulator({
                                     onClick={() => swapWith(l, a, q)}
                                     className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-left text-xs hover:border-teal-400 hover:bg-teal-50"
                                   >
-                                    <span className="font-medium text-slate-800">{a.commonName}</span>
+                                    <SpeciesThumb name={a.commonName} scientificName={a.scientificName} kind={a.category === 'fish' ? 'fish' : 'invertebrate'} size={64} />
+                                    <span className="mt-1 block font-medium text-slate-800">{a.commonName}</span>
                                     <span className="block italic text-slate-500">{a.scientificName}</span>
                                     <span className="text-slate-400">
                                       {a.adultSizeCm} cm · {q} pour la même charge
@@ -526,13 +529,16 @@ export function DensitySimulator({
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => addExtra(s)}
-                      className="flex w-full flex-col items-start px-3 py-2 text-left text-sm hover:bg-teal-50"
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-teal-50"
                     >
+                      <SpeciesThumb name={s.commonName} scientificName={s.scientificName} kind={s.category === 'fish' ? 'fish' : 'invertebrate'} size={36} />
+                      <span className="flex min-w-0 flex-col items-start">
                       <span className="font-medium text-slate-800">{s.commonName}</span>
                       <span className="text-xs text-slate-400">
                         <i>{s.scientificName}</i> · {s.adultSizeCm} cm · {s.category === 'fish' ? 'poisson' : 'invertébré'}
                         {schoolMinOf(s) ? ` · banc de ${schoolMinOf(s)} mini` : ''}
                         {sexRatioOf(s) ? ` · ${sexRatioOf(s)?.label}` : ''}
+                      </span>
                       </span>
                     </button>
                   </li>
