@@ -136,6 +136,8 @@ export interface Livestock {
   added_at: string | null;
   photo_url: string | null;
   notes: string | null;
+  // Emplacements dans le bac, en cm (x depuis la gauche, y depuis la vitre avant), voir migration 0013.
+  positions?: { x: number; y: number }[] | null;
   created_at: string;
 }
 

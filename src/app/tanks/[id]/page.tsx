@@ -19,6 +19,7 @@ import { DensitySimulator } from '@/components/DensitySimulator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { ScannerPanel } from '@/components/ScannerPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
+import { PlantMap } from '@/components/PlantMap';
 import { EquipmentPanel } from '@/components/EquipmentPanel';
 import { HardscapePanel } from '@/components/HardscapePanel';
 import { ProductsPanel } from '@/components/ProductsPanel';
@@ -372,6 +373,8 @@ export default function TankDetailPage() {
           </div>
         )}
         {section === 'peuplement' && peuplementSub === 'plantes' && (
+          <div className="space-y-6">
+          <PlantMap tank={tank} plants={livestock.filter((l) => l.category === 'plant')} onUpdated={loadAll} />
           <LivestockPanel
             tankId={tankId}
             livestock={livestock}
@@ -382,6 +385,7 @@ export default function TankDetailPage() {
             listTitle="Plantes du bac"
             customSpecies={customSpecies}
           />
+          </div>
         )}
         {section === 'entretien' && (
           <MaintenancePanel
