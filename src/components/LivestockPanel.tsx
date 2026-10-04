@@ -2,12 +2,13 @@
 
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
+import type { PlantInfo, CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { scientificNameOf } from '@/lib/species-catalog';
 import { PhotoUpload } from '@/components/PhotoUpload';
+import { ConfidenceBadge, SourcesLine } from '@/components/research-ui';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
@@ -351,6 +352,55 @@ export function LivestockPanel({
     else setPhotoNote(`Pas de photo fiable trouvée pour ${item.species_common_name} : ajoutes-en une avec l'appareil photo.`);
   }
 
+  const [researchingId, setResearchingId] = useState<string | null>(null);
+  const [plantNote, setPlantNote] = useState<string | null>(null);
+  const [openSheets, setOpenSheets] = useState<Record<string, boolean>>({});
+
+  // Fiche précise d'une plante : recherche IA, enregistrée sur la ligne.
+  async function researchOne(item: Livestock): Promise<boolean> {
+    setResearchingId(item.id);
+    try {
+      const res = await fetch('/api/ai/research-plant', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: item.species_common_name,
+          scientificName: scientificNameOf(item.species_common_name, item.species_scientific_name),
+        }),
+      });
+      if (!res.ok) throw new Error('recherche');
+      const info = (await res.json()) as PlantInfo;
+      const patch: Record<string, unknown> = { plant_info: info };
+      if (info.height_cm) patch.adult_size_cm = info.height_cm;
+      if (info.scientific_name && !item.species_scientific_name) patch.species_scientific_name = info.scientific_name;
+      const { error } = await supabase.from('livestock').update(patch).eq('id', item.id);
+      if (error) {
+        setPlantNote('Fiche impossible à enregistrer : lance d’abord la migration 0017 dans Supabase.');
+        return false;
+      }
+      setOpenSheets((o) => ({ ...o, [item.id]: true }));
+      return true;
+    } catch {
+      setPlantNote(`Recherche impossible pour ${item.species_common_name}, réessaie dans un instant.`);
+      return false;
+    } finally {
+      setResearchingId(null);
+    }
+  }
+
+  async function handleResearch(item: Livestock) {
+    setPlantNote(null);
+    if (await researchOne(item)) onUpdated();
+  }
+
+  async function researchAllPlants() {
+    setPlantNote(null);
+    for (const it of livestock.filter((l) => l.category === 'plant' && !l.plant_info)) {
+      if (!(await researchOne(it))) break;
+    }
+    onUpdated();
+  }
+
   async function handlePhotoChange(id: string, url: string | null) {
     await supabase.from('livestock').update({ photo_url: url }).eq('id', id);
     onUpdated();
@@ -591,6 +641,17 @@ export function LivestockPanel({
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">{listTitle ?? 'Peuplement actuel'}</h3>
+        {plantNote && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{plantNote}</p>}
+        {livestock.some((l) => l.category === 'plant' && !l.plant_info) && (
+          <button
+            type="button"
+            onClick={researchAllPlants}
+            disabled={researchingId !== null}
+            className="mb-3 rounded-full border border-teal-300 bg-teal-50 px-3 py-1 text-xs text-teal-800 hover:bg-teal-100 disabled:opacity-50"
+          >
+            {researchingId ? 'Recherche en cours…' : 'Compléter toutes les fiches de plantes'}
+          </button>
+        )}
         {photoNote && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{photoNote}</p>}
         <div className="space-y-2">
           {filteredLivestock.map((item) =>
@@ -711,6 +772,16 @@ export function LivestockPanel({
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  {item.category === 'plant' && (
+                    <button
+                      type="button"
+                      onClick={() => (item.plant_info ? setOpenSheets((o) => ({ ...o, [item.id]: !o[item.id] })) : handleResearch(item))}
+                      disabled={researchingId === item.id}
+                      className="mr-1 rounded-full border border-teal-300 bg-teal-50 px-2.5 py-0.5 text-xs text-teal-800 hover:bg-teal-100 disabled:opacity-50"
+                    >
+                      {researchingId === item.id ? 'Recherche…' : item.plant_info ? (openSheets[item.id] ? 'Masquer la fiche' : 'Fiche précise') : 'Fiche précise'}
+                    </button>
+                  )}
                   <button onClick={() => startEdit(item)} className="text-slate-400 hover:text-teal-600" title="Modifier">
                     <Pencil size={16} />
                   </button>
@@ -718,12 +789,56 @@ export function LivestockPanel({
                     <Trash2 size={16} />
                   </button>
                 </div>
+                {item.plant_info && openSheets[item.id] && <PlantSheet info={item.plant_info} onRefresh={() => handleResearch(item)} busy={researchingId === item.id} />}
               </div>
             )
           )}
           {filteredLivestock.length === 0 && <p className="text-sm text-slate-400">Rien d&apos;enregistré pour l&apos;instant</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PlantSheet({ info, onRefresh, busy }: { info: PlantInfo; onRefresh: () => void; busy: boolean }) {
+  const dims =
+    info.height_cm || info.width_cm
+      ? `${info.height_cm ?? '?'} cm de haut × ${info.width_cm ?? '?'} cm de large`
+      : null;
+  const rows: [string, string | null][] = [
+    ['Origine', info.origin],
+    ['Placement', info.placement],
+    ['Taille adulte', dims],
+    ['Croissance', info.growth],
+    ['Lumière', info.light],
+    ['CO₂', info.co2],
+    ['Difficulté', info.difficulty],
+    ['Température', info.temperature],
+    ['Eau (pH, dureté)', info.water],
+    ['Plantation', info.planting],
+    ['Entretien', info.care],
+    ['Multiplication', info.propagation],
+    ['Rôle', info.role],
+  ];
+  return (
+    <div className="basis-full space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <ConfidenceBadge confidence={info.confidence} />
+        {info.identified_name && <span className="text-xs text-slate-500">Identifiée : {info.identified_name}</span>}
+        <button type="button" onClick={onRefresh} disabled={busy} className="ml-auto text-xs text-teal-700 underline disabled:opacity-50">
+          {busy ? 'Recherche…' : 'Actualiser'}
+        </button>
+      </div>
+      <dl className="grid gap-x-4 gap-y-1 sm:grid-cols-[9rem_1fr]">
+        {rows.filter(([, v]) => v).map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt className="text-slate-500">{k}</dt>
+            <dd className="text-slate-800">{v}</dd>
+          </div>
+        ))}
+      </dl>
+      {info.note && <p className="text-xs text-amber-800">{info.note}</p>}
+      <SourcesLine sourceUrl={info.source_url} sources={info.sources} />
     </div>
   );
 }

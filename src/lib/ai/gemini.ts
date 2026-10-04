@@ -556,6 +556,137 @@ export async function researchHardscape(name: string): Promise<HardscapeResearch
   }
 }
 
+const PLANT_SCHEMA = `{"identified_name": "...", "scientific_name": "...", "origin": "...",
+"placement": "avant-plan|milieu|arrière-plan|flottante|sur décor", "height_cm": 0, "width_cm": 0,
+"growth": "lente|moyenne|rapide", "light": "faible|moyenne|forte", "co2": "inutile|conseillé|nécessaire",
+"difficulty": "facile|moyenne|difficile", "temperature": "...", "water": "...", "planting": "...",
+"care": "...", "propagation": "...", "role": "...", "confidence": "confirmé|estimation|inconnu",
+"source_url": "...", "note": "..."}`;
+
+const PLANT_SYSTEM_PROMPT = `Tu es un expert des plantes d'aquarium (aquascaping et bacs plantés), y
+compris les noms français courants, les noms anglais et les variétés d'aquariophilie (cultivars comme
+Taxiphyllum « Flame » ou Cryptocoryne wendtii « Green », qui n'ont pas de fiche botanique à part).
+Utilise la recherche web pour identifier EXACTEMENT la plante demandée et lire des sources sérieuses :
+fabricant de plantes d'aquarium (Tropica, Aquasabi...), revendeur spécialisé, base de plantes
+aquatiques reconnue. Ne te contente pas d'une plante « voisine » : si une variété a des besoins
+différents, donne ceux de la variété.
+
+Règles de précision :
+- identified_name : nom courant français (avec la variété), scientific_name : nom scientifique complet
+  (genre, espèce, variété ou cultivar entre apostrophes si c'en est un), ou null.
+- origin : région d'origine en quelques mots, ou null.
+- placement : où la placer dans le bac, selon sa taille et son port.
+- height_cm / width_cm : hauteur adulte typique et étalement au sol, en cm, en nombres uniques réalistes
+  pour un aquarium (milieu de la fourchette donnée par les sources), null si introuvable.
+- growth, light, co2, difficulty : exactement une des valeurs proposées, d'après les sources.
+- temperature : plage en °C (ex. « 20 à 28 °C ») ; water : pH et dureté tolérés (ex. « pH 6 à 8, GH 2
+  à 15 »), ou null.
+- planting : comment l'installer (enterrer les racines sans recouvrir le rhizome, fixer sur bois ou
+  roche avec du fil ou de la colle, laisser flotter...), en une ou deux phrases.
+- care : entretien concret (taille, engrais liquide ou de sol, nettoyage des feuilles), fréquence quand
+  les sources en donnent.
+- propagation : comment elle se multiplie (stolons, rhizome, boutures), ou null.
+- role : à quoi elle sert dans le bac (absorbe les nitrates, abri, ombrage, surface de ponte...).
+- confidence : "confirmé" si ces informations viennent de sources décrivant cette plante précise ;
+  "estimation" si tu as dû t'appuyer sur une plante voisine ou une source indirecte ; "inconnu" si la
+  plante n'est pas identifiable (alors tous les autres champs sont null).
+- source_url : URL exacte d'une page réellement consultée, ou null. N'invente jamais d'URL.
+- note : points de vigilance réels (plante toxique pour certains animaux, envahissante, fond à
+  cacher, plante qui fond à l'arrivée...). Si confidence n'est pas "confirmé", dis-le ici.
+
+Réponds uniquement avec un objet JSON, sans texte autour, de la forme :
+${PLANT_SCHEMA}`;
+
+const PLANT_FALLBACK_SYSTEM_PROMPT = `Tu es un expert des plantes d'aquarium. Tu n'as pas accès à internet :
+à partir de tes seules connaissances, tu donnes une fiche prudente de la plante demandée (nom français
+ou scientifique, variétés comprises). Mêmes champs et mêmes valeurs possibles que demandé ci-dessous ;
+mets null pour ce que tu ne peux pas estimer raisonnablement et dis dans "note" que c'est une
+estimation. Réponds uniquement avec un objet JSON de la forme :
+${PLANT_SCHEMA}`;
+
+export interface PlantResearch {
+  identified_name: string | null;
+  scientific_name: string | null;
+  origin: string | null;
+  placement: string | null;
+  height_cm: number | null;
+  width_cm: number | null;
+  growth: string | null;
+  light: string | null;
+  co2: string | null;
+  difficulty: string | null;
+  temperature: string | null;
+  water: string | null;
+  planting: string | null;
+  care: string | null;
+  propagation: string | null;
+  role: string | null;
+  confidence: ProductConfidence;
+  source_url: string | null;
+  sources: GroundingSource[];
+  note: string;
+}
+
+function oneOf(v: unknown, allowed: string[]): string | null {
+  const s = typeof v === 'string' ? v.trim().toLowerCase() : '';
+  return allowed.includes(s) ? s : null;
+}
+
+export function normalizePlantResearch(raw: Record<string, unknown>, sources: GroundingSource[]): PlantResearch {
+  let confidence: ProductConfidence =
+    raw.confidence === 'confirmé' || raw.confidence === 'estimation' || raw.confidence === 'inconnu'
+      ? raw.confidence
+      : 'estimation';
+  const sourceUrl = httpUrlOrNull(raw.source_url);
+  if (confidence === 'confirmé' && !sourceUrl && sources.length === 0) confidence = 'estimation';
+  const unknown = confidence === 'inconnu';
+  const text = (v: unknown) => (unknown ? null : stringOrNull(v));
+  const placement = oneOf(raw.placement, ['avant-plan', 'milieu', 'arrière-plan', 'flottante', 'sur décor']);
+  return {
+    identified_name: stringOrNull(raw.identified_name),
+    scientific_name: text(raw.scientific_name),
+    origin: text(raw.origin),
+    placement: unknown ? null : placement,
+    height_cm: unknown ? null : positiveNumberOrNull(raw.height_cm, 300),
+    width_cm: unknown ? null : positiveNumberOrNull(raw.width_cm, 100),
+    growth: unknown ? null : oneOf(raw.growth, ['lente', 'moyenne', 'rapide']),
+    light: unknown ? null : oneOf(raw.light, ['faible', 'moyenne', 'forte']),
+    co2: unknown ? null : oneOf(raw.co2, ['inutile', 'conseillé', 'nécessaire']),
+    difficulty: unknown ? null : oneOf(raw.difficulty, ['facile', 'moyenne', 'difficile']),
+    temperature: text(raw.temperature),
+    water: text(raw.water),
+    planting: text(raw.planting),
+    care: text(raw.care),
+    propagation: text(raw.propagation),
+    role: text(raw.role),
+    confidence,
+    source_url: sourceUrl,
+    sources: sources.slice(0, 5),
+    note: stringOrNull(raw.note) ?? '',
+  };
+}
+
+export async function researchPlant(name: string, scientificName?: string | null): Promise<PlantResearch> {
+  const subject = scientificName && scientificName !== name ? `"${name}" (${scientificName})` : `"${name}"`;
+  try {
+    const { text, sources } = await callGeminiGrounded(
+      [{ text: `Plante d'aquarium à identifier et documenter : ${subject}.` }],
+      PLANT_SYSTEM_PROMPT
+    );
+    return normalizePlantResearch(extractJsonObject(text) as Record<string, unknown>, sources);
+  } catch {
+    const text = await callGemini([{ text: `Fiche sur cette plante d'aquarium : ${subject}.` }], PLANT_FALLBACK_SYSTEM_PROMPT);
+    const raw = JSON.parse(text) as Record<string, unknown>;
+    const result = normalizePlantResearch({ ...raw, confidence: 'estimation' }, []);
+    return {
+      ...result,
+      note: ['Fiche issue des connaissances générales de l’IA (recherche web indisponible).', result.note]
+        .filter(Boolean)
+        .join(' '),
+    };
+  }
+}
+
 const TANK_CHECKUP_SYSTEM_PROMPT = `Tu es l'assistant aquariophile intégré à AquaTrack AI, façon "AI
 Aquarium Doctor". On te donne un état complet et détaillé d'un bac (âge du bac, statut du cyclage,
 peuplement et charge biologique, derniers paramètres d'eau avec leur ancienneté, historique

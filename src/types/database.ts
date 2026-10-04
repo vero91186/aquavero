@@ -138,6 +138,8 @@ export interface Livestock {
   notes: string | null;
   // Emplacements dans le bac, en cm (x depuis la gauche, y depuis la vitre avant), voir migration 0013.
   positions?: { x: number; y: number }[] | null;
+  // Fiche précise d'une plante (recherche IA), voir migration 0017.
+  plant_info?: PlantInfo | null;
   created_at: string;
 }
 
@@ -239,4 +241,27 @@ export interface TreatmentProgram {
   notes: string | null;
   done_dates: string[];
   created_at: string;
+}
+
+export interface PlantInfo {
+  identified_name: string | null;
+  scientific_name: string | null;
+  origin: string | null;
+  placement: string | null; // avant-plan, milieu, arrière-plan, flottante, sur décor
+  height_cm: number | null;
+  width_cm: number | null;
+  growth: string | null;
+  light: string | null;
+  co2: string | null;
+  difficulty: string | null;
+  temperature: string | null;
+  water: string | null; // pH et dureté
+  planting: string | null;
+  care: string | null;
+  propagation: string | null;
+  role: string | null;
+  confidence: 'confirmé' | 'estimation' | 'inconnu';
+  source_url: string | null;
+  sources: { title: string; url: string }[];
+  note: string;
 }

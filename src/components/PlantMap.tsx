@@ -38,8 +38,10 @@ function rng(seed: number) {
   };
 }
 
-// Rayon d'emprise estimé d'après la hauteur adulte (cm) : une estimation, pas une mesure.
+// Rayon d'emprise : largeur de la fiche précise si elle existe, sinon estimé d'après la hauteur.
 function radiusOf(p: Livestock) {
+  const w = p.plant_info?.width_cm;
+  if (w) return Math.min(12, Math.max(2.5, w / 2));
   const h = p.adult_size_cm ?? 15;
   return Math.min(7, Math.max(4, 3.5 + h * 0.08));
 }
