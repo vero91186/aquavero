@@ -26,6 +26,7 @@ import {
   type ObsGroup,
   type ObsRisk,
 } from '@/lib/observations';
+import { TopicPhoto } from '@/components/TopicPhoto';
 import { compressImageFile, fileToBase64 } from '@/lib/image';
 import { AlertTriangle, BookPlus, Camera, Check, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
 
@@ -238,7 +239,8 @@ function DiseaseCard({
   return (
     <article className={`rounded-2xl border bg-white ${open ? 'border-teal-300' : 'border-slate-200'}`}>
       <button onClick={onToggle} className="flex w-full items-start justify-between gap-3 p-4 text-left">
-        <div className="min-w-0">
+        <TopicPhoto id={d.id} alt={d.name} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+        <div className="min-w-0 flex-1">
           <p className="font-medium text-slate-900">{d.name}</p>
           <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
             <span className={`rounded-full px-2 py-0.5 font-medium ${SEVERITY_BADGE[d.severity]}`}>
@@ -254,6 +256,7 @@ function DiseaseCard({
 
       {open && (
         <div className="space-y-3 border-t border-slate-100 p-4 text-sm">
+          <TopicPhoto id={d.id} alt={d.name} className="max-h-52 w-full rounded-lg object-cover" />
           <p className="text-slate-600">
             <span className="font-medium text-slate-800">Cause : </span>
             {d.cause}
@@ -554,7 +557,8 @@ function ObservationList({ tankId, onJournalAdded }: { tankId: string; onJournal
         return (
           <article key={o.id} className={`rounded-2xl border bg-white ${open ? 'border-teal-300' : 'border-slate-200'}`}>
             <button onClick={() => setOpenId(open ? null : o.id)} className="flex w-full items-start justify-between gap-3 p-4 text-left">
-              <div>
+              <TopicPhoto id={o.id} alt={o.name} className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+              <div className="min-w-0 flex-1">
                 <p className="font-medium text-slate-900">{o.name}</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5 text-xs">
                   <span className={`rounded-full px-2 py-0.5 font-medium ${RISK_BADGE[o.risk]}`}>{OBS_RISK_LABELS[o.risk]}</span>
@@ -565,6 +569,7 @@ function ObservationList({ tankId, onJournalAdded }: { tankId: string; onJournal
             </button>
             {open && (
               <div className="space-y-2 border-t border-slate-100 p-4 text-sm text-slate-600">
+                <TopicPhoto id={o.id} alt={o.name} className="max-h-52 w-full rounded-lg object-cover" />
                 <p><span className="font-medium text-slate-800">À quoi ça ressemble : </span>{o.looks}</p>
                 <p><span className="font-medium text-slate-800">Ce que c&apos;est : </span>{o.meaning}</p>
                 <ul className="list-inside list-disc space-y-0.5">
