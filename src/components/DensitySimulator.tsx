@@ -112,6 +112,40 @@ export function DensitySimulator({
     setExtras((list) => list.map((l) => (l.id === id ? { ...l, quantity: Math.max(0, quantity) } : l)));
   }
 
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  // Espèce absente du catalogue : la fiche vient de l'IA (nom, nom scientifique, taille).
+  async function searchWithAi() {
+    setAiBusy(true);
+    setAiError(null);
+    try {
+      const res = await fetch('/api/ai/research-species', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: query.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error);
+      if (d.category !== 'fish' && d.category !== 'invertebrate') throw new Error('Cette espèce n’est ni un poisson ni un invertébré.');
+      addExtra({
+        commonName: d.common_name || query.trim(),
+        scientificName: d.scientific_name || '',
+        category: d.category,
+        bioloadFactor: d.bioload_factor ?? 1,
+        adultSizeCm: d.adult_size_cm ?? 5,
+        temperament: d.temperament ?? '',
+        minTankLiters: d.min_tank_liters ?? 0,
+        swimZone: d.swim_zone ?? 'mid',
+        solitary: !!d.solitary,
+      });
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : 'Recherche impossible, réessaie.');
+    } finally {
+      setAiBusy(false);
+    }
+  }
+
   function addExtra(s: SpeciesReference) {
     if (s.category !== 'fish' && s.category !== 'invertebrate') return;
     setExtras((list) => [
@@ -305,10 +339,24 @@ export function DensitySimulator({
               autoComplete="off"
               className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
             />
+            {query.trim().length >= 3 && suggestions.length === 0 && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span>Pas dans le catalogue.</span>
+                <button
+                  type="button"
+                  onClick={searchWithAi}
+                  disabled={aiBusy}
+                  className="rounded-full border border-teal-300 bg-teal-50 px-2.5 py-0.5 text-teal-800 hover:bg-teal-100 disabled:opacity-50"
+                >
+                  {aiBusy ? 'Recherche…' : `Chercher « ${query.trim()} » avec l'IA`}
+                </button>
+                {aiError && <span className="text-amber-700">{aiError}</span>}
+              </div>
+            )}
             {suggestions.length > 0 && (
               <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
                 {suggestions.map((s) => (
-                  <li key={s.scientificName}>
+                  <li key={s.commonName}>
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
@@ -317,7 +365,7 @@ export function DensitySimulator({
                     >
                       <span className="font-medium text-slate-800">{s.commonName}</span>
                       <span className="text-xs text-slate-400">
-                        {s.adultSizeCm} cm adulte · {s.category === 'fish' ? 'poisson' : 'invertébré'}
+                        <i>{s.scientificName}</i> · {s.adultSizeCm} cm · {s.category === 'fish' ? 'poisson' : 'invertébré'}
                       </span>
                     </button>
                   </li>

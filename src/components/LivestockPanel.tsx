@@ -499,7 +499,7 @@ export function LivestockPanel({
             {suggestions.length > 0 && (
               <ul className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-lg">
                 {suggestions.map((s) => (
-                  <li key={s.scientificName}>
+                  <li key={s.commonName}>
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
