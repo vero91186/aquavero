@@ -153,3 +153,31 @@ export function scalePopulation(lines: DensityLine[], netLiters: number, targetR
   }
   return out.filter((l) => l.quantity > 0);
 }
+
+export interface ZoneDensity {
+  zone: SwimZone;
+  cm: number; // cm équivalent poisson dans cette zone
+  count: number;
+  liters: number; // un tiers du volume réel par zone
+  ratio: number; // cm par litre de la zone
+}
+
+// Charge par étage du bac : chaque zone (surface, milieu, fond) compte pour un
+// tiers du volume réel. Les invertébrés vivent au fond. Indicatif : les poissons
+// se déplacent, mais un fond saturé ou une surface vide se voit ici.
+export function computeZoneDensity(lines: DensityLine[], netLiters: number): ZoneDensity[] {
+  const zones: SwimZone[] = ['top', 'mid', 'bottom'];
+  const liters = netLiters > 0 ? netLiters / 3 : 0;
+  return zones.map((zone) => {
+    let cm = 0;
+    let count = 0;
+    for (const l of lines) {
+      const z: SwimZone = l.kind === 'invertebrate' ? 'bottom' : (l.zone ?? 'mid');
+      if (z !== zone) continue;
+      const qty = Math.max(0, l.quantity);
+      count += qty;
+      cm += Math.max(0, l.sizeCm) * qty * (l.kind === 'invertebrate' ? INVERTEBRATE_COEF : 1);
+    }
+    return { zone, cm, count, liters, ratio: liters > 0 ? cm / liters : 0 };
+  });
+}

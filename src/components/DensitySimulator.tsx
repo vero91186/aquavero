@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import type { Livestock } from '@/types/database';
 import { searchSpecies, type SpeciesReference } from '@/lib/species-catalog';
 import {
+  computeZoneDensity,
   DENSITY_LIMIT,
   DENSITY_SCALE_MAX,
   INVERTEBRATE_COEF,
@@ -98,6 +99,7 @@ export function DensitySimulator({
     grossLiters,
     parseFloat(flow) || null
   );
+  const zoneStats = computeZoneDensity(lines, netLiters);
   const level = densityLevel(result.ratioNet);
   const styles = LEVEL_STYLES[level.id];
   const markerPct = Math.min(result.ratioNet / DENSITY_SCALE_MAX, 1) * 100;
@@ -372,6 +374,28 @@ export function DensitySimulator({
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className="mt-4 rounded-xl border border-slate-200 p-3">
+            <p className="text-sm font-medium text-slate-800">Charge par espace</p>
+            <p className="mb-2 text-xs text-slate-500">
+              Chaque étage compte pour un tiers du volume réel ({fmt(netLiters / 3, 0)} L). Les invertébrés sont au fond.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {zoneStats.map((z) => {
+                const lv = densityLevel(z.ratio);
+                const label = z.zone === 'top' ? 'Surface' : z.zone === 'mid' ? 'Milieu' : 'Fond';
+                return (
+                  <div key={z.zone} className={`rounded-lg p-2.5 ${LEVEL_STYLES[lv.id].box}`}>
+                    <p className="text-xs font-medium">{label}</p>
+                    <p className="text-lg font-semibold">{fmt(z.ratio, 2)} cm/L</p>
+                    <p className="text-xs">
+                      {z.count} animal{z.count > 1 ? 'ux' : ''} · {fmt(z.cm, 0)} cm · {lv.label.toLowerCase()}
+                    </p>
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <TankSimulationView

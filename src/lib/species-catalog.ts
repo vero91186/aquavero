@@ -36,11 +36,12 @@ export const SPECIES_CATALOG: SpeciesReference[] = [
   { commonName: 'Poisson-hachette argenté', scientificName: 'Gasteropelecus sternicla', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 6, temperament: 'paisible, grégaire, surface', minTankLiters: 80, swimZone: 'top', solitary: false },
 
   // --- Poissons de fond / algivores ---
+  { commonName: 'Corydoras adolfoi', scientificName: 'Corydoras adolfoi', category: 'fish', bioloadFactor: 0.9, adultSizeCm: 5, temperament: 'paisible, grégaire, fond', minTankLiters: 60, swimZone: 'bottom', solitary: false },
   { commonName: 'Corydoras sterbai', scientificName: 'Corydoras sterbai', category: 'fish', bioloadFactor: 1.3, adultSizeCm: 6, temperament: 'paisible, grégaire, fond', minTankLiters: 80, swimZone: 'bottom', solitary: false },
   { commonName: 'Corydoras pygmée', scientificName: 'Corydoras pygmaeus', category: 'fish', bioloadFactor: 0.6, adultSizeCm: 3, temperament: 'paisible, grégaire, fond', minTankLiters: 40, swimZone: 'bottom', solitary: false },
   { commonName: 'Ancistrus (bristlenose)', scientificName: 'Ancistrus sp.', category: 'fish', bioloadFactor: 2.5, adultSizeCm: 13, temperament: 'paisible, territorial entre mâles', minTankLiters: 100, swimZone: 'bottom', solitary: false, sexNote: 'un seul mâle par bac en général' },
   { commonName: 'Otocinclus', scientificName: 'Otocinclus sp.', category: 'fish', bioloadFactor: 0.6, adultSizeCm: 4, temperament: 'paisible, grégaire, algivore', minTankLiters: 60, swimZone: 'bottom', solitary: false },
-  { commonName: 'Loche kuhli', scientificName: 'Pangio kuhlii', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 10, temperament: 'paisible, grégaire, fouisseur', minTankLiters: 80, swimZone: 'bottom', solitary: false },
+  { commonName: 'Loche kuhli (Pangio kuhlii)', scientificName: 'Pangio kuhlii', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 10, temperament: 'paisible, grégaire, fouisseur', minTankLiters: 80, swimZone: 'bottom', solitary: false },
 
   // --- Cichlidés et poissons plus imposants ---
   { commonName: 'Ram bolivien', scientificName: 'Mikrogeophagus altispinosus', category: 'fish', bioloadFactor: 2.0, adultSizeCm: 8, temperament: 'globalement paisible, territorial en reproduction', minTankLiters: 100, swimZone: 'bottom', solitary: false },
@@ -203,7 +204,6 @@ export const SPECIES_CATALOG: SpeciesReference[] = [
   { commonName: 'Corydoras éclair noir', scientificName: 'Corydoras schwartzi', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 6, temperament: 'paisible, grégaire, fond', minTankLiters: 80, swimZone: 'bottom', solitary: false },
   { commonName: 'Corydoras albinos', scientificName: 'Corydoras aeneus var. albino', category: 'fish', bioloadFactor: 1.4, adultSizeCm: 7, temperament: 'paisible, grégaire, fond', minTankLiters: 80, swimZone: 'bottom', solitary: false },
   { commonName: 'Brochet-poisson Rineloricaria', scientificName: 'Rineloricaria sp.', category: 'fish', bioloadFactor: 1.2, adultSizeCm: 12, temperament: 'paisible, fond', minTankLiters: 100, swimZone: 'bottom', solitary: false },
-  { commonName: 'Loche épineuse', scientificName: 'Acanthophthalmus kuhlii', category: 'fish', bioloadFactor: 1.0, adultSizeCm: 10, temperament: 'paisible, nocturne', minTankLiters: 80, swimZone: 'bottom', solitary: false },
   { commonName: 'Loche Botia queue rouge', scientificName: 'Yasuhikotakia modesta', category: 'fish', bioloadFactor: 2.0, adultSizeCm: 12, temperament: 'actif, semi-agressif', minTankLiters: 200, swimZone: 'bottom', solitary: false },
   { commonName: 'Otocinclus affinis', scientificName: 'Otocinclus affinis', category: 'fish', bioloadFactor: 0.6, adultSizeCm: 4, temperament: 'paisible, grégaire, algivore', minTankLiters: 60, swimZone: 'bottom', solitary: false },
   { commonName: 'Pléco bleu (L144)', scientificName: 'Ancistrus sp. L144', category: 'fish', bioloadFactor: 2.0, adultSizeCm: 12, temperament: 'paisible, territorial entre mâles', minTankLiters: 100, swimZone: 'bottom', solitary: false },
@@ -267,7 +267,7 @@ export function searchSpecies(query: string): SpeciesReference[] {
   if (q.length < 2) return [];
   const words = q.split(/\s+/);
   const hits = SPECIES_CATALOG.filter((s) => {
-    const hay = norm(`${s.commonName} ${s.scientificName}`);
+    const hay = norm(`${s.commonName} ${s.scientificName} ${s.swimZone === 'bottom' ? 'fond' : s.swimZone === 'top' ? 'surface' : 'milieu'}`);
     return words.every((w) => hay.includes(w));
   });
   hits.sort((a, b) => Number(norm(b.commonName).startsWith(q)) - Number(norm(a.commonName).startsWith(q)));
