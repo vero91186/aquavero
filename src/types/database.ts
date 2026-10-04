@@ -157,6 +157,10 @@ export interface MaintenanceLog {
   description: string | null;
   percentage_changed: number | null;
   conditioner_ml: number | null;
+  // Produit dosé (type « Dosage / engrais »), voir migration 0012.
+  product_id?: string | null;
+  product_name?: string | null;
+  product_dose_ml?: number | null;
   performed_at: string;
   next_due_at: string | null;
   photo_url: string | null;

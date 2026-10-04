@@ -5,12 +5,26 @@ import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types/database';
 import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
 import { PhotoUpload } from '@/components/PhotoUpload';
-import { CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X } from 'lucide-react';
+import { CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical } from 'lucide-react';
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isDosable(p: Product) {
+  return p.dose_ml_per_100l !== null || p.category === 'fertilizer' || p.category === 'conditioner';
+}
+
+function fmtMl(n: number) {
+  return `${n.toLocaleString('fr-FR', { maximumFractionDigits: n < 10 ? 1 : 0 })} mL`;
+}
+
+// Date d'expiration d'un produit ouvert, si on connaît l'ouverture et la durée de conservation.
+function expiryOf(p: Product): Date | null {
+  if (!p.opened_at || !p.shelf_life_days_after_opening) return null;
+  return new Date(new Date(p.opened_at).getTime() + p.shelf_life_days_after_opening * 86400000);
 }
 
 export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType, products }: {
@@ -53,6 +67,10 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   const [newPhotoUrl, setNewPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const conditionerProducts = (products ?? []).filter((p) => p.category === 'conditioner');
+  const dosableProducts = (products ?? []).filter(isDosable);
+  const [now] = useState(() => Date.now());
+  const [dosingProductId, setDosingProductId] = useState('');
+  const [dosingRatio, setDosingRatio] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     performed_at: string;
@@ -75,6 +93,17 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   const ratio = parseFloat(doseRatio) || 0;
   const litersChanged = tank.volume_liters * (pct / 100);
   const conditionerMl = ratio > 0 && pct > 0 ? (ratio * litersChanged) / 100 : null;
+
+  const dosingProduct = dosableProducts.find((p) => p.id === dosingProductId) ?? null;
+  const dosingRatioNum = parseFloat(dosingRatio) || 0;
+  const dosingMl = dosingRatioNum > 0 ? (dosingRatioNum * tank.volume_liters) / 100 : null;
+  const dosingExpiry = dosingProduct ? expiryOf(dosingProduct) : null;
+
+  function handleSelectDosingProduct(id: string) {
+    setDosingProductId(id);
+    const product = dosableProducts.find((p) => p.id === id);
+    setDosingRatio(product?.dose_ml_per_100l !== null && product?.dose_ml_per_100l !== undefined ? String(product.dose_ml_per_100l) : '');
+  }
 
   function handleTaskTypeChange(value: MaintenanceTaskType) {
     setTaskType(value);
@@ -107,17 +136,34 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
         ? new Date(new Date().getTime() + reminderDaysNum * 24 * 60 * 60 * 1000).toISOString()
         : null;
 
-    await supabase.from('maintenance_logs').insert({
+    const dosed = taskType === 'dosing' && dosingProduct && dosingMl !== null;
+    const baseRow = {
       tank_id: tankId,
       user_id: user.id,
       task_type: taskType,
-      description: description || null,
+      description: description || (dosed ? dosingProduct!.name : null),
       percentage_changed: taskType === 'water_change' && percentage ? parseFloat(percentage) : null,
       conditioner_ml: taskType === 'water_change' && conditionerMl !== null ? Math.round(conditionerMl * 10) / 10 : null,
       performed_at: new Date().toISOString(),
       next_due_at: nextDueAt,
       photo_url: newPhotoUrl,
-    });
+    };
+    const withProduct = dosed
+      ? {
+          ...baseRow,
+          product_id: dosingProduct!.id,
+          product_name: dosingProduct!.name,
+          product_dose_ml: Math.round(dosingMl! * 10) / 10,
+        }
+      : baseRow;
+    const { error: insertError } = await supabase.from('maintenance_logs').insert(withProduct);
+    if (insertError && dosed) {
+      // Migration 0012 pas encore lancée : on enregistre quand même l'entretien, la dose va dans la note.
+      await supabase.from('maintenance_logs').insert({
+        ...baseRow,
+        description: `${dosingProduct!.name}, ${fmtMl(dosingMl!)}`,
+      });
+    }
 
     if (taskType === 'water_change' && rememberDose && ratio > 0) {
       await supabase.from('tanks').update({ conditioner_dose_ml_per_100l: ratio }).eq('id', tankId);
@@ -128,6 +174,8 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     setPercentage('');
     setRememberDose(false);
     setSelectedProductId('');
+    setDosingProductId('');
+    setDosingRatio('');
     setNewPhotoUrl(null);
     const def = DEFAULT_REMINDER_DAYS[taskType];
     setReminderDays(def !== null ? String(def) : '');
@@ -202,6 +250,38 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
 
   return (
     <div className="space-y-6">
+      {dosableProducts.some((p) => p.dose_ml_per_100l !== null) && (
+        <section className="rounded-2xl bg-abysse p-5 text-white">
+          <h3 className="text-xl">Tes doses pour {tank.volume_liters} L d&apos;eau</h3>
+          <div className="mt-3 divide-y divide-white/10">
+            {dosableProducts
+              .filter((p) => p.dose_ml_per_100l !== null)
+              .map((p) => {
+                const per = p.dose_ml_per_100l as number;
+                const full = (per * tank.volume_liters) / 100;
+                const isCond = p.category === 'conditioner';
+                return (
+                  <div key={p.id} className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 py-2">
+                    <p className="font-medium">{p.name}</p>
+                    <p className="text-sm text-teal-100">
+                      {isCond ? (
+                        <>
+                          {fmtMl(full * 0.25)} pour 25 % d&apos;eau neuve, <span className="font-semibold text-sable">{fmtMl(full * 0.5)}</span> pour 50 %
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-semibold text-sable">{fmtMl(full)}</span> pour tout le bac
+                        </>
+                      )}
+                    </p>
+                  </div>
+                );
+              })}
+          </div>
+          <p className="mt-2 text-xs text-teal-300">Calculé d&apos;après le dosage de chaque produit et le volume d&apos;eau réel du bac.</p>
+        </section>
+      )}
+
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
         <h3 className="mb-3 font-semibold text-slate-900">Noter une intervention ou une observation</h3>
         <div className="grid gap-3 sm:grid-cols-4">
@@ -303,6 +383,72 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
               />
               Mémoriser ce dosage comme référence pour ce bac
             </label>
+          </div>
+        )}
+
+        {taskType === 'dosing' && (
+          <div className="mt-4 rounded-xl bg-teal-50 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <FlaskConical size={16} className="text-teal-700" />
+              <p className="text-sm font-medium text-teal-900">Calculateur de dose</p>
+            </div>
+            {dosableProducts.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                Aucun produit avec un dosage pour l&apos;instant. Ajoute-en dans Mon bac &gt; Produits, la dose se calculera ici.
+              </p>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Produit (onglet Produits)</label>
+                  <select
+                    value={dosingProductId}
+                    onChange={(e) => handleSelectDosingProduct(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm sm:w-auto"
+                  >
+                    <option value="">Choisir un produit</option>
+                    {dosableProducts.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.dose_ml_per_100l !== null ? ` (${p.dose_ml_per_100l} mL/100L)` : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {dosingProduct && (
+                  <>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-600">Dosage (mL / 100 L)</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={dosingRatio}
+                          onChange={(e) => setDosingRatio(e.target.value)}
+                          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-600">Eau du bac</p>
+                        <p className="rounded-lg bg-white px-2 py-1.5 text-sm text-slate-700">{tank.volume_liters} L réels</p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-medium text-slate-600">Dose à ajouter</p>
+                        <p className="rounded-lg bg-white px-2 py-1.5 text-sm font-semibold text-teal-700">
+                          {dosingMl !== null ? fmtMl(dosingMl) : 'renseigne le dosage'}
+                        </p>
+                      </div>
+                    </div>
+                    {dosingProduct.dose_info && <p className="mt-2 text-sm text-slate-600">{dosingProduct.dose_info}</p>}
+                    {dosingExpiry && dosingExpiry.getTime() < now && (
+                      <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                        Ce flacon est périmé depuis le {dosingExpiry.toLocaleDateString('fr-FR')} : mieux vaut en racheter un.
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -418,7 +564,10 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                     </div>
                     {log.percentage_changed && <span className="text-slate-500"> — {log.percentage_changed}%</span>}
                     {log.conditioner_ml && <span className="text-slate-500"> — {log.conditioner_ml} mL de conditionneur</span>}
-                    {log.description && <span className="text-slate-500"> — {log.description}</span>}
+                    {log.product_name && log.product_dose_ml != null && (
+                      <span className="text-slate-500"> — {fmtMl(log.product_dose_ml)} de {log.product_name}</span>
+                    )}
+                    {log.description && log.description !== log.product_name && <span className="text-slate-500"> — {log.description}</span>}
                     <div className="text-xs text-slate-400">
                       {new Date(log.performed_at).toLocaleString('fr-FR')}
                       {log.next_due_at && (
