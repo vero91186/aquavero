@@ -19,11 +19,13 @@ import { DensitySimulator } from '@/components/DensitySimulator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { ScannerPanel } from '@/components/ScannerPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
+import { TreatmentPrograms } from '@/components/TreatmentPrograms';
+import { programState, dateKey } from '@/lib/treatment';
 import { PlantMap } from '@/components/PlantMap';
 import { EquipmentPanel } from '@/components/EquipmentPanel';
 import { HardscapePanel } from '@/components/HardscapePanel';
 import { ProductsPanel } from '@/components/ProductsPanel';
-import type { MaintenanceTaskType } from '@/types/database';
+import type { MaintenanceTaskType, TreatmentProgram } from '@/types/database';
 import {
   ArrowLeft,
   Sparkles,
@@ -99,6 +101,8 @@ export default function TankDetailPage() {
   const [hardscape, setHardscape] = useState<HardscapeItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [customSpecies, setCustomSpecies] = useState<CustomSpecies[]>([]);
+  const [programs, setPrograms] = useState<TreatmentProgram[]>([]);
+  const [programsUnavailable, setProgramsUnavailable] = useState(false);
   const [section, setSection] = useState<Section>('apercu');
   const [bacSub, setBacSub] = useState<BacSub>('proprietes');
   const [eauSub, setEauSub] = useState<EauSub>('parametres');
@@ -108,7 +112,7 @@ export default function TankDetailPage() {
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose' | 'scan'>('chat');
 
   const loadAll = useCallback(async () => {
-    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes] = await Promise.all([
+    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes, programsRes] = await Promise.all([
       supabase.from('tanks').select('*').eq('id', tankId).single(),
       supabase.from('water_tests').select('*').eq('tank_id', tankId).order('tested_at', { ascending: false }),
       supabase.from('livestock').select('*').eq('tank_id', tankId),
@@ -119,6 +123,7 @@ export default function TankDetailPage() {
       // Catalogue d'espèces : commun à tous les bacs de l'utilisateur, pas
       // seulement celui-ci, pour bénéficier des recherches faites ailleurs.
       supabase.from('custom_species').select('*').order('created_at', { ascending: false }),
+      supabase.from('treatment_programs').select('*').eq('tank_id', tankId).order('start_date', { ascending: false }),
     ]);
 
     if (tankRes.error || !tankRes.data) {
@@ -134,6 +139,8 @@ export default function TankDetailPage() {
     setHardscape(hardscapeRes.data ?? []);
     setProducts(productsRes.data ?? []);
     setCustomSpecies(customSpeciesRes.data ?? []);
+    setProgramsUnavailable(!!programsRes.error);
+    setPrograms((programsRes.data ?? []) as TreatmentProgram[]);
     setLoading(false);
   }, [tankId, supabase, router]);
 
@@ -154,6 +161,10 @@ export default function TankDetailPage() {
     .filter((p) => p.shelfLife && p.shelfLife.level !== 'ok')
     .sort((a, b) => (a.shelfLife!.daysLeft ?? 0) - (b.shelfLife!.daysLeft ?? 0));
   const reminders = computeReminders(logs);
+  const todayKey = dateKey(new Date());
+  const programAlerts = programs
+    .map((p) => ({ p, st: programState(p, todayKey) }))
+    .filter(({ st }) => st.phase === 'running' && (st.dueToday || st.overdue.length > 0));
 
   const subTabsFor: Partial<Record<Section, { key: string; label: string; active: boolean; onClick: () => void }[]>> = {
     bac: BAC_SUBS.map((s) => ({ key: s.key, label: s.label, active: bacSub === s.key, onClick: () => setBacSub(s.key) })),
@@ -235,6 +246,25 @@ export default function TankDetailPage() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         {section === 'apercu' && (
           <div className="space-y-4">
+            {programAlerts.length > 0 && (
+              <div className="rounded-2xl border border-teal-300 bg-teal-50 p-4">
+                <h3 className="mb-1 font-semibold text-teal-900">Traitement à faire</h3>
+                <ul className="space-y-1 text-sm text-teal-800">
+                  {programAlerts.map(({ p, st }) => (
+                    <li key={p.id}>
+                      <span className="font-medium">{p.name}</span>,{' '}
+                      {st.dueToday
+                        ? `dose du jour${p.dose_ml ? ` (${p.dose_ml} mL)` : ''}`
+                        : `${st.overdue.length} dose(s) en retard`}
+                      {' '}(jour {st.dayIndex} sur {st.totalDays})
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={() => setSection('entretien')} className="mt-2 text-xs font-medium text-teal-900 underline">
+                  Ouvrir les programmes
+                </button>
+              </div>
+            )}
             {reminders.length > 0 && (
               <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
                 <div className="mb-1 flex items-center gap-2 text-sky-800">
@@ -388,6 +418,8 @@ export default function TankDetailPage() {
           </div>
         )}
         {section === 'entretien' && (
+          <div className="space-y-6">
+          <TreatmentPrograms tank={tank} products={products} programs={programs} unavailable={programsUnavailable} onUpdated={loadAll} />
           <MaintenancePanel
             tank={tank}
             tankId={tankId}
@@ -396,6 +428,7 @@ export default function TankDetailPage() {
             presetTaskType={quickTaskType}
             products={products}
           />
+          </div>
         )}
         {section === 'scanner' && (
           <ScannerPanel

@@ -224,3 +224,19 @@ export interface TankEquipment {
   notes: string | null;
   created_at: string;
 }
+
+export interface TreatmentProgram {
+  id: string;
+  tank_id: string;
+  user_id: string;
+  product_id: string | null;
+  product_name: string;
+  name: string;
+  start_date: string; // AAAA-MM-JJ
+  end_date: string; // AAAA-MM-JJ
+  every_days: number;
+  dose_ml: number | null;
+  notes: string | null;
+  done_dates: string[];
+  created_at: string;
+}
