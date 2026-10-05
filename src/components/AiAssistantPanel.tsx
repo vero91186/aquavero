@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { fileToBase64, compressImageFile } from '@/lib/image';
 import { findDisease } from '@/lib/diseases';
+import { AddToJournal } from '@/components/AddToJournal';
 import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X } from 'lucide-react';
 
 interface ChatMessage {
@@ -67,9 +68,9 @@ export function AiAssistantPanel({
       </div>
 
       {mode === 'chat' ? (
-        <ChatMode tankId={tankId} />
+        <ChatMode tankId={tankId} onUpdated={onUpdated} />
       ) : mode === 'diagnose' ? (
-        <DiagnoseMode tankId={tankId} />
+        <DiagnoseMode tankId={tankId} onJournalAdded={onUpdated} />
       ) : (
         <ScanMode tankId={tankId} onUpdated={onUpdated} />
       )}
@@ -77,7 +78,7 @@ export function AiAssistantPanel({
   );
 }
 
-function ChatMode({ tankId }: { tankId: string }) {
+function ChatMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => void }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [conversationId, setConversationId] = useState<string | undefined>();
@@ -127,6 +128,15 @@ function ChatMode({ tankId }: { tankId: string }) {
             >
               {msg.content}
             </span>
+            {msg.role === 'assistant' && (
+              <div className="mt-1">
+                <AddToJournal
+                  tankId={tankId}
+                  onAdded={onUpdated}
+                  text={`Assistant IA${messages[i - 1]?.role === 'user' ? ` — Question : ${messages[i - 1].content}` : ''} — Réponse : ${msg.content}`}
+                />
+              </div>
+            )}
           </div>
         ))}
         {loading && <Loader2 className="animate-spin text-teal-500" size={18} />}
@@ -161,7 +171,17 @@ interface DiagnosticResult {
   vet_referral: boolean;
 }
 
-export function DiagnoseMode({ tankId, onOpenDisease, onDone }: { tankId: string; onOpenDisease?: (id: string) => void; onDone?: () => void }) {
+export function DiagnoseMode({
+  tankId,
+  onOpenDisease,
+  onDone,
+  onJournalAdded,
+}: {
+  tankId: string;
+  onOpenDisease?: (id: string) => void;
+  onDone?: () => void;
+  onJournalAdded?: () => void;
+}) {
   const [description, setDescription] = useState('');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
@@ -273,6 +293,14 @@ export function DiagnoseMode({ tankId, onOpenDisease, onDone }: { tankId: string
               Voir la fiche : {findDisease(result.diagnostic.likely_condition)!.name}
             </button>
           )}
+
+          <div className="mt-4">
+            <AddToJournal
+              tankId={tankId}
+              onAdded={onJournalAdded}
+              text={`Check-up IA${description.trim() ? ` (observé : ${description.trim()})` : ''} — ${result.diagnostic.likely_condition} (confiance ${Math.round(result.diagnostic.confidence * 100)} %, gravité ${SEVERITY_LABELS[result.diagnostic.severity] ?? result.diagnostic.severity}). ${result.explanation}${result.diagnostic.recommended_actions?.length ? ` Actions : ${result.diagnostic.recommended_actions.join(' ; ')}.` : ''}`}
+            />
+          </div>
 
           {result.diagnostic.vet_referral && (
             <div className="mt-4 flex items-start gap-2 rounded-lg bg-white/60 p-3 text-sm font-medium">

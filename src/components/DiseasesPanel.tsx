@@ -27,62 +27,9 @@ import {
   type ObsRisk,
 } from '@/lib/observations';
 import { TopicPhoto } from '@/components/TopicPhoto';
+import { AddToJournal } from '@/components/AddToJournal';
 import { compressImageFile, fileToBase64 } from '@/lib/image';
-import { AlertTriangle, BookPlus, Camera, Check, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
-
-// Ajoute une note « observation » au journal d'entretien du bac.
-function AddToJournal({
-  tankId,
-  text,
-  onAdded,
-}: {
-  tankId: string;
-  text: string;
-  onAdded?: () => void;
-}) {
-  const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
-
-  async function add() {
-    setState('saving');
-    const supabase = createClient();
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) {
-      setState('error');
-      return;
-    }
-    const { error } = await supabase.from('maintenance_logs').insert({
-      tank_id: tankId,
-      user_id: data.user.id,
-      task_type: 'observation',
-      description: text,
-      performed_at: new Date().toISOString(),
-    });
-    if (error) {
-      setState('error');
-      return;
-    }
-    setState('done');
-    onAdded?.();
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={add}
-      disabled={state === 'saving' || state === 'done'}
-      className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium ${
-        state === 'done'
-          ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
-          : state === 'error'
-            ? 'border-red-300 bg-red-50 text-red-700'
-            : 'border-teal-300 bg-teal-50 text-teal-800 hover:bg-teal-100'
-      }`}
-    >
-      {state === 'done' ? <Check size={13} /> : <BookPlus size={13} />}
-      {state === 'done' ? 'Ajouté au journal' : state === 'error' ? 'Échec, réessayer' : 'Ajouter au journal'}
-    </button>
-  );
-}
+import { AlertTriangle, Camera, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
 
 type Sub = 'scanner' | 'liste' | 'autre' | 'historique';
 
@@ -139,6 +86,7 @@ export function DiseasesPanel({
       {sub === 'scanner' && (
         <DiagnoseMode
           tankId={tankId}
+          onJournalAdded={onJournalAdded}
           onOpenDisease={(id) => {
             setOpenId(id);
             setSub('liste');
