@@ -6,7 +6,7 @@ import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types
 import { productCategoryOf } from '@/lib/products';
 import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
 import { PhotoUpload } from '@/components/PhotoUpload';
-import { CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical } from 'lucide-react';
+import { Sparkles, CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical } from 'lucide-react';
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
@@ -575,13 +575,18 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                     <div className="flex items-center gap-1.5">
                       <CheckCircle2 size={16} className="shrink-0 text-teal-500" />
                       <span className="font-medium text-slate-800">{TASK_LABELS[log.task_type]}</span>
+                      {isAiEntry(log.description) && (
+                        <span className="flex items-center gap-0.5 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700">
+                          <Sparkles size={10} /> IA
+                        </span>
+                      )}
                     </div>
                     {log.percentage_changed && <span className="text-slate-500"> — {log.percentage_changed}%</span>}
                     {log.conditioner_ml && <span className="text-slate-500"> — {log.conditioner_ml} mL de conditionneur</span>}
                     {log.product_name && log.product_dose_ml != null && (
                       <span className="text-slate-500"> — {fmtMl(log.product_dose_ml)} de {log.product_name}</span>
                     )}
-                    {log.description && log.description !== log.product_name && <span className="text-slate-500"> — {log.description}</span>}
+                    {log.description && log.description !== log.product_name && <LogText text={log.description} />}
                     <div className="text-xs text-slate-400">
                       {new Date(log.performed_at).toLocaleString('fr-FR')}
                       {log.next_due_at && (
@@ -607,5 +612,28 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
         </div>
       </div>
     </div>
+  );
+}
+
+// Les analyses de l'IA ajoutées au journal commencent par un préfixe connu.
+const AI_PREFIX = /^(Scan complet IA|Check-up IA|Assistant IA)/;
+function isAiEntry(description: string | null) {
+  return !!description && AI_PREFIX.test(description);
+}
+
+// Texte d'une entrée : les textes longs (analyses IA) sont repliés.
+function LogText({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const long = text.length > 160;
+  return (
+    <span className="text-slate-500">
+      {' — '}
+      {long && !open ? `${text.slice(0, 160).trimEnd()}… ` : `${text} `}
+      {long && (
+        <button type="button" onClick={() => setOpen(!open)} className="text-xs text-teal-700 underline">
+          {open ? 'Réduire' : 'Voir plus'}
+        </button>
+      )}
+    </span>
   );
 }
