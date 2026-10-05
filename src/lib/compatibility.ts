@@ -22,19 +22,19 @@ const txt = (l: DensityLine) =>
     .replace(/[̀-ͯ]/g, "");
 
 const MARINE =
-  /amphiprion|paracanthurus|chrysiptera|lysmata|discosoma|clown ocellaris|chirurgien|demoiselle|corail|nettoyeuse/;
+  /amphiprion|paracanthurus|chrysiptera|lysmata|discosoma|clown ocellaris|chirurgien|demoiselle|corail|nettoyeuse|\bgramma\b|pterapogon|banggai|ecsenius|blennie|synchiropus|mandarin|zebrasoma|stenopus|boxer|paguristes|bernard|tectus|turbo|nassarius|zoanthus|zoanthaire|xenia|sinularia/;
 const SHRIMP =
-  /caridina|neocaridina|atyopsis|atya |atya$|palaemonetes|crevette|lysmata/;
-const CRAYFISH = /cambarellus|ecrevisse/;
+  /caridina|neocaridina|atyopsis|atya |atya$|palaemonetes|crevette|lysmata|stenopus/;
+const CRAYFISH = /cambarellus|procambarus|ecrevisse/;
 const SNAIL =
   /neritina|clithon|vittina|neripteron|planorb|physe|physa|pomacea|marisa|bellamya|tylomelania|melanoides|anentome|brotia|escargot|clea/;
 const PLANT_EATING_SNAIL = /pomacea|marisa|escargot pomme/;
 const HARMLESS_FISH =
   /otocinclus|ancistrus|corydoras|aspidoras|brochis|dianema|scleromystax|pangio|farlowella|rineloricaria|parotocinclus|peckoltia|hypancistrus|gasteropelecus|carnegiella|kryptopterus|nannostomus|copella|boraras|sundadanio|microdevario|axelrodia|symphysodon|discus|crossocheilus|siamois|chilodus|characidium|rhinogobius|gobie|tateurndina|boraras/;
 const STRONG_PREDATOR =
-  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|devario aequipinnatus|danio geant|cichlid|macropodus|paradis|aphyosemion|fundulopanchax|killi/;
+  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|devario aequipinnatus|danio geant|cichlid|macropodus|paradis|aphyosemion|fundulopanchax|killi|microglanis/;
 const SHRIMP_HUNTER =
-  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|botia|yasuhikotakia|macropodus|paradis|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |betta|combattant|trichopodus|trichogaster|gourami|sphaerichthys|tetrazona|barbodes|puntigrus|devario|melanotaenia|killi|aphyosemion|fundulopanchax|badis|dario|symphysodon|discus|carinotetraodon|globe|chromobotia|microctenopoma|neolamprologus/;
+  /pterophyllum|scalaire|pimelodus|aplocheilus|pachypanchax|botia|yasuhikotakia|macropodus|paradis|cichlid|apistogramma|pelvicachromis|laetacara|cleithracara|nannacara|mikrogeophagus|ram |betta|combattant|trichopodus|trichogaster|gourami|sphaerichthys|tetrazona|barbodes|puntigrus|devario|melanotaenia|killi|aphyosemion|fundulopanchax|badis|dario|symphysodon|discus|carinotetraodon|globe|chromobotia|microctenopoma|neolamprologus|microglanis|glossolepis/;
 const NIPPER =
   /tetrazona|puntigrus|barbodes tetrazona|barbus tigre|barbus de sumatra|desmopuntius|pentazona|hyphessobrycon eques|serpae|gymnocorymbus|veuve|bande noire|anisitsi|buenos aires|moenkhausia sanctaefilomenae|yeux rouges|pethia conchonius|barbus rose|carinotetraodon|gyrinocheilus/;
 const LONGFIN =
