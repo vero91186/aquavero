@@ -33,17 +33,19 @@ export async function POST(req: NextRequest) {
   const { data: tank } = await supabase.from('tanks').select('*').eq('id', tankId).single();
   if (!tank) return NextResponse.json({ error: 'Bac introuvable' }, { status: 404 });
 
-  const [{ data: livestock }, { data: tests }, { data: logs }, { data: products }] = await Promise.all([
+  const [{ data: livestock }, { data: tests }, { data: logs }, { data: products }, { data: equipment }] = await Promise.all([
     supabase.from('livestock').select('*').eq('tank_id', tankId),
     supabase.from('water_tests').select('*').eq('tank_id', tankId).order('tested_at', { ascending: false }).limit(3),
     supabase.from('maintenance_logs').select('*').eq('tank_id', tankId).order('performed_at', { ascending: false }),
     supabase.from('products').select('*').eq('tank_id', tankId),
+    supabase.from('tank_equipment').select('*').eq('tank_id', tankId),
   ]);
 
   const livestockList = livestock ?? [];
   const testsList = tests ?? [];
   const logsList: MaintenanceLog[] = logs ?? [];
   const productsList = products ?? [];
+  const equipmentList = equipment ?? [];
 
   const latestTest = testsList[0] ?? null;
   const health = computeHealthScore(tank, livestockList, latestTest);
@@ -82,6 +84,44 @@ export async function POST(req: NextRequest) {
         .join(', ')
     : 'aucun produit signalé proche de la péremption';
 
+  // Plantes : ancienneté dans le bac (période d'adaptation), fiche technique
+  // si elle existe, et matériel/produits qui conditionnent leur croissance.
+  const plants = livestockList.filter((l) => l.category === 'plant');
+  const plantLines = plants.map((l) => {
+    const age = daysSince(l.added_at);
+    const info = l.plant_info;
+    const needs = info
+      ? [
+          info.light && `lumière : ${info.light}`,
+          info.co2 && `CO2 : ${info.co2}`,
+          info.temperature && `température : ${info.temperature}`,
+          info.water && `eau : ${info.water}`,
+          info.difficulty && `difficulté : ${info.difficulty}`,
+        ]
+          .filter(Boolean)
+          .join(', ')
+      : '';
+    return `- ${l.species_common_name}${l.species_scientific_name ? ` (${l.species_scientific_name})` : ''} ×${l.quantity} — ${
+      age === null ? "date d'ajout inconnue" : `dans le bac depuis ${age} j`
+    }${l.adult_size_cm ? `, taille adulte ${l.adult_size_cm} cm` : ''}${needs ? ` — besoins connus : ${needs}` : ''}`;
+  });
+  const lightEquipment = equipmentList.filter((e) => e.kind === 'light');
+  const co2Equipment = equipmentList.filter((e) => e.kind === 'co2');
+  const fertilizers = productsList.filter((p) => p.category === 'fertilizer');
+  const plantContext = plants.length
+    ? [
+        `Plantes (${plants.length} espèce${plants.length > 1 ? 's' : ''}) :`,
+        ...plantLines,
+        `Conditions de culture : éclairage ${
+          lightEquipment.length ? lightEquipment.map((e) => `${e.name}${e.power_w ? ` ${e.power_w} W` : ''}`).join(', ') : 'matériel non renseigné'
+        }, ${tank.lighting_hours_per_day ?? '?'} h/jour ; CO2 : ${
+          co2Equipment.length ? co2Equipment.map((e) => e.name).join(', ') : 'aucun matériel de CO2 renseigné'
+        } ; sol : ${tank.substrate ?? 'non renseigné'}${tank.fertile_soil ? ' (nutritif)' : ''} ; engrais : ${
+          fertilizers.length ? fertilizers.map((f) => f.name).join(', ') : 'aucun produit renseigné'
+        }`,
+      ].join('\n')
+    : 'Plantes : aucune plante enregistrée';
+
   const tankContext = [
     `Bac "${tank.name}", ${tank.volume_liters} L, ${tank.water_type}, ${tank.is_planted ? 'planté' : 'non planté'}`,
     `Mise en eau : ${tank.setup_date ? `il y a ${setupDays} jour${(setupDays ?? 0) > 1 ? 's' : ''}` : 'date non renseignée'}`,
@@ -99,6 +139,7 @@ export async function POST(req: NextRequest) {
     `Historique d'entretien (dernière fois par type) : ${maintenanceLines}`,
     `Rappels programmés : ${remindersLine}`,
     `Produits : ${productsLine}`,
+    plantContext,
   ].join('\n');
 
   try {
@@ -127,7 +168,10 @@ export async function POST(req: NextRequest) {
       ? result.issues.map((i) => `[${i.severity}] ${i.label}`).join(' · ')
       : 'aucun problème détecté';
     const todosSummary = result.todos?.length ? ` — À faire : ${result.todos.join(' ; ')}` : '';
-    const description = `Scan complet IA — ${result.overall_assessment} Problèmes relevés : ${issuesSummary}.${todosSummary}`;
+    const plantsSummary = result.plants?.length
+      ? ` Plantes : ${result.plants.map((p) => `${p.name} (${p.status})`).join(' ; ')}${result.plant_summary ? ` — ${result.plant_summary}` : ''}.`
+      : '';
+    const description = `Scan complet IA — ${result.overall_assessment} Problèmes relevés : ${issuesSummary}.${todosSummary}${plantsSummary}`;
 
     await supabase.from('maintenance_logs').insert({
       tank_id: tankId,

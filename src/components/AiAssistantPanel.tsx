@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { fileToBase64, compressImageFile } from '@/lib/image';
 import { findDisease } from '@/lib/diseases';
 import { AddToJournal } from '@/components/AddToJournal';
-import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X } from 'lucide-react';
+import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X, Leaf } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -320,7 +320,16 @@ interface CheckupResult {
   overall_assessment: string;
   issues: { label: string; severity: string; detail: string }[];
   todos: string[];
+  plants?: { name: string; status: string; detail: string; action?: string }[];
+  plant_summary?: string;
 }
+
+const PLANT_STATUS: Record<string, { label: string; className: string }> = {
+  bon: { label: 'Bien adaptée', className: 'bg-emerald-100 text-emerald-800' },
+  adaptation: { label: 'En adaptation', className: 'bg-sky-100 text-sky-800' },
+  surveiller: { label: 'À surveiller', className: 'bg-amber-100 text-amber-800' },
+  probleme: { label: 'Problème', className: 'bg-red-100 text-red-800' },
+};
 
 interface PendingImage {
   base64: string;
@@ -386,7 +395,7 @@ function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
         </div>
         <p className="mt-1 text-sm text-slate-500">
           L&apos;IA passe en revue le cyclage, le peuplement et la charge biologique, les derniers
-          paramètres d&apos;eau, l&apos;historique d&apos;entretien et les produits proches de la
+          paramètres d&apos;eau, l&apos;adaptation de tes plantes (ancienneté, lumière, CO2, dureté), l&apos;historique d&apos;entretien et les produits proches de la
           péremption pour repérer les problèmes et lister ce qu&apos;il y a à faire. Ajoute une ou
           plusieurs photos d&apos;ensemble du bac (optionnel) pour qu&apos;elle regarde aussi l&apos;eau,
           les algues, les plantes et les poissons visibles. Le résultat est ajouté au journal (onglet
@@ -450,6 +459,31 @@ function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
                   <p className="mt-1 text-sm">{issue.detail}</p>
                 </div>
               ))}
+            </div>
+          )}
+
+          {result.plants && result.plants.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <div className="mb-2 flex items-center gap-2">
+                <Leaf size={16} className="text-emerald-600" />
+                <h3 className="font-semibold text-slate-900">Analyse des plantes</h3>
+              </div>
+              {result.plant_summary && <p className="mb-3 text-sm text-slate-700">{result.plant_summary}</p>}
+              <ul className="space-y-2">
+                {result.plants.map((p, i) => {
+                  const st = PLANT_STATUS[p.status] ?? { label: p.status, className: 'bg-slate-100 text-slate-700' };
+                  return (
+                    <li key={i} className="rounded-lg border border-slate-100 p-3 text-sm">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-medium text-slate-800">{p.name}</span>
+                        <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${st.className}`}>{st.label}</span>
+                      </div>
+                      <p className="mt-1 text-slate-600">{p.detail}</p>
+                      {p.action && <p className="mt-1 text-slate-500">→ {p.action}</p>}
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
 

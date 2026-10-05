@@ -706,10 +706,28 @@ cyclage pas terminé avec des poissons déjà en place, paramètres hors plage, 
 retard, charge biologique trop élevée pour le volume, produit périmé, algues visibles, plante en
 mauvais état), classés par gravité, et une liste d'actions concrètes et priorisées à faire. S'il n'y a
 rien d'alarmant, dis-le clairement dans l'évaluation générale et propose quand même 1 ou 2 conseils
-d'entretien courant plutôt que d'inventer un problème. Réponds uniquement avec un objet JSON de la
-forme :
+d'entretien courant plutôt que d'inventer un problème.
+
+Analyse aussi les plantes quand il y en a : pour CHAQUE plante listée, juge son adaptation au bac en
+croisant son ancienneté (une plante de moins de 3-4 semaines est en phase d'adaptation : pertes de
+feuilles et fonte des feuilles émergées sont normales, surtout pour Cryptocoryne, Echinodorus et les
+plantes cultivées hors d'eau), ses besoins connus (lumière, CO2, température, dureté/pH) face à
+l'éclairage, au CO2, au sol, aux engrais et aux derniers paramètres d'eau du bac, et — si des photos
+sont fournies — son aspect visible. Signale les incompatibilités réelles (plante exigeante en lumière ou
+CO2 sans le matériel correspondant, eau trop dure ou trop douce pour l'espèce, température hors plage,
+plante à croissance rapide qui va dominer, carences probables comme nitrates trop bas ou fer absent,
+risque d'algues lié à un déséquilibre lumière/nutriments). Donne un statut par plante : "bon" (bien
+adaptée), "adaptation" (période d'adaptation normale, patience), "surveiller" (conditions limites) ou
+"probleme" (conditions inadaptées ou état dégradé). N'invente aucune donnée absente : si une
+information manque (ex. fiche de la plante non renseignée), dis-le et base-toi sur ce que tu sais de
+l'espèce en le précisant. S'il n'y a aucune plante enregistrée, renvoie "plants": [] et
+"plant_summary": "".
+
+Réponds uniquement avec un objet JSON de la forme :
 {"overall_assessment": "...", "issues": [{"label": "...", "severity": "low|medium|high|urgent", "detail": "..."}],
-"todos": ["...", "..."]}`;
+"todos": ["...", "..."],
+"plants": [{"name": "...", "status": "bon|adaptation|surveiller|probleme", "detail": "...", "action": "..."}],
+"plant_summary": "..."}`;
 
 export async function checkupTank(params: {
   tankContext: string;
@@ -733,6 +751,8 @@ export async function checkupTank(params: {
     overall_assessment: string;
     issues: { label: string; severity: 'low' | 'medium' | 'high' | 'urgent'; detail: string }[];
     todos: string[];
+    plants?: { name: string; status: 'bon' | 'adaptation' | 'surveiller' | 'probleme'; detail: string; action?: string }[];
+    plant_summary?: string;
   };
 }
 
