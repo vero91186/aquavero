@@ -13,12 +13,15 @@ export function AddToJournal({
   text,
   onAdded,
   taskType = 'observation',
+  photo,
   className = '',
 }: {
   tankId: string;
   text: string;
   onAdded?: () => void;
   taskType?: MaintenanceTaskType;
+  // Photo analysée par l'IA, rattachée à l'entrée du journal si fournie.
+  photo?: { base64: string; mimeType: string } | null;
   className?: string;
 }) {
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'error'>('idle');
@@ -31,12 +34,23 @@ export function AddToJournal({
       setState('error');
       return;
     }
+    let photoUrl: string | null = null;
+    if (photo) {
+      const ext = photo.mimeType.split('/')[1] ?? 'jpg';
+      const path = `${data.user.id}/journal/${Date.now()}-${Math.round(Math.random() * 1e6)}.${ext}`;
+      const bytes = Uint8Array.from(atob(photo.base64), (c) => c.charCodeAt(0));
+      const { error: uploadError } = await supabase.storage
+        .from('aquarium-photos')
+        .upload(path, bytes, { contentType: photo.mimeType });
+      if (!uploadError) photoUrl = supabase.storage.from('aquarium-photos').getPublicUrl(path).data.publicUrl;
+    }
     const { error } = await supabase.from('maintenance_logs').insert({
       tank_id: tankId,
       user_id: data.user.id,
       task_type: taskType,
       description: text,
       performed_at: new Date().toISOString(),
+      photo_url: photoUrl,
     });
     if (error) {
       setState('error');

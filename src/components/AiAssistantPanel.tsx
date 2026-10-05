@@ -298,6 +298,7 @@ export function DiagnoseMode({
             <AddToJournal
               tankId={tankId}
               onAdded={onJournalAdded}
+              photo={imageBase64 && imageMimeType ? { base64: imageBase64, mimeType: imageMimeType } : null}
               text={`Check-up IA${description.trim() ? ` (observé : ${description.trim()})` : ''} — ${result.diagnostic.likely_condition} (confiance ${Math.round(result.diagnostic.confidence * 100)} %, gravité ${SEVERITY_LABELS[result.diagnostic.severity] ?? result.diagnostic.severity}). ${result.explanation}${result.diagnostic.recommended_actions?.length ? ` Actions : ${result.diagnostic.recommended_actions.join(' ; ')}.` : ''}`}
             />
           </div>
