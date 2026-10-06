@@ -26,7 +26,7 @@ import {
   type DensityLevelId,
 } from "@/lib/density";
 import { createClient } from "@/lib/supabase/client";
-import { introductionPlan } from "@/lib/introduction";
+import { introductionPlan, FOAM_PLAN, JUWEL_BIOFLOW_M_REFS } from "@/lib/introduction";
 import {
   evaluateCompatibility,
   isCatalogSpecies,
@@ -1154,6 +1154,38 @@ export function DensitySimulator({
                     );
                   })}
                 </ol>
+                <div className="mt-3 rounded-lg border border-slate-200 p-2.5">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Mousses du filtre
+                  </p>
+                  <ul className="mt-1 space-y-1.5">
+                    {FOAM_PLAN.map((f) => (
+                      <li key={f.when} className="text-xs text-slate-600">
+                        <span className="font-medium text-slate-800">
+                          {f.when} :
+                        </span>{" "}
+                        {f.action}
+                      </li>
+                    ))}
+                  </ul>
+                  <details className="mt-2 text-xs text-slate-600">
+                    <summary className="cursor-pointer font-medium text-teal-700">
+                      Références pour un filtre Juwel Bioflow M
+                    </summary>
+                    <ul className="mt-1 space-y-0.5">
+                      {JUWEL_BIOFLOW_M_REFS.map((r) => (
+                        <li key={r.ref}>
+                          {r.name} : <span className="tabular-nums">{r.ref}</span>{" "}
+                          ({r.note})
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-1 text-slate-400">
+                      Codes-barres Juwel. Cartouche complète Bioflow M : 85091
+                      selon la notice.
+                    </p>
+                  </details>
+                </div>
               </div>
             );
           })()}

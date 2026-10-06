@@ -58,3 +58,39 @@ export function introductionPlan(lines: DensityLine[]): IntroStep[] {
   const active = lines.filter((l) => l.quantity > 0);
   return STEPS.map((s) => ({ ...s, lines: active.filter((l) => stepOf(l) === s.step) })).filter((s) => s.lines.length > 0);
 }
+
+// Calendrier des mousses du filtre, à lire avec l'ordre d'ajout : les mousses
+// biologiques portent les bactéries, donc on n'y touche pas pendant la montée
+// en charge, puis on les renouvelle une à la fois et en décalé. Dates comptées
+// depuis le jour 0 (nitrites à 0, arrivée des premiers animaux).
+export interface FoamStep {
+  when: string;
+  action: string;
+}
+
+export const FOAM_PLAN: FoamStep[] = [
+  {
+    when: 'Jour 0 à semaine 12',
+    action:
+      "Ne remplace aucune mousse biologique. Si le débit baisse, rince seulement la mousse grossière dans l'eau du bac prélevée au changement d'eau, jamais au robinet (le chlore tue les bactéries).",
+  },
+  {
+    when: 'À 3 mois',
+    action:
+      "Remplace la mousse grossière. Pose la neuve à côté de l'ancienne 2 à 3 semaines pour qu'elle se colonise, puis retire l'ancienne. Ensuite, tous les 3 mois environ.",
+  },
+  {
+    when: 'À 6 mois, puis 9 mois',
+    action:
+      "Remplace une mousse fine à 6 mois, l'autre à 9 mois (entre 3 et 9 mois selon l'état : quand elle s'effrite ou se tasse). Jamais la grossière et la fine le même jour.",
+  },
+];
+
+// Références pour un filtre Juwel Bioflow M (Rio 125/180/240, Lido, Vision 180…).
+// Ce sont les codes-barres (EAN) des produits Juwel ; la cartouche complète
+// Bioflow M porte la référence 85091 selon la notice du fabricant.
+export const JUWEL_BIOFLOW_M_REFS: { name: string; ref: string; note: string }[] = [
+  { name: 'bioPlus M, mousse grossière', ref: '4022573880502', note: 'tous les 3 mois' },
+  { name: 'bioPlus M, mousse fine', ref: '4022573880519', note: 'entre 3 et 9 mois, en décalé' },
+  { name: 'Nitrax M (anti-nitrates, facultatif)', ref: '4022573880557', note: 'toutes les 8 semaines' },
+];
