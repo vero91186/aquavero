@@ -10,6 +10,7 @@ import { scientificNameOf } from '@/lib/species-catalog';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { ConfidenceBadge, SourcesLine } from '@/components/research-ui';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
+import { SupplierShelf } from '@/components/SupplierShelf';
 import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
@@ -442,6 +443,7 @@ export function LivestockPanel({
 
   return (
     <div className="space-y-6">
+      {lockedCategory !== 'plant' && <SupplierShelf onPick={handleNameChange} />}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">{title ?? 'Ajouter au peuplement'}</h3>
