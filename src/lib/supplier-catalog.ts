@@ -286,16 +286,40 @@ const normName = (v: string) =>
 // Statut d'une espèce chez le grossiste, d'après le dernier relevé : null si
 // l'espèce n'y figure pas. Rapprochement par nom scientifique, sinon par nom
 // commun ; « disponible » dès qu'une entrée de la même espèce n'est pas en rupture.
+// Anciens noms scientifiques ou noms usuels encore très courants, ramenés au
+// nom retenu dans le catalogue (ex. « Colisa lalia » = Trichogaster lalius).
+const SYNONYMS: Record<string, string> = {
+  "colisa lalia": "trichogaster lalius",
+  "colisa lalius": "trichogaster lalius",
+  "trichogaster lalia": "trichogaster lalius",
+  "colisa chuna": "trichogaster chuna",
+  "colisa labiosa": "trichogaster labiosa",
+  "brachydanio rerio": "danio rerio",
+  "puntius tetrazona": "puntigrus tetrazona",
+  "barbus conchonius": "pethia conchonius",
+  "puntius conchonius": "pethia conchonius",
+  "barbus titteya": "puntius titteya",
+  "aequidens maronii": "cleithracara maronii",
+  "paracheirodon axelrodi": "paracheirodon axelrodi",
+};
+
+const canon = (v: string) => {
+  const n = normName(v);
+  return SYNONYMS[n] ?? n;
+};
+
 export function supplierStatusOf(
   commonName: string,
   scientificName?: string | null,
 ): SupplierStatus | null {
-  const sci = scientificName ? normName(scientificName) : null;
-  const common = normName(commonName);
+  const sci = scientificName ? canon(scientificName) : null;
+  const common = canon(commonName);
+  // Le nom commun saisi peut être un nom scientifique ancien (« Colisa lalia »).
+  const commonSci = SYNONYMS[normName(commonName)] ?? null;
   let found: SupplierStatus | null = null;
   for (const g of SUPPLIER_GROUPS) {
     for (const sp of g.species) {
-      if ((sci && normName(sp.sci) === sci) || normName(sp.name) === common) {
+      if ((sci && canon(sp.sci) === sci) || (commonSci && canon(sp.sci) === commonSci) || canon(sp.name) === common) {
         if (!sp.outOfStock) return "available";
         found = "out";
       }
