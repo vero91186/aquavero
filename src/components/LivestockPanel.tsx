@@ -335,6 +335,34 @@ export function LivestockPanel({
     onUpdated();
   }
 
+  // Ajout direct d'une espèce du catalogue au peuplement, sans passer par le formulaire.
+  async function addFromCatalog(ref: SpeciesReference, qty: number): Promise<string | null> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return 'Connexion requise.';
+    const photoUrl = await fetchAutoPhoto(ref.scientificName || ref.commonName, 'species');
+    const { error } = await supabase.from('livestock').insert({
+      tank_id: tankId,
+      user_id: user.id,
+      category: ref.category,
+      species_common_name: ref.commonName,
+      species_scientific_name: ref.scientificName || null,
+      quantity: qty,
+      bioload_factor: ref.bioloadFactor,
+      temperament: ref.temperament || null,
+      adult_size_cm: ref.adultSizeCm || null,
+      min_tank_liters: ref.minTankLiters || null,
+      swim_zone: ref.swimZone,
+      solitary: ref.solitary,
+      photo_url: photoUrl,
+      added_at: new Date().toISOString().slice(0, 10),
+    });
+    if (error) return error.message;
+    onUpdated();
+    return null;
+  }
+
   async function handleDelete(id: string) {
     await supabase.from('livestock').delete().eq('id', id);
     onUpdated();
@@ -443,7 +471,7 @@ export function LivestockPanel({
 
   return (
     <div className="space-y-6">
-      {lockedCategory !== 'plant' && <SupplierShelf onPick={handleNameChange} />}
+      {lockedCategory !== 'plant' && <SupplierShelf onAdd={addFromCatalog} />}
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">{title ?? 'Ajouter au peuplement'}</h3>
