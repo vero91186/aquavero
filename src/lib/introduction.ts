@@ -94,3 +94,35 @@ export const JUWEL_BIOFLOW_M_REFS: { name: string; ref: string; note: string }[]
   { name: 'bioPlus M, mousse fine', ref: '4022573880519', note: 'entre 3 et 9 mois, en décalé' },
   { name: 'Nitrax M (anti-nitrates, facultatif)', ref: '4022573880557', note: 'toutes les 8 semaines' },
 ];
+
+// Calendrier du siphonnage du sol, à lire avec l'ordre d'ajout. Il se fait
+// pendant le changement d'eau, par zones. Sable fin planté : on aspire les
+// déchets en surface, on ne creuse pas, pour ne pas abîmer les racines ni
+// les bactéries du sol.
+export const SIPHON_PLAN: FoamStep[] = [
+  {
+    when: 'Jour 0 à semaine 4',
+    action:
+      "Pas de siphonnage du sol : le bac est jeune et les bactéries s'installent. Au changement d'eau, enlève seulement les débris visibles en tenant le tuyau au-dessus du sable.",
+  },
+  {
+    when: 'À partir de la semaine 4, chaque semaine',
+    action:
+      "Au changement d'eau, siphonne un tiers du sable en surface, en changeant de zone à chaque fois, pour que tout le sol soit fait en trois semaines. Tiens le tuyau à 1 cm au-dessus du sable et laisse les déchets légers monter, sans creuser.",
+  },
+  {
+    when: 'Zones à éviter',
+    action:
+      "Pas autour des racines des Cryptocoryne et des Vallisneria, ni sous les ardoises et le bois : laisse le mulm s'y décomposer, les plantes s'en nourrissent. Fais seulement les zones ouvertes, surtout le devant où mangent les corydoras.",
+  },
+  {
+    when: 'Avec des crevettes',
+    action:
+      "Mets un bas fin ou une maille sur l'embout du tuyau : les bébés crevettes se font aspirer. Regarde le seau avant de le vider.",
+  },
+  {
+    when: 'Jamais le même jour que les mousses',
+    action:
+      "Ne siphonne pas et ne rince pas une mousse du filtre le même jour : tu retirerais des bactéries aux deux endroits à la fois.",
+  },
+];

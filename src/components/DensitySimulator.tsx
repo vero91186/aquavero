@@ -26,7 +26,7 @@ import {
   type DensityLevelId,
 } from "@/lib/density";
 import { createClient } from "@/lib/supabase/client";
-import { introductionPlan, FOAM_PLAN, JUWEL_BIOFLOW_M_REFS } from "@/lib/introduction";
+import { introductionPlan, FOAM_PLAN, SIPHON_PLAN, JUWEL_BIOFLOW_M_REFS } from "@/lib/introduction";
 import {
   evaluateCompatibility,
   isCatalogSpecies,
@@ -1185,6 +1185,21 @@ export function DensitySimulator({
                       selon la notice.
                     </p>
                   </details>
+                </div>
+                <div className="mt-3 rounded-lg border border-slate-200 p-2.5">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Siphonnage du sol
+                  </p>
+                  <ul className="mt-1 space-y-1.5">
+                    {SIPHON_PLAN.map((f) => (
+                      <li key={f.when} className="text-xs text-slate-600">
+                        <span className="font-medium text-slate-800">
+                          {f.when} :
+                        </span>{" "}
+                        {f.action}
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             );
