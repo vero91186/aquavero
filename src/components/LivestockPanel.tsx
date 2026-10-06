@@ -11,6 +11,7 @@ import { PhotoUpload } from '@/components/PhotoUpload';
 import { ConfidenceBadge, SourcesLine } from '@/components/research-ui';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { SupplierShelf } from '@/components/SupplierShelf';
+import { supplierStatusOf, SUPPLIER_NAME, SUPPLIER_SNAPSHOT_DATE } from '@/lib/supplier-catalog';
 import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
@@ -792,6 +793,24 @@ export function LivestockPanel({
                     <span className="font-medium text-slate-800">
                       {item.quantity}× {item.species_common_name}
                     </span>
+                    {item.category !== 'plant' &&
+                      (() => {
+                        const st = supplierStatusOf(
+                          item.species_common_name,
+                          scientificNameOf(item.species_common_name, item.species_scientific_name)
+                        );
+                        if (!st) return null;
+                        return (
+                          <span
+                            title={`${SUPPLIER_NAME}, relevé du ${new Date(SUPPLIER_SNAPSHOT_DATE).toLocaleDateString('fr-FR')}`}
+                            className={`ml-2 rounded-full px-2 py-0.5 text-xs ${
+                              st === 'available' ? 'bg-teal-100 text-teal-800' : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {st === 'available' ? 'Dispo au Comptoir' : 'Rupture au Comptoir'}
+                          </span>
+                        );
+                      })()}
                     {scientificNameOf(item.species_common_name, item.species_scientific_name) && (
                       <span className="ml-2 text-sm italic text-slate-500">
                         {scientificNameOf(item.species_common_name, item.species_scientific_name)}

@@ -277,3 +277,29 @@ export const SUPPLIER_TO_AVOID: { label: string; reason: string }[] = [
   { label: "Discus", reason: "28 à 30 °C, eau très douce, 200 L ou plus." },
   { label: "Poissons trop grands ou agressifs", reason: "veliferas, Botia clown, piranhas, barbus denisonii, Pimelodus pictus, escargot assassin, écrevisses naines." },
 ];
+
+export type SupplierStatus = "available" | "out";
+
+const normName = (v: string) =>
+  v.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+// Statut d'une espèce chez le grossiste, d'après le dernier relevé : null si
+// l'espèce n'y figure pas. Rapprochement par nom scientifique, sinon par nom
+// commun ; « disponible » dès qu'une entrée de la même espèce n'est pas en rupture.
+export function supplierStatusOf(
+  commonName: string,
+  scientificName?: string | null,
+): SupplierStatus | null {
+  const sci = scientificName ? normName(scientificName) : null;
+  const common = normName(commonName);
+  let found: SupplierStatus | null = null;
+  for (const g of SUPPLIER_GROUPS) {
+    for (const sp of g.species) {
+      if ((sci && normName(sp.sci) === sci) || normName(sp.name) === common) {
+        if (!sp.outOfStock) return "available";
+        found = "out";
+      }
+    }
+  }
+  return found;
+}
