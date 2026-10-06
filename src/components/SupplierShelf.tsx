@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ChevronDown, Store, Plus, Loader2, Check, FlaskConical } from 'lucide-react';
 import { SpeciesThumb } from '@/components/SpeciesThumb';
-import { SPECIES_CATALOG, schoolMinOf, sexRatioOf, type SpeciesReference } from '@/lib/species-catalog';
+import { SPECIES_CATALOG, SPECIES_ALIASES, schoolMinOf, sexRatioOf, type SpeciesReference } from '@/lib/species-catalog';
 import {
   SUPPLIER_GROUPS,
   SUPPLIER_NAME,
@@ -14,6 +14,8 @@ import {
 
 const refBySci = (sci: string): SpeciesReference | undefined =>
   SPECIES_CATALOG.find((c) => c.scientificName === sci);
+
+const fold = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
 const ZONES = { top: 'surface', mid: 'pleine eau', bottom: 'fond' } as const;
 
@@ -26,6 +28,7 @@ export function SupplierShelf({
 }) {
   const [open, setOpen] = useState(false);
   const [hideOut, setHideOut] = useState(false);
+  const [search, setSearch] = useState('');
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<SupplierSpecies | null>(null);
   const [qty, setQty] = useState('1');
@@ -79,6 +82,12 @@ export function SupplierShelf({
             {new Date(SUPPLIER_SNAPSHOT_DATE).toLocaleDateString('fr-FR')}). <span className="font-medium">*</span> = préfère une eau plus
             douce. Grossiste réservé aux professionnels : stocks et prix visibles seulement sur leur site, connecté.
           </p>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Chercher une espèce (ex. colisa, néon, corydoras)"
+            className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
+          />
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={hideOut} onChange={(e) => setHideOut(e.target.checked)} />
             Masquer les ruptures
@@ -157,9 +166,15 @@ export function SupplierShelf({
           )}
 
           {SUPPLIER_GROUPS.map((g) => {
-            const list = g.species.filter((sp) => !(hideOut && sp.outOfStock));
+            const words = fold(search).split(/\s+/).filter(Boolean);
+            const list = g.species.filter((sp) => {
+              if (hideOut && sp.outOfStock) return false;
+              if (words.length === 0) return true;
+              const hay = fold(`${sp.name} ${sp.sci} ${SPECIES_ALIASES[sp.sci] ?? ''} ${sp.varieties ?? ''}`);
+              return words.every((w) => hay.includes(w));
+            });
             if (list.length === 0) return null;
-            const isOpen = openGroup === g.id;
+            const isOpen = words.length > 0 || openGroup === g.id;
             return (
               <div key={g.id} className="rounded-lg border border-slate-100">
                 <button

@@ -5196,6 +5196,23 @@ export function scientificNameOf(
   return hit ? hit.scientificName : null;
 }
 
+// Anciens noms et noms usuels fréquents, par nom scientifique : ils rendent
+// l'espèce trouvable sous le nom que l'on a l'habitude d'employer.
+export const SPECIES_ALIASES: Record<string, string> = {
+  "Trichogaster lalius": "Colisa lalia colisa lalius gourami nain colisa",
+  "Trichogaster chuna": "Colisa chuna gourami miel",
+  "Trichogaster labiosa": "Colisa labiosa gourami labiosa",
+  "Trichopodus leerii": "Trichogaster leeri gourami perle gourami mosaique",
+  "Danio rerio": "Brachydanio rerio danio zebre poisson zebre",
+  "Puntigrus tetrazona": "Barbus tetrazona Puntius tetrazona barbus sumatra",
+  "Pethia conchonius": "Barbus conchonius Puntius conchonius",
+  "Puntius titteya": "Barbus titteya barbus cerise",
+  "Cleithracara maronii": "Aequidens maronii cichlide clef de serrure",
+  "Mikrogeophagus ramirezi": "Papiliochromis ramirezi Microgeophagus ramirezi",
+  "Corydoras paleatus": "corydoras poivre",
+  "Pangio kuhlii": "Acanthophthalmus kuhlii loche kuhli",
+};
+
 // Recherche insensible aux accents et à l'ordre des mots (« tetra citron »,
 // « citron tetra »). Les noms qui commencent par la saisie passent en premier.
 export function searchSpecies(query: string): SpeciesReference[] {
@@ -5204,7 +5221,7 @@ export function searchSpecies(query: string): SpeciesReference[] {
   const words = q.split(/\s+/);
   const hits = SPECIES_CATALOG.filter((s) => {
     const hay = norm(
-      `${s.commonName} ${s.scientificName} ${s.swimZone === "bottom" ? "fond" : s.swimZone === "top" ? "surface" : "milieu"}`,
+      `${s.commonName} ${s.scientificName} ${SPECIES_ALIASES[s.scientificName] ?? ""} ${s.swimZone === "bottom" ? "fond" : s.swimZone === "top" ? "surface" : "milieu"}`,
     );
     return words.every((w) => hay.includes(w));
   });
