@@ -341,6 +341,21 @@ export function DensitySimulator({
     setSuggestions([]);
   }
 
+  // Reçoit les espèces envoyées à la simulation depuis le catalogue du
+  // fournisseur (voir SupplierShelf) : elles s'ajoutent comme espèces simulées.
+  const addExtraRef = useRef(addExtra);
+  useEffect(() => {
+    addExtraRef.current = addExtra;
+  });
+  useEffect(() => {
+    function onSimulate(e: Event) {
+      const d = (e as CustomEvent<{ ref: SpeciesReference; quantity: number }>).detail;
+      if (d?.ref) addExtraRef.current(d.ref, d.quantity);
+    }
+    window.addEventListener("aquatrack:simulate", onSimulate);
+    return () => window.removeEventListener("aquatrack:simulate", onSimulate);
+  }, []);
+
   // Ouvre un projet ou une alternative : remplace le peuplement enregistré par ses lignes, le temps de la simulation.
   function loadProject(projectLines: DensityLine[]) {
     const zeroed: Record<string, number> = {};
@@ -356,6 +371,7 @@ export function DensitySimulator({
 
   return (
     <div
+      id="simulateur-densite"
       className="rounded-2xl border border-slate-200 bg-white p-5"
       onKeyDown={(e) => {
         // Ce bloc est dans le formulaire des propriétés : Entrée ne doit pas l'envoyer.
