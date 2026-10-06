@@ -1,27 +1,63 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Store } from 'lucide-react';
+import { ChevronDown, Store, Plus, Loader2, Check } from 'lucide-react';
+import { SpeciesThumb } from '@/components/SpeciesThumb';
+import { SPECIES_CATALOG, schoolMinOf, sexRatioOf, type SpeciesReference } from '@/lib/species-catalog';
 import {
   SUPPLIER_GROUPS,
   SUPPLIER_NAME,
   SUPPLIER_SNAPSHOT_DATE,
   SUPPLIER_TO_AVOID,
+  type SupplierSpecies,
 } from '@/lib/supplier-catalog';
 
-// Liste des espèces compatibles proposées par un grossiste. Un clic sur une
-// espèce la remonte dans le formulaire d'ajout (qui complète via le catalogue).
-export function SupplierShelf({ onPick }: { onPick: (name: string) => void }) {
+const refBySci = (sci: string): SpeciesReference | undefined =>
+  SPECIES_CATALOG.find((c) => c.scientificName === sci);
+
+const ZONES = { top: 'surface', mid: 'pleine eau', bottom: 'fond' } as const;
+
+// Catalogue des espèces d'un grossiste, avec photos. Un clic ouvre la fiche,
+// d'où l'on ajoute l'espèce (et la quantité) directement au peuplement.
+export function SupplierShelf({
+  onAdd,
+}: {
+  onAdd: (ref: SpeciesReference, quantity: number) => Promise<string | null>;
+}) {
   const [open, setOpen] = useState(false);
-  const [hideOut, setHideOut] = useState(true);
+  const [hideOut, setHideOut] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SupplierSpecies | null>(null);
+  const [qty, setQty] = useState('1');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  function select(sp: SupplierSpecies) {
+    const ref = refBySci(sp.sci);
+    setSelected(sp);
+    setQty(String(ref ? (schoolMinOf(ref) ?? 1) : 1));
+    setMsg(null);
+  }
+
+  async function add() {
+    if (!selected) return;
+    const ref = refBySci(selected.sci);
+    if (!ref) return;
+    const n = Math.max(1, parseInt(qty, 10) || 1);
+    setBusy(true);
+    const err = await onAdd(ref, n);
+    setBusy(false);
+    setMsg(err ? { ok: false, text: err } : { ok: true, text: `${n} × ${ref.commonName} ajouté au peuplement.` });
+  }
+
+  const selRef = selected ? refBySci(selected.sci) : undefined;
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full items-center justify-between text-left">
         <span className="flex items-center gap-2 font-semibold text-slate-900">
           <Store size={18} className="text-teal-600" />
-          Disponible chez {SUPPLIER_NAME}
+          Catalogue {SUPPLIER_NAME}
         </span>
         <ChevronDown size={18} className={`text-slate-400 transition ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -30,12 +66,75 @@ export function SupplierShelf({ onPick }: { onPick: (name: string) => void }) {
           <p className="text-xs text-slate-500">
             Espèces compatibles avec un bac planté de 150 L, KH 6 (relevé du{' '}
             {new Date(SUPPLIER_SNAPSHOT_DATE).toLocaleDateString('fr-FR')}). <span className="font-medium">*</span> = préfère une eau plus
-            douce. Grossiste réservé aux professionnels.
+            douce. Grossiste réservé aux professionnels : stocks et prix visibles seulement sur leur site, connecté.
           </p>
           <label className="flex items-center gap-2 text-sm text-slate-600">
             <input type="checkbox" checked={hideOut} onChange={(e) => setHideOut(e.target.checked)} />
             Masquer les ruptures
           </label>
+
+          {selected && (
+            <div className="rounded-xl border border-teal-200 bg-teal-50/60 p-3">
+              <div className="flex gap-3">
+                <SpeciesThumb
+                  name={selected.name}
+                  scientificName={selected.sci}
+                  kind={selRef?.category === 'invertebrate' ? 'invertebrate' : 'fish'}
+                  size={96}
+                />
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="font-semibold text-slate-900">
+                    {selected.name}
+                    {selected.softWater ? '*' : ''}
+                    {selected.outOfStock && (
+                      <span className="ml-2 rounded bg-slate-200 px-1.5 py-0.5 text-xs font-normal text-slate-600">rupture</span>
+                    )}
+                  </p>
+                  <p className="text-xs italic text-slate-400">{selected.sci}</p>
+                  {selected.varieties && <p className="mt-1 text-xs text-slate-600">Coloris : {selected.varieties}</p>}
+                  {selRef && (
+                    <p className="mt-1 text-xs text-slate-600">
+                      {selRef.adultSizeCm > 0 ? `${selRef.adultSizeCm} cm · ` : ''}
+                      {ZONES[selRef.swimZone]} · {selRef.temperament}
+                      {schoolMinOf(selRef) ? ` · banc de ${schoolMinOf(selRef)} mini` : ''}
+                      {sexRatioOf(selRef) ? ` · ${sexRatioOf(selRef)?.label}` : ''}
+                    </p>
+                  )}
+                  {selected.softWater && <p className="mt-1 text-xs text-amber-700">Préfère une eau plus douce que KH 6.</p>}
+                </div>
+              </div>
+              {selRef ? (
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    value={qty}
+                    onChange={(e) => setQty(e.target.value)}
+                    className="w-20 rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
+                    aria-label="Quantité"
+                  />
+                  <button
+                    type="button"
+                    onClick={add}
+                    disabled={busy}
+                    className="flex items-center gap-1.5 rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-50"
+                  >
+                    {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
+                    Ajouter au peuplement
+                  </button>
+                  {msg && (
+                    <span className={`flex items-center gap-1 text-xs ${msg.ok ? 'text-teal-700' : 'text-red-600'}`}>
+                      {msg.ok && <Check size={14} />}
+                      {msg.text}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-amber-700">Fiche indisponible dans le catalogue.</p>
+              )}
+            </div>
+          )}
+
           {SUPPLIER_GROUPS.map((g) => {
             const list = g.species.filter((sp) => !(hideOut && sp.outOfStock));
             if (list.length === 0) return null;
@@ -55,21 +154,32 @@ export function SupplierShelf({ onPick }: { onPick: (name: string) => void }) {
                 {isOpen && (
                   <div className="px-3 pb-3">
                     {g.note && <p className="mb-2 text-xs text-amber-700">{g.note}</p>}
-                    <div className="flex flex-wrap gap-1.5">
-                      {list.map((sp) => (
-                        <button
-                          key={sp.name}
-                          type="button"
-                          onClick={() => onPick(sp.name)}
-                          className={`rounded-full border px-2.5 py-1 text-xs hover:bg-teal-50 ${
-                            sp.outOfStock ? 'border-slate-200 text-slate-400 line-through' : 'border-teal-200 text-slate-700'
-                          }`}
-                          title={sp.outOfStock ? 'En rupture le jour du relevé' : sp.softWater ? 'Préfère une eau plus douce' : undefined}
-                        >
-                          {sp.name}
-                          {sp.softWater ? '*' : ''}
-                        </button>
-                      ))}
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                      {list.map((sp) => {
+                        const active = selected?.sci === sp.sci && selected?.name === sp.name;
+                        return (
+                          <button
+                            key={sp.name}
+                            type="button"
+                            onClick={() => select(sp)}
+                            className={`flex flex-col items-center gap-1.5 rounded-xl border p-2 text-center hover:bg-teal-50 ${
+                              active ? 'border-teal-500 bg-teal-50' : 'border-slate-200'
+                            } ${sp.outOfStock ? 'opacity-60' : ''}`}
+                          >
+                            <SpeciesThumb
+                              name={sp.name}
+                              scientificName={sp.sci}
+                              kind={refBySci(sp.sci)?.category === 'invertebrate' ? 'invertebrate' : 'fish'}
+                              size={72}
+                            />
+                            <span className="text-xs font-medium leading-tight text-slate-800">
+                              {sp.name}
+                              {sp.softWater ? '*' : ''}
+                            </span>
+                            {sp.outOfStock && <span className="text-[10px] text-slate-500">en rupture</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
