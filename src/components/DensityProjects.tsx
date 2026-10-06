@@ -200,7 +200,7 @@ export function DensityProjects({
         </section>
       )}
 
-      <section>
+      <section id="projets-peuplement">
         <h4 className="mb-2 text-lg text-slate-900">Mes projets de peuplement</h4>
         {editingId && (
           <p className="mb-2 flex items-center gap-1.5 rounded-lg bg-teal-50 px-3 py-2 text-xs text-teal-800">
@@ -211,7 +211,7 @@ export function DensityProjects({
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Nom du projet, par exemple Version avec corydoras en plus"
+            placeholder="Nom du projet (facultatif), par exemple Version avec corydoras en plus"
             className="min-w-[14rem] flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
           />
           {editingId && (
@@ -226,10 +226,12 @@ export function DensityProjects({
           )}
           <button
             type="button"
-            disabled={busy || active.length === 0 || !name.trim()}
+            disabled={busy || active.length === 0}
             onClick={async () => {
-              await saveProject(active, name.trim());
+              const finalName = name.trim() || `Simulation du ${new Date().toLocaleDateString('fr-FR')}`;
+              await saveProject(active, finalName);
               stopEditing();
+              setNotice(`Projet « ${finalName} » enregistré.`);
             }}
             className={`flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
               editingId
