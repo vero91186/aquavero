@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ChevronDown, Store, Plus, Loader2, Check } from 'lucide-react';
+import { ChevronDown, Store, Plus, Loader2, Check, FlaskConical } from 'lucide-react';
 import { SpeciesThumb } from '@/components/SpeciesThumb';
 import { SPECIES_CATALOG, schoolMinOf, sexRatioOf, type SpeciesReference } from '@/lib/species-catalog';
 import {
@@ -48,6 +48,17 @@ export function SupplierShelf({
     const err = await onAdd(ref, n);
     setBusy(false);
     setMsg(err ? { ok: false, text: err } : { ok: true, text: `${n} × ${ref.commonName} ajouté au peuplement.` });
+  }
+
+  // Envoie l'espèce au simulateur de densité (hypothétique, rien n'est écrit en base).
+  function simulate() {
+    if (!selected) return;
+    const ref = refBySci(selected.sci);
+    if (!ref) return;
+    const n = Math.max(1, parseInt(qty, 10) || 1);
+    window.dispatchEvent(new CustomEvent('aquatrack:simulate', { detail: { ref, quantity: n } }));
+    setMsg({ ok: true, text: `${n} × ${ref.commonName} ajouté à la simulation.` });
+    document.getElementById('simulateur-densite')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   const selRef = selected ? refBySci(selected.sci) : undefined;
@@ -122,6 +133,16 @@ export function SupplierShelf({
                     {busy ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
                     Ajouter au peuplement
                   </button>
+                  {(selRef.category === 'fish' || selRef.category === 'invertebrate') && (
+                    <button
+                      type="button"
+                      onClick={simulate}
+                      className="flex items-center gap-1.5 rounded-lg border border-teal-300 bg-white px-3 py-1.5 text-sm font-medium text-teal-700 hover:bg-teal-50"
+                    >
+                      <FlaskConical size={15} />
+                      Ajouter à la simulation
+                    </button>
+                  )}
                   {msg && (
                     <span className={`flex items-center gap-1 text-xs ${msg.ok ? 'text-teal-700' : 'text-red-600'}`}>
                       {msg.ok && <Check size={14} />}
