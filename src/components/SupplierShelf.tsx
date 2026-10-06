@@ -29,11 +29,15 @@ export function SupplierShelf({
   const [open, setOpen] = useState(false);
   const [hideOut, setHideOut] = useState(false);
   const [search, setSearch] = useState('');
+  const [zone, setZone] = useState<'all' | 'top' | 'mid' | 'bottom'>('all');
+  const [kind, setKind] = useState<'all' | 'fish' | 'invertebrate'>('all');
+  const [maxSize, setMaxSize] = useState('');
+  const [hideSoft, setHideSoft] = useState(false);
   const [openGroup, setOpenGroup] = useState<string | null>(null);
   const [selected, setSelected] = useState<SupplierSpecies | null>(null);
   const [qty, setQty] = useState('1');
   const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string; toProjects?: boolean } | null>(null);
 
   function select(sp: SupplierSpecies) {
     const ref = refBySci(sp.sci);
@@ -60,8 +64,7 @@ export function SupplierShelf({
     if (!ref) return;
     const n = Math.max(1, parseInt(qty, 10) || 1);
     window.dispatchEvent(new CustomEvent('aquatrack:simulate', { detail: { ref, quantity: n } }));
-    setMsg({ ok: true, text: `${n} × ${ref.commonName} ajouté à la simulation.` });
-    document.getElementById('simulateur-densite')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setMsg({ ok: true, text: `${n} × ${ref.commonName} ajouté à la simulation.`, toProjects: true });
   }
 
   const selRef = selected ? refBySci(selected.sci) : undefined;
@@ -88,10 +91,37 @@ export function SupplierShelf({
             placeholder="Chercher une espèce (ex. colisa, néon, corydoras)"
             className="w-full rounded-lg border border-slate-300 px-3 py-1.5 text-sm"
           />
-          <label className="flex items-center gap-2 text-sm text-slate-600">
-            <input type="checkbox" checked={hideOut} onChange={(e) => setHideOut(e.target.checked)} />
-            Masquer les ruptures
-          </label>
+          <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+            <select value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className="rounded-lg border border-slate-300 px-2 py-1 text-sm">
+              <option value="all">Poissons et invertébrés</option>
+              <option value="fish">Poissons</option>
+              <option value="invertebrate">Crevettes et escargots</option>
+            </select>
+            <select value={zone} onChange={(e) => setZone(e.target.value as typeof zone)} className="rounded-lg border border-slate-300 px-2 py-1 text-sm">
+              <option value="all">Tous les étages</option>
+              <option value="top">Surface</option>
+              <option value="mid">Pleine eau</option>
+              <option value="bottom">Fond</option>
+            </select>
+            <input
+              type="number"
+              min={1}
+              value={maxSize}
+              onChange={(e) => setMaxSize(e.target.value)}
+              placeholder="Taille max (cm)"
+              className="w-36 rounded-lg border border-slate-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={hideOut} onChange={(e) => setHideOut(e.target.checked)} />
+              Masquer les ruptures
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={hideSoft} onChange={(e) => setHideSoft(e.target.checked)} />
+              Masquer celles qui préfèrent l&apos;eau douce*
+            </label>
+          </div>
 
           {selected && (
             <div className="rounded-xl border border-teal-200 bg-teal-50/60 p-3">
@@ -156,6 +186,17 @@ export function SupplierShelf({
                     <span className={`flex items-center gap-1 text-xs ${msg.ok ? 'text-teal-700' : 'text-red-600'}`}>
                       {msg.ok && <Check size={14} />}
                       {msg.text}
+                      {msg.toProjects && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            document.getElementById('projets-peuplement')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                          }
+                          className="ml-1 underline"
+                        >
+                          Voir et enregistrer la simulation
+                        </button>
+                      )}
                     </span>
                   )}
                 </div>
@@ -169,12 +210,19 @@ export function SupplierShelf({
             const words = fold(search).split(/\s+/).filter(Boolean);
             const list = g.species.filter((sp) => {
               if (hideOut && sp.outOfStock) return false;
+              if (hideSoft && sp.softWater) return false;
+              const r = refBySci(sp.sci);
+              if (kind !== 'all' && r?.category !== kind) return false;
+              if (zone !== 'all' && r && r.swimZone !== zone) return false;
+              const max = parseFloat(maxSize);
+              if (max > 0 && r && r.adultSizeCm > max) return false;
               if (words.length === 0) return true;
               const hay = fold(`${sp.name} ${sp.sci} ${SPECIES_ALIASES[sp.sci] ?? ''} ${sp.varieties ?? ''}`);
               return words.every((w) => hay.includes(w));
             });
             if (list.length === 0) return null;
-            const isOpen = words.length > 0 || openGroup === g.id;
+            const filtering = words.length > 0 || kind !== 'all' || zone !== 'all' || parseFloat(maxSize) > 0 || hideSoft;
+            const isOpen = filtering || openGroup === g.id;
             return (
               <div key={g.id} className="rounded-lg border border-slate-100">
                 <button
