@@ -23,10 +23,8 @@ export function IntroDatesPlanner({ livestock, onUpdated }: { livestock: Livesto
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const defaults = useMemo(
-    () => new Set(animals.filter((l) => !l.added_at || l.added_at > todayIso).map((l) => l.id)),
-    [animals, todayIso]
-  );
+  // Toutes les espèces sont cochées au départ : on décoche celles déjà dans le bac.
+  const defaults = useMemo(() => new Set(animals.map((l) => l.id)), [animals]);
   const planned = picked ?? defaults;
   const { day0, hasIntroduced, dates } = useMemo(() => proposeIntroDates(animals, planned, today), [animals, planned, today]);
   const dateOf = new Map(dates.map((d) => [d.id, d]));
@@ -75,12 +73,21 @@ export function IntroDatesPlanner({ livestock, onUpdated }: { livestock: Livesto
         <CalendarClock size={18} className="text-teal-600" /> Dates d&apos;introduction proposées
       </h3>
       <p className="mt-1 text-xs text-slate-500">
-        Coche les animaux qui ne sont pas encore dans le bac. Ordre conseillé : crevettes et escargots, puis poissons robustes et
+        Les dates sont calculées pour toutes les espèces cochées, quelle que soit leur date actuelle. Décoche celles déjà dans le bac : elles
+        restent telles quelles et servent de jour 0. Ordre conseillé : crevettes et escargots, puis poissons robustes et
         corydoras, puis territoriaux, puis espèces sensibles.{' '}
         {hasIntroduced ? `Jour 0 : ${fmtDate(day0)}.` : "Rien n'est encore introduit : l'étape 1 commence aujourd'hui."} Avant chaque
         étape, NO2 à 0 et NO3 sous 25 aux deux derniers tests.
       </p>
-      <ul className="mt-3 divide-y divide-slate-100">
+      <div className="mt-2 flex gap-3 text-xs">
+        <button type="button" onClick={() => setPicked(new Set(animals.map((l) => l.id)))} className="text-teal-700 hover:underline">
+          Tout cocher
+        </button>
+        <button type="button" onClick={() => setPicked(new Set())} className="text-teal-700 hover:underline">
+          Tout décocher
+        </button>
+      </div>
+      <ul className="mt-1 divide-y divide-slate-100">
         {animals.map((l) => {
           const p = dateOf.get(l.id);
           const isPlanned = planned.has(l.id);
@@ -97,8 +104,8 @@ export function IntroDatesPlanner({ livestock, onUpdated }: { livestock: Livesto
                   </p>
                 ) : (
                   <p className="text-xs text-slate-400">
-                    {l.added_at && l.added_at <= todayIso
-                      ? `déjà au bac depuis le ${new Date(`${l.added_at}T12:00:00`).toLocaleDateString('fr-FR')}`
+                    {l.added_at
+                      ? `${l.added_at <= todayIso ? 'au bac depuis' : 'prévu pour'} le ${new Date(`${l.added_at}T12:00:00`).toLocaleDateString('fr-FR')} (inchangé)`
                       : 'décoché : date inchangée'}
                   </p>
                 )}
