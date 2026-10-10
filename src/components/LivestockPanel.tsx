@@ -570,19 +570,19 @@ export function LivestockPanel({
             onChange={(e) => setQuantity(e.target.value)}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
           />
-          <label className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-600">
+          <label className="flex flex-col justify-center rounded-lg border border-slate-300 px-2 py-0.5 text-[11px] leading-tight text-slate-500">
             Introduit / prévu le
             <input
               type="date"
               value={addedAt}
               onChange={(e) => setAddedAt(e.target.value)}
-              className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none"
+              className="w-full min-w-0 bg-transparent text-sm text-slate-800 outline-none"
             />
           </label>
           {lockedCategory !== 'plant' && (
             <input
               type="number"
-              step="0.1"
+              step="0.01"
               min="0"
               placeholder="Facteur bioload"
               value={bioloadFactor}
@@ -748,7 +748,7 @@ export function LivestockPanel({
                     <label className="text-xs font-medium text-slate-600">Bioload</label>
                     <input
                       type="number"
-                      step="0.1"
+                      step="0.01"
                       min="0"
                       value={editForm.bioloadFactor}
                       onChange={(e) => setEditForm((f) => ({ ...f, bioloadFactor: e.target.value }))}
