@@ -25,11 +25,14 @@ export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
 }
 
-// Jour 0 = première introduction d'un animal (poisson ou invertébré) datée.
-export function firstIntroduction(livestock: Livestock[]): Date | null {
+// Jour 0 = première introduction d'un animal (poisson ou invertébré) déjà faite :
+// une date dans le futur est une introduction prévue, pas un jour 0.
+export function firstIntroduction(livestock: Livestock[], today: Date = new Date()): Date | null {
+  const limit = startOfDay(today).getTime();
   const dates = livestock
     .filter((l) => l.category !== 'plant' && l.added_at)
-    .map((l) => new Date(`${l.added_at}T12:00:00`).getTime());
+    .map((l) => new Date(`${l.added_at}T12:00:00`).getTime())
+    .filter((t) => t <= limit);
   return dates.length > 0 ? new Date(Math.min(...dates)) : null;
 }
 
