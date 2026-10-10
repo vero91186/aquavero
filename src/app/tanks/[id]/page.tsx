@@ -19,6 +19,7 @@ import { CyclingPanel } from '@/components/CyclingPanel';
 import { DensitySimulator } from '@/components/DensitySimulator';
 import { PopulationOverview } from '@/components/PopulationOverview';
 import { MyFishRecap } from '@/components/MyFishRecap';
+import { IntroDatesPlanner } from '@/components/IntroDatesPlanner';
 import { ScannerPanel } from '@/components/ScannerPanel';
 import { DiseasesPanel } from '@/components/DiseasesPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
@@ -402,6 +403,7 @@ export default function TankDetailPage() {
         {section === 'peuplement' && peuplementSub === 'poissons' && (
           <div className="space-y-6">
             <MyFishRecap tank={tank} livestock={livestock} onOpenSimulator={() => setPeuplementSub('simulateur')} />
+            <IntroDatesPlanner livestock={livestock} onUpdated={loadAll} />
             <LivestockPanel
               tankId={tankId}
               livestock={livestock}
