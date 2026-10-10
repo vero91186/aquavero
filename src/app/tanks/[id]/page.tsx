@@ -409,6 +409,8 @@ export default function TankDetailPage() {
               categories={['fish', 'invertebrate', 'coral']}
               customSpecies={customSpecies}
               tankLiters={tank.gross_volume_liters && tank.gross_volume_liters > 0 ? tank.gross_volume_liters : tank.volume_liters}
+              netLiters={tank.volume_liters}
+              groupByZone
             />
           </div>
         )}

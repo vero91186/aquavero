@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { PlantInfo, CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
 import { searchSpecies, sexRatioOf, schoolMinOf, schoolMinByName, sexRatioByName, sexSplit, minTankByName, type SpeciesReference } from '@/lib/species-catalog';
@@ -12,6 +12,7 @@ import { ConfidenceBadge, SourcesLine } from '@/components/research-ui';
 import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { SupplierShelf } from '@/components/SupplierShelf';
 import { supplierStatusOf, SUPPLIER_NAME, SUPPLIER_SNAPSHOT_DATE } from '@/lib/supplier-catalog';
+import { computeZoneDensity, linesFromLivestock, DENSITY_LIMIT, type ZoneDensity } from '@/lib/density';
 import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
@@ -45,6 +46,8 @@ export function LivestockPanel({
   listTitle,
   customSpecies,
   tankLiters,
+  netLiters,
+  groupByZone,
 }: {
   tankId: string;
   livestock: Livestock[];
@@ -63,6 +66,10 @@ export function LivestockPanel({
   customSpecies?: CustomSpecies[];
   // Volume d'eau du bac (L), pour signaler les espèces qui demandent plus grand.
   tankLiters?: number;
+  // Volume réel d'eau et regroupement de la liste par étage de nage (Surface, Pleine eau, Fond),
+  // comme dans le simulateur de densité.
+  netLiters?: number;
+  groupByZone?: boolean;
 }) {
   const supabase = createClient();
   const visibleCategories = categories ?? (Object.keys(CATEGORY_LABELS) as LivestockCategory[]);
@@ -126,6 +133,13 @@ export function LivestockPanel({
   } | null>(null);
 
   const filteredLivestock = livestock.filter((l) => visibleCategories.includes(l.category));
+  const zoneOf = (l: Livestock): SwimZone =>
+    l.category === 'invertebrate' ? 'bottom' : (linesFromLivestock([l])[0]?.zone ?? 'mid');
+  const ZONE_ORDER: SwimZone[] = ['top', 'mid', 'bottom'];
+  const orderedLivestock = groupByZone
+    ? [...filteredLivestock].sort((a, b) => ZONE_ORDER.indexOf(zoneOf(a)) - ZONE_ORDER.indexOf(zoneOf(b)))
+    : filteredLivestock;
+  const zoneStats = computeZoneDensity(linesFromLivestock(filteredLivestock), netLiters ?? 0);
 
   // Convertit une espèce mémorisée via l'IA (table custom_species) au même
   // format que le catalogue statique, pour réutiliser applySuggestion tel quel.
@@ -708,7 +722,13 @@ export function LivestockPanel({
         )}
         {photoNote && <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">{photoNote}</p>}
         <div className="space-y-2">
-          {filteredLivestock.map((item) =>
+          {orderedLivestock.map((item, idx) => {
+            const zone = groupByZone ? zoneOf(item) : null;
+            const header =
+              zone && (idx === 0 || zoneOf(orderedLivestock[idx - 1]) !== zone) ? (
+                <ZoneHeader key={`z-${zone}`} zone={zone} stats={zoneStats.find((z) => z.zone === zone)} />
+              ) : null;
+            const row =
             editingId === item.id ? (
               <div key={item.id} className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
                 <div className="min-w-[8rem] flex-1 space-y-1">
@@ -877,10 +897,37 @@ export function LivestockPanel({
                 {item.plant_info && openSheets[item.id] && <PlantSheet info={item.plant_info} onRefresh={() => handleResearch(item)} busy={researchingId === item.id} />}
               </div>
             )
-          )}
+            ;
+            return (
+              <Fragment key={item.id}>
+                {header}
+                {row}
+              </Fragment>
+            );
+          })}
           {filteredLivestock.length === 0 && <p className="text-sm text-slate-400">Rien d&apos;enregistré pour l&apos;instant</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+// En-tête d'un étage : effectif, centimètres et densité de l'étage (un tiers du volume).
+function ZoneHeader({ zone, stats }: { zone: SwimZone; stats?: ZoneDensity }) {
+  const over = !!stats && stats.liters > 0 && stats.ratio >= DENSITY_LIMIT;
+  const f = (n: number, d = 0) => n.toLocaleString('fr-FR', { maximumFractionDigits: d });
+  return (
+    <div
+      className={`mt-3 flex flex-wrap items-baseline justify-between gap-1 rounded-lg px-3 py-1.5 first:mt-0 ${
+        over ? 'bg-amber-50 text-amber-800' : 'bg-sky-50 text-sky-800'
+      }`}
+    >
+      <span className="text-sm font-semibold">{SWIM_ZONE_LABELS[zone]}{stats ? ` · ${stats.count}` : ''}</span>
+      {stats && stats.liters > 0 && (
+        <span className="text-xs">
+          {f(stats.cm)} cm · {f(stats.ratio, 2)} cm/L{over ? ' : étage chargé' : ''}
+        </span>
+      )}
     </div>
   );
 }

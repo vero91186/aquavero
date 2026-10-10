@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Fish, Gauge } from 'lucide-react';
 import type { Livestock, Tank } from '@/types/database';
-import { computeDensity, densityLevel, linesFromLivestock, DENSITY_LIMIT } from '@/lib/density';
+import { computeDensity, densityLevel, linesFromLivestock, DENSITY_LIMIT, DENSITY_SCALE_MAX } from '@/lib/density';
 
 // Récapitulatif de ce qui est réellement dans le bac (date d'introduction passée)
 // et de ce qui est prévu (date à venir ou à fixer), avec la même densité que le
@@ -63,6 +63,35 @@ export function MyFishRecap({ tank, livestock, onOpenSimulator }: {
               <p className="text-xs text-slate-500">{level.label} (limite conseillée {fmt(DENSITY_LIMIT)})</p>
             </div>
           </div>
+          <div className="mt-4">
+            <div
+              className="relative h-3 rounded-full"
+              style={{ background: 'linear-gradient(90deg,#10b981 0 40%,#14b8a6 40% 60%,#f59e0b 60% 80%,#ef4444 80% 100%)' }}
+              role="img"
+              aria-label={`Densité ${fmt(all.ratioNet)} cm par litre une fois tout introduit, niveau ${level.label}`}
+            >
+              <span
+                className="absolute -top-1 h-5 w-1 -translate-x-1/2 rounded bg-slate-900"
+                style={{ left: `${Math.min(all.ratioNet / DENSITY_SCALE_MAX, 1) * 100}%` }}
+              />
+              {now.ratioNet > 0 && (
+                <span
+                  className="absolute -top-1 h-5 w-1 -translate-x-1/2 rounded bg-white ring-1 ring-slate-500"
+                  style={{ left: `${Math.min(now.ratioNet / DENSITY_SCALE_MAX, 1) * 100}%` }}
+                  title="Aujourd'hui"
+                />
+              )}
+            </div>
+            <div className="relative mt-1 h-4 text-[11px] text-slate-400">
+              {[1, DENSITY_LIMIT, 2].map((t) => (
+                <span key={t} className="absolute -translate-x-1/2" style={{ left: `${(t / DENSITY_SCALE_MAX) * 100}%` }}>
+                  {fmt(t)}
+                </span>
+              ))}
+            </div>
+            <p className="text-xs text-slate-500">Repère noir : tout introduit. Repère blanc : aujourd&apos;hui.</p>
+          </div>
+          <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-700">{level.message}</div>
           {missingSizes > 0 && (
             <p className="mt-2 text-xs text-amber-700">
               {missingSizes} fiche{missingSizes > 1 ? 's' : ''} sans taille adulte : la densité est sous-estimée tant qu&apos;elle manque (le crayon permet de la compléter dans le simulateur).
