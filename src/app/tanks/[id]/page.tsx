@@ -18,6 +18,7 @@ import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
 import { DensitySimulator } from '@/components/DensitySimulator';
 import { PopulationOverview } from '@/components/PopulationOverview';
+import { MyFishRecap } from '@/components/MyFishRecap';
 import { ScannerPanel } from '@/components/ScannerPanel';
 import { DiseasesPanel } from '@/components/DiseasesPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
@@ -53,7 +54,7 @@ import {
 type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'maladies' | 'scanner' | 'assistant';
 type BacSub = 'proprietes' | 'materiel' | 'hardscape' | 'produits';
 type EauSub = 'parametres' | 'cyclage';
-type PeuplementSub = 'peuplement' | 'plantes';
+type PeuplementSub = 'poissons' | 'simulateur' | 'plantes';
 
 const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
   { key: 'apercu', label: 'Aperçu', icon: <LayoutGrid size={15} /> },
@@ -79,7 +80,8 @@ const EAU_SUBS: { key: EauSub; label: string }[] = [
 ];
 
 const PEUPLEMENT_SUBS: { key: PeuplementSub; label: string }[] = [
-  { key: 'peuplement', label: 'Poissons & invertébrés' },
+  { key: 'poissons', label: 'Mes poissons' },
+  { key: 'simulateur', label: 'Simulateur' },
   { key: 'plantes', label: 'Plantes' },
 ];
 
@@ -110,7 +112,7 @@ export default function TankDetailPage() {
   const [section, setSection] = useState<Section>('apercu');
   const [bacSub, setBacSub] = useState<BacSub>('proprietes');
   const [eauSub, setEauSub] = useState<EauSub>('parametres');
-  const [peuplementSub, setPeuplementSub] = useState<PeuplementSub>('peuplement');
+  const [peuplementSub, setPeuplementSub] = useState<PeuplementSub>('poissons');
   const [loading, setLoading] = useState(true);
   const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose' | 'scan'>('chat');
@@ -386,17 +388,20 @@ export default function TankDetailPage() {
         {section === 'eau' && eauSub === 'cyclage' && (
           <CyclingPanel tank={tank} tests={tests} doses={doses} onUpdated={loadAll} />
         )}
-        {section === 'peuplement' && peuplementSub === 'peuplement' && (
+        {section === 'peuplement' && peuplementSub === 'simulateur' && (
+          <DensitySimulator
+            tankId={tank.id}
+            onUpdated={loadAll}
+            livestock={livestock}
+            netLiters={tank.volume_liters}
+            grossLiters={tank.gross_volume_liters ?? null}
+            lengthCm={tank.length_cm}
+            heightCm={tank.height_cm}
+          />
+        )}
+        {section === 'peuplement' && peuplementSub === 'poissons' && (
           <div className="space-y-6">
-            <DensitySimulator
-              tankId={tank.id}
-              onUpdated={loadAll}
-              livestock={livestock}
-              netLiters={tank.volume_liters}
-              grossLiters={tank.gross_volume_liters ?? null}
-              lengthCm={tank.length_cm}
-              heightCm={tank.height_cm}
-            />
+            <MyFishRecap tank={tank} livestock={livestock} onOpenSimulator={() => setPeuplementSub('simulateur')} />
             <LivestockPanel
               tankId={tankId}
               livestock={livestock}
@@ -448,7 +453,7 @@ export default function TankDetailPage() {
                 setPeuplementSub('plantes');
               } else {
                 setSection('peuplement');
-                setPeuplementSub('peuplement');
+                setPeuplementSub('poissons');
               }
             }}
           />

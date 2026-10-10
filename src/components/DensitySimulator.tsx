@@ -387,7 +387,9 @@ export function DensitySimulator({
         ci-dessous et sur le peuplement. Change les quantités ou ajoute une
         espèce pour voir l&apos;effet : rien n&apos;est enregistré. Un
         invertébré compte pour {Math.round(INVERTEBRATE_COEF * 100)} % d&apos;un
-        poisson de même longueur.
+        poisson de même longueur. Le point de départ est le peuplement de
+        l&apos;onglet Mes poissons, animaux prévus compris ({livestock.filter((l) => l.category !== "plant").length} fiche
+        {livestock.filter((l) => l.category !== "plant").length > 1 ? "s" : ""}).
       </p>
 
       <div className="mb-4 rounded-xl bg-slate-50 p-3">
