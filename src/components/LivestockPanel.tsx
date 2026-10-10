@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { PlantInfo, CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
-import { searchSpecies, sexRatioOf, schoolMinOf, type SpeciesReference } from '@/lib/species-catalog';
+import { searchSpecies, sexRatioOf, schoolMinOf, schoolMinByName, sexRatioByName, sexSplit, minTankByName, type SpeciesReference } from '@/lib/species-catalog';
 import { fileToBase64 } from '@/lib/image';
 import { fetchAutoPhoto } from '@/lib/find-photo-client';
 import { scientificNameOf } from '@/lib/species-catalog';
@@ -44,6 +44,7 @@ export function LivestockPanel({
   title,
   listTitle,
   customSpecies,
+  tankLiters,
 }: {
   tankId: string;
   livestock: Livestock[];
@@ -60,6 +61,8 @@ export function LivestockPanel({
   // handleResearchSpecies) : viennent enrichir les suggestions du catalogue
   // intégré au fil du temps.
   customSpecies?: CustomSpecies[];
+  // Volume d'eau du bac (L), pour signaler les espèces qui demandent plus grand.
+  tankLiters?: number;
 }) {
   const supabase = createClient();
   const visibleCategories = categories ?? (Object.keys(CATEGORY_LABELS) as LivestockCategory[]);
@@ -850,6 +853,7 @@ export function LivestockPanel({
                         ? ` · ${item.added_at > new Date().toISOString().slice(0, 10) ? 'prévu' : 'introduit'} le ${new Date(item.added_at + 'T12:00:00').toLocaleDateString('fr-FR')}`
                         : ''}
                     </span>
+                    {item.category !== 'plant' && <FishDetails item={item} tankLiters={tankLiters} />}
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
@@ -877,6 +881,43 @@ export function LivestockPanel({
           {filteredLivestock.length === 0 && <p className="text-sm text-slate-400">Rien d&apos;enregistré pour l&apos;instant</p>}
         </div>
       </div>
+    </div>
+  );
+}
+
+// Mêmes repères que le simulateur de densité, ligne par ligne : taille adulte,
+// total en cm, effectif de banc, proportion mâles/femelles, volume conseillé.
+function FishDetails({ item, tankLiters }: { item: Livestock; tankLiters?: number }) {
+  const sci = scientificNameOf(item.species_common_name, item.species_scientific_name);
+  const size = item.adult_size_cm ?? 0;
+  const min = schoolMinByName(item.species_common_name, sci);
+  const ratio = sexRatioByName(item.species_common_name, sci);
+  const minL = minTankByName(item.species_common_name, sci);
+  const fmt = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  let sexText: string | null = null;
+  if (ratio && item.quantity > 0) {
+    const { males, females } = sexSplit(item.quantity, ratio);
+    sexText =
+      item.quantity === 1
+        ? `1 individu : ${ratio.label}.`
+        : ratio.female === 0
+          ? `Proportion conseillée : 1 mâle seul, pas de second mâle${females > 0 ? ` (ou ${item.quantity} femelles)` : ''}.`
+          : `Proportion conseillée : ${males} mâle${males > 1 ? 's' : ''} + ${females} femelle${females > 1 ? 's' : ''} (${ratio.label}).`;
+  }
+  return (
+    <div className="mt-0.5 space-y-0.5">
+      <p className="text-xs text-slate-400">
+        {size > 0
+          ? `${fmt(size)} cm adulte · ${fmt(size * item.quantity)} cm au total${item.category === 'invertebrate' ? ' (compté à 30 % dans la densité)' : ''}`
+          : 'taille adulte manquante : la densité est sous-estimée'}
+      </p>
+      {min && item.quantity < min && (
+        <p className="text-xs text-amber-700">Espèce de banc : {min} minimum conseillés, {item.quantity} seulement.</p>
+      )}
+      {sexText && <p className="text-xs text-teal-700">{sexText}</p>}
+      {minL && tankLiters && minL > tankLiters && (
+        <p className="text-xs text-amber-700">Bac conseillé dès {minL} L pour cette espèce, le tien fait {fmt(tankLiters)} L.</p>
+      )}
     </div>
   );
 }
