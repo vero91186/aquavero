@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { CalendarDays } from 'lucide-react';
 import type { Livestock, MaintenanceLog, MaintenanceTaskType } from '@/types/database';
 import { addDays, buildPlan, dayNumber, firstIntroduction, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
+import { introductionPlan } from '@/lib/introduction';
+import { linesFromLivestock } from '@/lib/density';
 
 const HORIZON_DAYS = 42;
 const LATE_WINDOW_DAYS = 14;
@@ -32,7 +34,7 @@ export function MaintenancePlanning({ livestock, logs, onNote }: {
   onNote: (t: MaintenanceTaskType) => void;
 }) {
   const [today] = useState(() => startOfDay(new Date()));
-  const day0 = firstIntroduction(livestock);
+  const day0 = firstIntroduction(livestock, today);
 
   if (!day0) {
     return (
@@ -41,7 +43,7 @@ export function MaintenancePlanning({ livestock, logs, onNote }: {
           <CalendarDays size={18} /> Planning d&apos;entretien
         </h3>
         <p className="mt-2 text-sm text-slate-500">
-          Le planning se cale sur la date d&apos;introduction de tes premiers animaux : ajoute-en un dans l&apos;onglet Vivant avec sa date.
+          Le planning se cale sur la date d&apos;introduction de tes premiers animaux : ajoute-en un dans l&apos;onglet Vivant avec sa date (une date à venir compte comme prévue, pas comme introduite).
         </p>
       </div>
     );
@@ -58,6 +60,17 @@ export function MaintenancePlanning({ livestock, logs, onNote }: {
   }
   const thisMonday = mondayOf(today).getTime();
   const n = dayNumber(day0, today);
+  const addedAtOf = new Map(livestock.map((l) => [l.id, l.added_at]));
+  const introSteps = introductionPlan(linesFromLivestock(livestock)).map((s) => {
+    const from = addDays(day0, s.startDay);
+    const to = addDays(day0, s.endDay);
+    const lines = s.lines.map((l) => {
+      const at = addedAtOf.get(l.id);
+      const done = !!at && new Date(`${at}T12:00:00`) <= today;
+      return { l, at, done };
+    });
+    return { s, from, to, lines, allDone: lines.every((x) => x.done) };
+  });
 
   const renderItem = (it: PlanItem, overdue = false) => {
     const noteType = it.type === 'test' ? null : (it.type as MaintenanceTaskType);
@@ -112,6 +125,43 @@ export function MaintenancePlanning({ livestock, logs, onNote }: {
         ))}
         {weeks.size === 0 && <p className="text-sm text-slate-400">Rien de prévu sur les six prochaines semaines.</p>}
       </div>
+
+      {introSteps.length > 0 && (
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Introductions</h4>
+          <p className="mt-1 text-xs text-slate-500">
+            Ajoute les espèces à venir dans l&apos;onglet Vivant avec leur date prévue : elles s&apos;alignent ici sur les fenêtres conseillées. Avant chaque étape, NO2 à 0 et NO3 sous 25 aux deux derniers tests.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {introSteps.map(({ s, from, to, lines, allDone }) => (
+              <li key={s.step} className="rounded-lg border border-slate-100 px-3 py-2">
+                <p className={`text-sm font-medium ${allDone ? 'text-slate-400' : 'text-slate-800'}`}>
+                  Étape {s.step} · {s.title}
+                  {allDone && <span className="ml-2 text-xs font-normal text-emerald-600">faite</span>}
+                </p>
+                <p className="text-xs text-slate-500">
+                  {s.endDay === s.startDay
+                    ? `Jour 0, le ${fmtDay(from)}`
+                    : `Du ${fmtDay(from)} au ${fmtDay(to)}`}
+                </p>
+                <ul className="mt-1 text-xs text-slate-600">
+                  {lines.map(({ l, at, done }) => {
+                    const at12 = at ? new Date(`${at}T12:00:00`) : null;
+                    const outside = !done && at12 && (at12 < from || at12 > to);
+                    return (
+                      <li key={l.id}>
+                        {l.quantity}× {l.name}
+                        {done && at12 ? ` · introduit le ${fmtDay(at12)}` : at12 ? ` · prévu le ${fmtDay(at12)}` : ' · date à fixer'}
+                        {outside && <span className="ml-1 text-amber-700">(hors de la fenêtre conseillée)</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
