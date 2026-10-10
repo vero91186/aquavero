@@ -13,6 +13,7 @@ import { HealthScoreCard } from '@/components/HealthScoreCard';
 import { WaterTestsPanel } from '@/components/WaterTestsPanel';
 import { LivestockPanel } from '@/components/LivestockPanel';
 import { MaintenancePanel } from '@/components/MaintenancePanel';
+import { MaintenancePlanning } from '@/components/MaintenancePlanning';
 import { AiAssistantPanel } from '@/components/AiAssistantPanel';
 import { CyclingPanel } from '@/components/CyclingPanel';
 import { DensitySimulator } from '@/components/DensitySimulator';
@@ -422,6 +423,7 @@ export default function TankDetailPage() {
         )}
         {section === 'entretien' && (
           <div className="space-y-6">
+          <MaintenancePlanning livestock={livestock} logs={logs} onNote={setQuickTaskType} />
           <TreatmentPrograms tank={tank} products={products} programs={programs} unavailable={programsUnavailable} onUpdated={loadAll} />
           <MaintenancePanel
             tank={tank}
