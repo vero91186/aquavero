@@ -70,6 +70,7 @@ export function LivestockPanel({
   const [bioloadFactor, setBioloadFactor] = useState(lockedCategory === 'plant' ? '0' : '1');
   const [swimZone, setSwimZone] = useState<SwimZone>('mid');
   const [solitary, setSolitary] = useState(false);
+  const [addedAt, setAddedAt] = useState(() => new Date().toISOString().slice(0, 10));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<SpeciesReference[]>([]);
@@ -84,6 +85,7 @@ export function LivestockPanel({
     bioloadFactor: string;
     swimZone: SwimZone;
     solitary: boolean;
+    addedAt: string;
   }>({
     name: '',
     scientificName: '',
@@ -91,6 +93,7 @@ export function LivestockPanel({
     bioloadFactor: '',
     swimZone: 'mid',
     solitary: false,
+    addedAt: '',
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
@@ -317,7 +320,7 @@ export function LivestockPanel({
       swim_zone: swimZone,
       solitary,
       photo_url: photoUrl,
-      added_at: new Date().toISOString().slice(0, 10),
+      added_at: addedAt || new Date().toISOString().slice(0, 10),
     });
     setSaving(false);
     if (error) {
@@ -330,6 +333,7 @@ export function LivestockPanel({
     setBioloadFactor(lockedCategory === 'plant' ? '0' : '1');
     setSwimZone('mid');
     setSolitary(false);
+    setAddedAt(new Date().toISOString().slice(0, 10));
     setMatchedSpecies(null);
     setAiSpeciesInfo(null);
     setIdentifyNote(null);
@@ -445,6 +449,7 @@ export function LivestockPanel({
       bioloadFactor: String(item.bioload_factor),
       swimZone: item.swim_zone,
       solitary: item.solitary,
+      addedAt: item.added_at ?? '',
     });
   }
 
@@ -463,6 +468,7 @@ export function LivestockPanel({
         bioload_factor: parseFloat(editForm.bioloadFactor) || 0,
         swim_zone: editForm.swimZone,
         solitary: editForm.solitary,
+        added_at: editForm.addedAt || null,
       })
       .eq('id', id);
     setSavingEdit(false);
@@ -564,6 +570,16 @@ export function LivestockPanel({
             onChange={(e) => setQuantity(e.target.value)}
             className="rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
           />
+          <label className="flex items-center gap-1.5 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-600">
+            Introduit le
+            <input
+              type="date"
+              value={addedAt}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setAddedAt(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm text-slate-800 outline-none"
+            />
+          </label>
           {lockedCategory !== 'plant' && (
             <input
               type="number"
@@ -719,6 +735,16 @@ export function LivestockPanel({
                     className="w-20 rounded-lg border border-slate-300 px-2 py-1 text-xs"
                   />
                 </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Date d&apos;introduction</label>
+                  <input
+                    type="date"
+                    value={editForm.addedAt}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) => setEditForm((f) => ({ ...f, addedAt: e.target.value }))}
+                    className="rounded-lg border border-slate-300 px-2 py-1 text-xs"
+                  />
+                </div>
                 {item.category !== 'plant' && (
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600">Bioload</label>
@@ -822,6 +848,7 @@ export function LivestockPanel({
                       {item.temperament ? ` · ${item.temperament}` : ''}
                       {item.min_tank_liters ? ` · dès ${item.min_tank_liters} L` : ''}
                       {item.solitary && item.quantity > 1 ? ' · ⚠️ solitaire, à séparer' : ''}
+                      {item.added_at ? ` · introduit le ${new Date(item.added_at + 'T12:00:00').toLocaleDateString('fr-FR')}` : ''}
                     </span>
                   </div>
                 </div>
