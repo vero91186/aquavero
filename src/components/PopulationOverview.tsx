@@ -26,7 +26,11 @@ function levelFromRatio(ratio: number): { label: string; color: string } {
 export function PopulationOverview({ tank, livestock }: { tank: Tank; livestock: Livestock[] }) {
   const animals = livestock.filter((l) => l.category !== 'plant');
 
-  const totalCm = animals.reduce((sum, l) => sum + (l.adult_size_cm ?? 0) * l.quantity, 0);
+  // Le repère cm/L ne vaut que pour les poissons : crevettes et escargots
+  // (invertébrés) pèsent très peu sur la charge et faussaient le total.
+  const totalCm = animals
+    .filter((l) => l.category === 'fish')
+    .reduce((sum, l) => sum + (l.adult_size_cm ?? 0) * l.quantity, 0);
   const ratio = tank.volume_liters > 0 ? totalCm / tank.volume_liters : 0;
   const pct = Math.min(150, Math.round((ratio / CM_PER_LITER_REFERENCE) * 100));
   const level = levelFromRatio(ratio);
