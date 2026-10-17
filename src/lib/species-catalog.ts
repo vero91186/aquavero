@@ -5211,6 +5211,7 @@ export const SPECIES_ALIASES: Record<string, string> = {
   "Mikrogeophagus ramirezi": "Papiliochromis ramirezi Microgeophagus ramirezi",
   "Corydoras paleatus": "corydoras poivre",
   "Pangio kuhlii": "Acanthophthalmus kuhlii loche kuhli",
+  "Hyphessobrycon rosaceus": "neon rose tetra rosaceus",
 };
 
 // Recherche insensible aux accents et à l'ordre des mots (« tetra citron »,
