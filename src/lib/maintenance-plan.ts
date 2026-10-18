@@ -61,7 +61,33 @@ export function catappaLeaves(volumeLiters: number): number {
   return Math.max(1, Math.round(volumeLiters / 50));
 }
 
-export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150): PlanItem[] {
+// Ce que contient le bac : le planning ne propose que les tâches qui le concernent.
+export interface PlanContext {
+  hasAnimals: boolean;
+  hasShrimp: boolean;
+  hasInvertebrates: boolean;
+  hasPlants: boolean;
+  // Noms des plantes qui se nourrissent par les racines (Cryptocoryne, Echinodorus, Vallisneria…).
+  rootFeeders: string[];
+}
+
+const SHRIMP = /crevette|caridina|neocaridina|atyopsis|macrobrachium|shrimp/i;
+const ROOT_FEEDER = /crypto|echinodorus|sagittaria|vallisneria|aponogeton|barclaya|amazone/i;
+
+export function contextFromLivestock(livestock: Livestock[]): PlanContext {
+  const animals = livestock.filter((l) => l.category === 'fish' || l.category === 'invertebrate');
+  const inverts = animals.filter((l) => l.category === 'invertebrate');
+  const plants = livestock.filter((l) => l.category === 'plant');
+  return {
+    hasAnimals: animals.length > 0,
+    hasShrimp: inverts.some((l) => SHRIMP.test(`${l.species_common_name} ${l.species_scientific_name ?? ''}`)),
+    hasInvertebrates: inverts.length > 0,
+    hasPlants: plants.length > 0,
+    rootFeeders: [...new Set(plants.filter((l) => ROOT_FEEDER.test(`${l.species_common_name} ${l.species_scientific_name ?? ''}`)).map((l) => l.species_common_name))],
+  };
+}
+
+export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext): PlanItem[] {
   const items: PlanItem[] = [];
   const push = (n: number, it: Omit<PlanItem, 'date'>) => {
     const date = addDays(startOfDay(day0), n);
@@ -97,11 +123,11 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
       title: 'Changement d’eau',
       summary: siphon ? `Change 25 à 30 % de l’eau et siphonne le tiers n° ${zone} du sable.` : 'Change 20 à 25 % de l’eau, sans siphonner le sable.',
       detail: siphon
-        ? `25 à 30 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Siphonne le tiers n° ${zone} du sable en surface (pas autour des racines ni sous les ardoises), bas fin sur l’embout à cause des crevettes.`
+        ? `25 à 30 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Siphonne le tiers n° ${zone} du sable en surface (pas autour des racines ni sous les pierres et le décor)${ctx.hasShrimp ? ', bas fin sur l’embout à cause des crevettes' : ''}.`
         : "20 à 25 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Pas de siphonnage du sol avant la semaine 4 : enlève seulement les débris visibles.",
       tolerance: 3,
     });
-    push(n, {
+    if (ctx.hasPlants) push(n, {
       type: 'dosing',
       title: 'Engrais liquide',
       summary: 'À verser après le changement d’eau, selon l’étiquette.',
@@ -115,14 +141,14 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
       type: 'glass_clean',
       title: 'Nettoyage des vitres',
       summary: 'Racloir ou aimant sur les algues.',
-      detail: 'Racloir ou aimant sur les algues, avant le changement d’eau suivant. Évite les angles où se cachent les crevettes.',
+      detail: 'Racloir ou aimant sur les algues, avant le changement d’eau suivant.' + (ctx.hasShrimp ? ' Évite les angles où se cachent les crevettes.' : ''),
       tolerance: 4,
     });
-    push(n + 4, {
+    if (ctx.hasPlants) push(n + 4, {
       type: 'other',
       title: 'Taille des plantes',
       summary: 'Retire les feuilles abîmées, éclaircis les flottantes.',
-      detail: 'Coupe les feuilles abîmées, éclaircis les flottantes (couvre au plus la moitié de la surface) et rince-les avant de les jeter, pour les petits passagers.',
+      detail: 'Coupe les feuilles abîmées, éclaircis les flottantes (couvre au plus la moitié de la surface) et rince-les avant de les jeter' + (ctx.hasInvertebrates ? ', pour les petits passagers.' : '.'),
       tolerance: 5,
     });
   }
@@ -132,7 +158,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
       type: 'equipment_check',
       title: 'Vérification du matériel',
       summary: 'Chauffage, pompe, éclairage et tuyaux.',
-      detail: 'Chauffage et thermomètre (24 à 26 °C), débit de la pompe, rampe LED et programmateur, tuyaux du filtre.',
+      detail: 'Chauffage et thermomètre (température adaptée à tes espèces), débit de la pompe, rampe LED et programmateur, tuyaux du filtre.',
       tolerance: 7,
     });
   }
@@ -140,27 +166,27 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
   // Feuilles de catappa : dosées selon le volume, renouvelées toutes les 4 semaines.
   const leaves = catappaLeaves(volumeLiters);
   const leafWord = `feuille${leaves > 1 ? 's' : ''}`;
-  for (let n = 0; n <= maxDay; n += 28) {
+  for (let n = 0; ctx.hasAnimals && n <= maxDay; n += 28) {
     push(n, {
       type: 'dosing',
       title: 'Feuilles de catappa',
       summary: n === 0
         ? `Mets ${leaves} ${leafWord} dans le bac.`
         : `Remplace les feuilles : ${leaves} ${leafWord} neuve${leaves > 1 ? 's' : ''}.`,
-      detail: `Environ 1 feuille moyenne (15 à 20 cm) pour 40 à 50 L, soit ${leaves} ${leafWord} pour ${volumeLiters} L. Retire les restes des anciennes quand elles se désagrègent. L’effet sur le pH est négligeable dans une eau dure : elles servent surtout de cachette et de biofilm pour les crevettes et les corydoras.`,
+      detail: `Environ 1 feuille moyenne (15 à 20 cm) pour 40 à 50 L, soit ${leaves} ${leafWord} pour ${volumeLiters} L. Retire les restes des anciennes quand elles se désagrègent. L’effet sur le pH est négligeable dans une eau dure : elles servent surtout de cachette et de biofilm à brouter pour ${ctx.hasShrimp ? 'les crevettes et les poissons' : 'les poissons'}.`,
       tolerance: 5,
       keyword: 'catappa',
     });
   }
 
   // Autres tâches courantes, pour que rien ne soit oublié.
-  for (let k = 1; 7 * k <= maxDay; k++) {
+  for (let k = 1; ctx.hasAnimals && 7 * k <= maxDay; k++) {
     const n = 7 * k;
     push(n + 3, {
       type: 'observation',
       title: 'Observation des animaux',
-      summary: 'Compte les poissons et les crevettes, regarde leur comportement.',
-      detail: 'Cherche les poissons isolés, nageoires collées, points blancs, respiration rapide, et les crevettes inactives. Les mues blanchâtres au fond sont normales : laisse-les, elles sont mangées. Note ce que tu vois dans le journal.',
+      summary: ctx.hasShrimp ? 'Compte les poissons et les crevettes, regarde leur comportement.' : 'Compte les poissons, regarde leur comportement.',
+      detail: 'Cherche les poissons isolés, nageoires collées, points blancs, respiration rapide, et les animaux inactifs. ' + (ctx.hasShrimp ? 'Les mues blanchâtres de crevettes au fond sont normales : laisse-les, elles sont mangées. ' : '') + 'Note ce que tu vois dans le journal.',
       tolerance: 3,
     });
     // Un jour sans nourriture par semaine, après le premier mois, laisse souffler le filtre et les animaux.
@@ -169,7 +195,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
         type: 'feeding',
         title: 'Jour sans nourriture',
         summary: 'Pas de repas aujourd’hui : les animaux grignotent les algues et le biofilm.',
-        detail: 'Un jour de jeûne par semaine est sans risque pour des poissons adultes, des crevettes et des escargots. Il limite les déchets et les algues. Ne le fais pas dans le premier mois ni si un animal semble affaibli.',
+        detail: 'Un jour de jeûne par semaine est sans risque pour des animaux adultes en bonne santé. Il limite les déchets et les algues. Ne le fais pas dans le premier mois ni si un animal semble affaibli.',
         tolerance: 2,
       });
     }
@@ -180,7 +206,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
       type: 'filter_clean',
       title: 'Grille d’aspiration et pré-filtre',
       summary: 'Rince la grille d’entrée du filtre dans l’eau du bac.',
-      detail: 'Retire les débris collés sur la grille ou l’éponge de protection (indispensable avec des crevettes). Rince-la dans un seau d’eau prélevée au changement d’eau, jamais au robinet, et remets-la en place.',
+      detail: 'Retire les débris collés sur la grille ou l’éponge de protection.' + (ctx.hasShrimp ? ' Indispensable avec des crevettes, qui se coincent dans une grille ouverte.' : '') + ' Rince-la dans un seau d’eau prélevée au changement d’eau, jamais au robinet, et remets-la en place.',
       tolerance: 5,
     });
     push(n + 17, {
@@ -202,12 +228,12 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
     });
   }
 
-  for (let n = 30; n <= maxDay; n += 90) {
+  for (let n = 30; ctx.rootFeeders.length > 0 && n <= maxDay; n += 90) {
     push(n, {
       type: 'dosing',
       title: 'Pastilles d’engrais racinaire',
-      summary: 'Enfonce une pastille près de chaque Cryptocoryne.',
-      detail: 'Les Cryptocoryne se nourrissent par les racines : une pastille par plante dans le sable, à 3 à 4 cm de profondeur, à renouveler tous les trois mois. Pas besoin si le sol est nutritif.',
+      summary: `Enfonce une pastille près de chaque plante à racines (${ctx.rootFeeders.join(', ')}).`,
+      detail: 'Ces plantes se nourrissent par les racines : une pastille par plante dans le sable, à 3 à 4 cm de profondeur, à renouveler tous les trois mois. Pas besoin si le sol est nutritif.',
       tolerance: 10,
       keyword: 'pastille',
     });

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { CalendarDays, ChevronDown, Droplets, Eraser, Filter, Fish, FlaskConical, Gauge, Leaf, ListChecks, Utensils, Wrench } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { Livestock, MaintenanceLog, MaintenanceTaskType, WaterTest } from '@/types/database';
-import { addDays, buildPlan, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
+import { addDays, buildPlan, contextFromLivestock, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
 import { introductionPlan } from '@/lib/introduction';
 import { linesFromLivestock } from '@/lib/density';
 
@@ -101,7 +101,7 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
     );
   }
 
-  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters);
+  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters, contextFromLivestock(livestock));
   const late = items.filter((i) => i.date < today && i.type !== 'test' && !isDone(i, logs, tests));
   const upcoming = items.filter((i) => i.date >= today);
 
