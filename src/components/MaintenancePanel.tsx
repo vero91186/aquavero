@@ -6,7 +6,7 @@ import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types
 import { productCategoryOf } from '@/lib/products';
 import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
 import { PhotoUpload } from '@/components/PhotoUpload';
-import { Sparkles, CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical } from 'lucide-react';
+import { Sparkles, CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical, Utensils } from 'lucide-react';
 
 function toDatetimeLocal(iso: string): string {
   const d = new Date(iso);
@@ -73,6 +73,10 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   const [now] = useState(() => Date.now());
   const [dosingProductId, setDosingProductId] = useState('');
   const [dosingRatio, setDosingRatio] = useState('');
+  // Nourrissage : on coche les aliments réellement donnés parmi les produits « Nourriture ».
+  const foodProducts = (products ?? []).filter((p) => productCategoryOf(p) === 'food');
+  const [feedingIds, setFeedingIds] = useState<string[]>([]);
+  const fedProducts = foodProducts.filter((p) => feedingIds.includes(p.id));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<{
     performed_at: string;
@@ -139,6 +143,8 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
         : null;
 
     const dosed = taskType === 'dosing' && dosingProduct && dosingMl !== null;
+    const fed = taskType === 'feeding' && fedProducts.length > 0;
+    const fedNames = fedProducts.map((p) => p.name).join(' + ');
     const baseRow = {
       tank_id: tankId,
       user_id: user.id,
@@ -157,13 +163,24 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
           product_name: dosingProduct!.name,
           product_dose_ml: Math.round(dosingMl! * 10) / 10,
         }
-      : baseRow;
+      : fed
+        ? {
+            ...baseRow,
+            product_id: fedProducts.length === 1 ? fedProducts[0].id : null,
+            product_name: fedNames,
+          }
+        : baseRow;
     const { error: insertError } = await supabase.from('maintenance_logs').insert(withProduct);
     if (insertError && dosed) {
       // Migration 0012 pas encore lancée : on enregistre quand même l'entretien, la dose va dans la note.
       await supabase.from('maintenance_logs').insert({
         ...baseRow,
         description: `${dosingProduct!.name}, ${fmtMl(dosingMl!)}`,
+      });
+    } else if (insertError && fed) {
+      await supabase.from('maintenance_logs').insert({
+        ...baseRow,
+        description: description ? `${fedNames} — ${description}` : fedNames,
       });
     }
 
@@ -178,6 +195,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     setSelectedProductId('');
     setDosingProductId('');
     setDosingRatio('');
+    setFeedingIds([]);
     setNewPhotoUrl(null);
     const def = DEFAULT_REMINDER_DAYS[taskType];
     setReminderDays(def !== null ? String(def) : '');
@@ -466,6 +484,56 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
           </div>
         )}
 
+        {taskType === 'feeding' && (
+          <div className="mt-4 rounded-xl bg-amber-50 p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Utensils size={16} className="text-amber-700" />
+              <p className="text-sm font-medium text-amber-900">Qu&apos;as-tu donné à manger ?</p>
+            </div>
+            {foodProducts.length === 0 ? (
+              <p className="text-sm text-slate-600">
+                Aucune nourriture enregistrée. Ajoute-en dans Mon bac &gt; Produits (catégorie Nourriture), tu pourras
+                ensuite les cocher ici.
+              </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {foodProducts.map((p) => {
+                    const on = feedingIds.includes(p.id);
+                    const exp = expiryOf(p);
+                    const expired = !!exp && exp.getTime() < now;
+                    return (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() =>
+                          setFeedingIds((ids) => (on ? ids.filter((i) => i !== p.id) : [...ids, p.id]))
+                        }
+                        className={`rounded-full border px-3 py-1.5 text-sm ${
+                          on
+                            ? 'border-amber-600 bg-amber-600 text-white'
+                            : 'border-amber-200 bg-white text-slate-700 hover:bg-amber-100'
+                        }`}
+                      >
+                        {p.name}
+                        {expired ? ' (périmé)' : ''}
+                      </button>
+                    );
+                  })}
+                </div>
+                {fedProducts.some((p) => {
+                  const exp = expiryOf(p);
+                  return !!exp && exp.getTime() < now;
+                }) && (
+                  <p className="mt-2 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
+                    Un des aliments cochés est périmé : mieux vaut en racheter.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
         <div className="mt-3 space-y-1">
           <label className="text-xs font-medium text-slate-600">Photo (optionnel)</label>
           <PhotoUpload photoUrl={newPhotoUrl} folder="maintenance" size="sm" onChange={(url) => setNewPhotoUrl(url)} />
@@ -585,6 +653,9 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
                     {log.conditioner_ml && <span className="text-slate-500"> — {log.conditioner_ml} mL de conditionneur</span>}
                     {log.product_name && log.product_dose_ml != null && (
                       <span className="text-slate-500"> — {fmtMl(log.product_dose_ml)} de {log.product_name}</span>
+                    )}
+                    {log.task_type === 'feeding' && log.product_name && (
+                      <span className="text-slate-500"> — {log.product_name}</span>
                     )}
                     {log.description && log.description !== log.product_name && <LogText text={log.description} />}
                     <div className="text-xs text-slate-400">
