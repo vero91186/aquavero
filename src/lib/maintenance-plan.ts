@@ -9,6 +9,9 @@ export interface PlanItem {
   date: Date;
   type: PlanType;
   title: string;
+  // Une ligne : l'essentiel à faire, lisible d'un coup d'œil.
+  summary: string;
+  // Explications complètes, affichées à la demande.
   detail: string;
   // Écart toléré (en jours) entre la date prévue et une intervention notée
   // dans le journal pour la considérer comme faite.
@@ -46,7 +49,13 @@ function offWaterChangeDay(n: number): number {
   return n % 7 === 0 ? n + 3 : n;
 }
 
-export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
+// Feuilles de catappa : environ 1 feuille moyenne (15 à 20 cm) pour 40 à 50 L d'eau,
+// soit un minimum d'une feuille. Les tanins n'abaissent pas le pH d'une eau dure.
+export function catappaLeaves(volumeLiters: number): number {
+  return Math.max(1, Math.round(volumeLiters / 50));
+}
+
+export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150): PlanItem[] {
   const items: PlanItem[] = [];
   const push = (n: number, it: Omit<PlanItem, 'date'>) => {
     const date = addDays(startOfDay(day0), n);
@@ -58,6 +67,7 @@ export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
   push(3, {
     type: 'test',
     title: 'Test NH4 / NO2',
+    summary: 'NH4 et NO2 doivent rester à 0.',
     detail: "Trois jours après l'arrivée des premiers animaux : les deux doivent rester à 0. Sinon, change 30 % d'eau et ne rajoute rien.",
     tolerance: 0,
   });
@@ -69,6 +79,7 @@ export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
       push(n - 1, {
         type: 'test',
         title: 'Test de l’eau',
+        summary: 'NO2 à 0, NO3 sous 25. À noter dans l’onglet Tests.',
         detail: 'NH4, NO2, NO3, pH, KH, avant le changement d’eau. Note-les dans l’onglet Tests : NO2 à 0, NO3 sous 25.',
         tolerance: 0,
       });
@@ -78,6 +89,7 @@ export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
     push(n, {
       type: 'water_change',
       title: 'Changement d’eau',
+      summary: siphon ? `Change 25 à 30 % de l’eau et siphonne le tiers n° ${zone} du sable.` : 'Change 20 à 25 % de l’eau, sans siphonner le sable.',
       detail: siphon
         ? `25 à 30 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Siphonne le tiers n° ${zone} du sable en surface (pas autour des racines ni sous les ardoises), bas fin sur l’embout à cause des crevettes.`
         : "20 à 25 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Pas de siphonnage du sol avant la semaine 4 : enlève seulement les débris visibles.",
@@ -86,6 +98,7 @@ export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
     push(n, {
       type: 'dosing',
       title: 'Engrais liquide',
+      summary: 'À verser après le changement d’eau, selon l’étiquette.',
       detail: 'Après le changement d’eau, dose selon l’étiquette (le calculateur plus bas donne les mL pour ton volume).',
       tolerance: 3,
     });
@@ -95,12 +108,14 @@ export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
     push(n + 2, {
       type: 'glass_clean',
       title: 'Nettoyage des vitres',
+      summary: 'Racloir ou aimant sur les algues.',
       detail: 'Racloir ou aimant sur les algues, avant le changement d’eau suivant. Évite les angles où se cachent les crevettes.',
       tolerance: 4,
     });
     push(n + 4, {
       type: 'other',
       title: 'Taille des plantes',
+      summary: 'Retire les feuilles abîmées, éclaircis les flottantes.',
       detail: 'Coupe les feuilles abîmées, éclaircis les flottantes (couvre au plus la moitié de la surface) et rince-les avant de les jeter, pour les petits passagers.',
       tolerance: 5,
     });
@@ -110,27 +125,44 @@ export function buildPlan(day0: Date, from: Date, to: Date): PlanItem[] {
     push(n + 5, {
       type: 'equipment_check',
       title: 'Vérification du matériel',
+      summary: 'Chauffage, pompe, éclairage et tuyaux.',
       detail: 'Chauffage et thermomètre (24 à 26 °C), débit de la pompe, rampe LED et programmateur, tuyaux du filtre.',
       tolerance: 7,
     });
   }
 
+  // Feuilles de catappa : dosées selon le volume, renouvelées toutes les 4 semaines.
+  const leaves = catappaLeaves(volumeLiters);
+  const leafWord = `feuille${leaves > 1 ? 's' : ''}`;
+  for (let n = 0; n <= maxDay; n += 28) {
+    push(n, {
+      type: 'dosing',
+      title: 'Feuilles de catappa',
+      summary: n === 0
+        ? `Mets ${leaves} ${leafWord} dans le bac.`
+        : `Remplace les feuilles : ${leaves} ${leafWord} neuve${leaves > 1 ? 's' : ''}.`,
+      detail: `Environ 1 feuille moyenne (15 à 20 cm) pour 40 à 50 L, soit ${leaves} ${leafWord} pour ${volumeLiters} L. Retire les restes des anciennes quand elles se désagrègent. L’effet sur le pH est négligeable dans une eau dure : elles servent surtout de cachette et de biofilm pour les crevettes et les corydoras.`,
+      tolerance: 5,
+    });
+  }
+
   // Mousses du filtre (calendrier de lib/introduction.ts) : grossière à 3 mois puis tous les
   // 3 mois, fines à 6 puis 9 mois, jamais le même jour que le changement d’eau.
-  const foamJobs: { n: number; title: string; detail: string }[] = [];
+  const foamJobs: { n: number; title: string; summary: string; detail: string }[] = [];
   for (let n = 90; n <= maxDay + 14; n += 90) {
     foamJobs.push({
       n,
       title: 'Mousse grossière du filtre',
+      summary: 'Remplace-la, en gardant l’ancienne 2 à 3 semaines à côté.',
       detail: 'Remplace-la : pose la neuve à côté de l’ancienne 2 à 3 semaines pour qu’elle se colonise, puis retire l’ancienne. Rinçage de l’ancienne dans l’eau du bac, jamais au robinet.',
     });
   }
   foamJobs.push(
-    { n: 190, title: 'Première mousse fine du filtre', detail: 'Remplace une seule mousse fine, jamais le même jour que la grossière. Rinçage dans l’eau du bac prélevée au changement d’eau.' },
-    { n: 280, title: 'Seconde mousse fine du filtre', detail: 'Remplace l’autre mousse fine, en décalé de la première.' }
+    { n: 190, title: 'Première mousse fine du filtre', summary: 'Remplace une seule mousse fine.', detail: 'Remplace une seule mousse fine, jamais le même jour que la grossière. Rinçage dans l’eau du bac prélevée au changement d’eau.' },
+    { n: 280, title: 'Seconde mousse fine du filtre', summary: 'Remplace l’autre mousse fine.', detail: 'Remplace l’autre mousse fine, en décalé de la première.' }
   );
   for (const j of foamJobs) {
-    push(offWaterChangeDay(j.n), { type: 'filter_clean', title: j.title, detail: j.detail, tolerance: 10 });
+    push(offWaterChangeDay(j.n), { type: 'filter_clean', title: j.title, summary: j.summary, detail: j.detail, tolerance: 10 });
   }
 
   return items.sort((a, b) => a.date.getTime() - b.date.getTime());

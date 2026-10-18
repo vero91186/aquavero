@@ -433,7 +433,7 @@ export default function TankDetailPage() {
         )}
         {section === 'entretien' && (
           <div className="space-y-6">
-          <MaintenancePlanning livestock={livestock} logs={logs} onNote={setQuickTaskType} />
+          <MaintenancePlanning livestock={livestock} logs={logs} volumeLiters={tank.volume_liters} onNote={setQuickTaskType} />
           <TreatmentPrograms tank={tank} products={products} programs={programs} unavailable={programsUnavailable} onUpdated={loadAll} />
           <MaintenancePanel
             tank={tank}
