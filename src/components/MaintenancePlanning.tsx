@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { CalendarDays, ChevronDown, Droplets, Eraser, Filter, Fish, FlaskConical, Gauge, Leaf, ListChecks, Utensils, Wrench } from 'lucide-react';
-import type { Livestock, MaintenanceLog, MaintenanceTaskType } from '@/types/database';
+import { createClient } from '@/lib/supabase/client';
+import type { Livestock, MaintenanceLog, MaintenanceTaskType, WaterTest } from '@/types/database';
 import { addDays, buildPlan, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
 import { introductionPlan } from '@/lib/introduction';
 import { linesFromLivestock } from '@/lib/density';
@@ -32,15 +33,25 @@ function relativeLabel(d: Date, today: Date): string {
 // Mot-clé de la tâche présent dans un texte (description du journal), s'il y en a un.
 const keywordIn = (text: string) => PLAN_KEYWORDS.find((k) => text.toLowerCase().includes(k)) ?? null;
 
-function isDone(item: PlanItem, logs: MaintenanceLog[]) {
-  if (item.type === 'test') return false;
-  return logs.some(
+// Interventions du journal qui correspondent à une tâche du planning.
+function matchingLogs(item: PlanItem, logs: MaintenanceLog[]) {
+  if (item.type === 'test') return [];
+  return logs.filter(
     (l) =>
       l.task_type === item.type &&
       // Des tâches de même type (catappa, pastilles, engrais liquide : « dosage ») se distinguent par la description du journal.
       (keywordIn(l.description ?? '') ?? null) === (item.keyword ?? null) &&
       Math.abs(new Date(l.performed_at).getTime() - item.date.getTime()) <= (item.tolerance + 0.5) * 86400000
   );
+}
+
+// Un test est fait dès qu'une mesure est saisie dans l'onglet Tests, à un jour près.
+function testDone(item: PlanItem, tests: WaterTest[]) {
+  return tests.some((x) => Math.abs(new Date(x.tested_at).getTime() - item.date.getTime()) <= 1.5 * 86400000);
+}
+
+function isDone(item: PlanItem, logs: MaintenanceLog[], tests: WaterTest[]) {
+  return item.type === 'test' ? testDone(item, tests) : matchingLogs(item, logs).length > 0;
 }
 
 // Icône et couleur par famille de tâche, pour se repérer sans lire.
@@ -59,15 +70,22 @@ function kindOf(it: PlanItem): { icon: React.ReactNode; label: string; tone: str
   return { icon: <Leaf size={16} />, label: 'Plantes', tone: 'bg-lime-50 text-lime-700' };
 }
 
-export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
+export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLiters, onUpdated, onNote }: {
+  tankId: string;
   livestock: Livestock[];
   logs: MaintenanceLog[];
+  tests: WaterTest[];
   volumeLiters: number;
+  // Recharge les données après qu'une case a été cochée ou décochée.
+  onUpdated: () => void;
   // Préremplit le formulaire de journal plus bas avec le type de tâche choisi.
   onNote: (t: MaintenanceTaskType) => void;
 }) {
   const [today] = useState(() => startOfDay(new Date()));
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const supabase = createClient();
   const day0 = firstIntroduction(livestock, today);
 
   if (!day0) {
@@ -84,7 +102,7 @@ export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
   }
 
   const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters);
-  const late = items.filter((i) => i.date < today && i.type !== 'test' && !isDone(i, logs));
+  const late = items.filter((i) => i.date < today && i.type !== 'test' && !isDone(i, logs, tests));
   const upcoming = items.filter((i) => i.date >= today);
 
   const weeks = new Map<number, PlanItem[]>();
@@ -106,15 +124,57 @@ export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
     return { s, from, to, lines, allDone: lines.every((x) => x.done) };
   });
 
+  // Cocher ajoute l'intervention au journal ; décocher retire celle que la case avait créée.
+  async function toggle(it: PlanItem, key: string, done: boolean) {
+    setError(null);
+    setBusyKey(key);
+    if (done) {
+      const mine = matchingLogs(it, logs).filter((l) => l.description === it.title);
+      if (mine.length > 0) {
+        const { error: err } = await supabase.from('maintenance_logs').delete().in('id', mine.map((l) => l.id));
+        if (err) setError(`Impossible de décocher : ${err.message}`);
+      }
+    } else {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) {
+        setBusyKey(null);
+        return;
+      }
+      // Une tâche en retard est datée du jour prévu, pour que le journal et le planning s'alignent.
+      const when = it.date < today ? it.date : new Date();
+      const { error: err } = await supabase.from('maintenance_logs').insert({
+        tank_id: tankId,
+        user_id: userData.user.id,
+        task_type: it.type,
+        description: it.title,
+        performed_at: when.toISOString(),
+      });
+      if (err) setError(`Impossible de cocher : ${err.message}`);
+    }
+    setBusyKey(null);
+    onUpdated();
+  }
+
   const renderItem = (it: PlanItem, overdue = false) => {
     const noteType = it.type === 'test' ? null : (it.type as MaintenanceTaskType);
-    const done = !overdue && isDone(it, logs);
+    const done = !overdue && isDone(it, logs, tests);
+    const isTest = it.type === 'test';
+    const ownLog = !isTest && matchingLogs(it, logs).some((l) => l.description === it.title);
     const key = `${it.type}-${it.title}-${it.date.getTime()}`;
     const open = openKey === key;
     const kind = kindOf(it);
     return (
       <li key={key} className="py-2.5">
         <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={done}
+            disabled={isTest || busyKey === key || (done && !ownLog)}
+            onChange={() => toggle(it, key, done)}
+            aria-label={`${it.title} : ${done ? 'fait' : 'à faire'}`}
+            title={isTest ? 'Se coche tout seul dès qu’un test est saisi dans l’onglet Tests' : done && !ownLog ? 'Noté dans le journal : supprime-le depuis le journal pour décocher' : undefined}
+            className="mt-1.5 h-5 w-5 shrink-0 cursor-pointer accent-teal-600 disabled:cursor-default"
+          />
           <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${done ? 'bg-slate-100 text-slate-400' : kind.tone}`} title={kind.label}>
             {kind.icon}
           </span>
@@ -168,7 +228,7 @@ export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
   };
 
   const todayItems = upcoming.filter((i) => i.date.getTime() === today.getTime());
-  const todo = todayItems.filter((i) => !isDone(i, logs));
+  const todo = todayItems.filter((i) => !isDone(i, logs, tests));
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -182,10 +242,17 @@ export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
 
       <div className={`mt-3 rounded-xl border px-3 py-2 ${todo.length > 0 ? 'border-teal-200 bg-teal-50/50' : 'border-slate-100 bg-slate-50'}`}>
         <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-          <ListChecks size={16} /> {todo.length > 0 ? `À faire aujourd'hui (${todo.length})` : "Rien de prévu aujourd'hui"}
+          <ListChecks size={16} />{' '}
+          {todayItems.length === 0
+            ? "Rien de prévu aujourd'hui"
+            : todo.length === 0
+              ? "Tout est fait pour aujourd'hui"
+              : `À faire aujourd'hui (${todo.length})`}
         </p>
-        {todo.length > 0 && <ul className="divide-y divide-teal-100">{todo.map((i) => renderItem(i))}</ul>}
+        {todayItems.length > 0 && <ul className="divide-y divide-teal-100">{todayItems.map((i) => renderItem(i))}</ul>}
       </div>
+
+      {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
       {late.length > 0 && (
         <div className="mt-3 rounded-xl border border-red-100 bg-red-50/40 px-3 py-2">
