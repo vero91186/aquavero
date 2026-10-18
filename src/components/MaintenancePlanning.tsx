@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { CalendarDays, ChevronDown, Droplets, Eraser, Filter, FlaskConical, Gauge, Leaf, ListChecks, Wrench } from 'lucide-react';
+import { CalendarDays, ChevronDown, Droplets, Eraser, Filter, Fish, FlaskConical, Gauge, Leaf, ListChecks, Utensils, Wrench } from 'lucide-react';
 import type { Livestock, MaintenanceLog, MaintenanceTaskType } from '@/types/database';
-import { addDays, buildPlan, dayNumber, firstIntroduction, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
+import { addDays, buildPlan, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
 import { introductionPlan } from '@/lib/introduction';
 import { linesFromLivestock } from '@/lib/density';
 
@@ -29,16 +29,16 @@ function relativeLabel(d: Date, today: Date): string {
   return `Dans ${n} jours`;
 }
 
-const isCatappa = (title: string) => /catappa/i.test(title);
+// Mot-clé de la tâche présent dans un texte (description du journal), s'il y en a un.
+const keywordIn = (text: string) => PLAN_KEYWORDS.find((k) => text.toLowerCase().includes(k)) ?? null;
 
 function isDone(item: PlanItem, logs: MaintenanceLog[]) {
   if (item.type === 'test') return false;
-  const catappa = isCatappa(item.title);
   return logs.some(
     (l) =>
       l.task_type === item.type &&
-      // Les feuilles de catappa et l'engrais partagent le type « dosage » : on les distingue par la description du journal.
-      isCatappa(l.description ?? '') === catappa &&
+      // Des tâches de même type (catappa, pastilles, engrais liquide : « dosage ») se distinguent par la description du journal.
+      (keywordIn(l.description ?? '') ?? null) === (item.keyword ?? null) &&
       Math.abs(new Date(l.performed_at).getTime() - item.date.getTime()) <= (item.tolerance + 0.5) * 86400000
   );
 }
@@ -48,11 +48,12 @@ function kindOf(it: PlanItem): { icon: React.ReactNode; label: string; tone: str
   if (it.type === 'water_change') return { icon: <Droplets size={16} />, label: 'Eau', tone: 'bg-sky-50 text-sky-700' };
   if (it.type === 'test') return { icon: <Gauge size={16} />, label: 'Test', tone: 'bg-violet-50 text-violet-700' };
   if (it.type === 'dosing') {
-    return isCatappa(it.title)
-      ? { icon: <Leaf size={16} />, label: 'Catappa', tone: 'bg-amber-50 text-amber-700' }
-      : { icon: <FlaskConical size={16} />, label: 'Engrais', tone: 'bg-emerald-50 text-emerald-700' };
+    if (it.keyword === 'catappa') return { icon: <Leaf size={16} />, label: 'Catappa', tone: 'bg-amber-50 text-amber-700' };
+    return { icon: <FlaskConical size={16} />, label: 'Engrais', tone: 'bg-emerald-50 text-emerald-700' };
   }
   if (it.type === 'glass_clean') return { icon: <Eraser size={16} />, label: 'Vitres', tone: 'bg-slate-100 text-slate-700' };
+  if (it.type === 'observation') return { icon: <Fish size={16} />, label: 'Animaux', tone: 'bg-cyan-50 text-cyan-700' };
+  if (it.type === 'feeding') return { icon: <Utensils size={16} />, label: 'Repas', tone: 'bg-rose-50 text-rose-700' };
   if (it.type === 'filter_clean') return { icon: <Filter size={16} />, label: 'Filtre', tone: 'bg-orange-50 text-orange-700' };
   if (it.type === 'equipment_check') return { icon: <Wrench size={16} />, label: 'Matériel', tone: 'bg-slate-100 text-slate-700' };
   return { icon: <Leaf size={16} />, label: 'Plantes', tone: 'bg-lime-50 text-lime-700' };
@@ -139,7 +140,7 @@ export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
               type="button"
               onClick={() => onNote(noteType)}
               className="shrink-0 rounded-full border border-teal-300 bg-teal-50 px-2.5 py-0.5 text-xs text-teal-800 hover:bg-teal-100"
-              title={isCatappa(it.title) ? 'Écris « catappa » dans la description pour que la tâche soit cochée' : undefined}
+              title={it.keyword ? `Écris « ${it.keyword} » dans la description pour que la tâche soit cochée` : undefined}
             >
               Noter
             </button>
@@ -177,7 +178,7 @@ export function MaintenancePlanning({ livestock, logs, volumeLiters, onNote }: {
       <p className="mt-1 text-sm text-slate-500">
         Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Voici ce qu&apos;il y a à faire, jour par jour, sur les six prochaines semaines.
       </p>
-      <p className="mt-1 text-xs text-slate-400">Chaque jour : nourris une fois, en petite quantité, et retire ce qui reste après 2 minutes.</p>
+      <p className="mt-1 text-xs text-slate-400">Les jours de repas : nourris une fois, en petite quantité, et retire ce qui reste après 2 minutes.</p>
 
       <div className={`mt-3 rounded-xl border px-3 py-2 ${todo.length > 0 ? 'border-teal-200 bg-teal-50/50' : 'border-slate-100 bg-slate-50'}`}>
         <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">

@@ -16,7 +16,13 @@ export interface PlanItem {
   // Écart toléré (en jours) entre la date prévue et une intervention notée
   // dans le journal pour la considérer comme faite.
   tolerance: number;
+  // Mot à écrire dans la description du journal pour cocher cette tâche quand elle
+  // partage son type avec d'autres (feuilles de catappa et engrais liquide, tous deux « dosage »).
+  keyword?: string;
 }
+
+// Tous les mots-clés de tâches : un journal qui en contient un ne coche que la tâche correspondante.
+export const PLAN_KEYWORDS = ['catappa', 'pastille'];
 
 export function addDays(d: Date, n: number): Date {
   const r = new Date(d);
@@ -143,6 +149,67 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters = 150):
         : `Remplace les feuilles : ${leaves} ${leafWord} neuve${leaves > 1 ? 's' : ''}.`,
       detail: `Environ 1 feuille moyenne (15 à 20 cm) pour 40 à 50 L, soit ${leaves} ${leafWord} pour ${volumeLiters} L. Retire les restes des anciennes quand elles se désagrègent. L’effet sur le pH est négligeable dans une eau dure : elles servent surtout de cachette et de biofilm pour les crevettes et les corydoras.`,
       tolerance: 5,
+      keyword: 'catappa',
+    });
+  }
+
+  // Autres tâches courantes, pour que rien ne soit oublié.
+  for (let k = 1; 7 * k <= maxDay; k++) {
+    const n = 7 * k;
+    push(n + 3, {
+      type: 'observation',
+      title: 'Observation des animaux',
+      summary: 'Compte les poissons et les crevettes, regarde leur comportement.',
+      detail: 'Cherche les poissons isolés, nageoires collées, points blancs, respiration rapide, et les crevettes inactives. Les mues blanchâtres au fond sont normales : laisse-les, elles sont mangées. Note ce que tu vois dans le journal.',
+      tolerance: 3,
+    });
+    // Un jour sans nourriture par semaine, après le premier mois, laisse souffler le filtre et les animaux.
+    if (k >= 4) {
+      push(n + 5, {
+        type: 'feeding',
+        title: 'Jour sans nourriture',
+        summary: 'Pas de repas aujourd’hui : les animaux grignotent les algues et le biofilm.',
+        detail: 'Un jour de jeûne par semaine est sans risque pour des poissons adultes, des crevettes et des escargots. Il limite les déchets et les algues. Ne le fais pas dans le premier mois ni si un animal semble affaibli.',
+        tolerance: 2,
+      });
+    }
+  }
+
+  for (let n = 28; n <= maxDay; n += 28) {
+    push(n + 10, {
+      type: 'filter_clean',
+      title: 'Grille d’aspiration et pré-filtre',
+      summary: 'Rince la grille d’entrée du filtre dans l’eau du bac.',
+      detail: 'Retire les débris collés sur la grille ou l’éponge de protection (indispensable avec des crevettes). Rince-la dans un seau d’eau prélevée au changement d’eau, jamais au robinet, et remets-la en place.',
+      tolerance: 5,
+    });
+    push(n + 17, {
+      type: 'equipment_check',
+      title: 'Couvercle et rampe LED',
+      summary: 'Essuie la rampe LED et le couvercle : calcaire et poussière.',
+      detail: 'Débranche, puis essuie avec un chiffon humide sans produit. Un éclairage voilé réduit la lumière reçue par les plantes et favorise les algues. Vérifie aussi que le programmateur est à la bonne heure.',
+      tolerance: 5,
+    });
+  }
+
+  for (let n = 45; n <= maxDay; n += 90) {
+    push(offWaterChangeDay(n), {
+      type: 'filter_clean',
+      title: 'Hélice de la pompe et tuyaux',
+      summary: 'Démonte la pompe, nettoie l’hélice et frotte les tuyaux.',
+      detail: 'Coupe l’alimentation, sors la pompe, nettoie l’hélice et son logement avec une brosse à dents dans l’eau du bac. Rince les tuyaux de la même façon. Jamais le même jour que le changement de mousse du filtre.',
+      tolerance: 10,
+    });
+  }
+
+  for (let n = 30; n <= maxDay; n += 90) {
+    push(n, {
+      type: 'dosing',
+      title: 'Pastilles d’engrais racinaire',
+      summary: 'Enfonce une pastille près de chaque Cryptocoryne.',
+      detail: 'Les Cryptocoryne se nourrissent par les racines : une pastille par plante dans le sable, à 3 à 4 cm de profondeur, à renouveler tous les trois mois. Pas besoin si le sol est nutritif.',
+      tolerance: 10,
+      keyword: 'pastille',
     });
   }
 
