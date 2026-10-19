@@ -236,9 +236,8 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
         <CalendarDays size={18} /> Planning d&apos;entretien
       </h3>
       <p className="mt-1 text-sm text-slate-500">
-        Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Voici ce qu&apos;il y a à faire, jour par jour, sur les six prochaines semaines.
+        Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Repas : une fois par jour, en petite quantité, sans rien laisser après 2 minutes.
       </p>
-      <p className="mt-1 text-xs text-slate-400">Les jours de repas : nourris une fois, en petite quantité, et retire ce qui reste après 2 minutes.</p>
 
       <div className={`mt-3 rounded-xl border px-3 py-2 ${todo.length > 0 ? 'border-teal-200 bg-teal-50/50' : 'border-slate-100 bg-slate-50'}`}>
         <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
@@ -282,9 +281,11 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
       </div>
 
       {introSteps.length > 0 && (
-        <div className="mt-5 border-t border-slate-100 pt-4">
-          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400">Introductions</h4>
-          <p className="mt-1 text-xs text-slate-500">
+        <details className="group mt-5 border-t border-slate-100 pt-4">
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-xs font-semibold uppercase tracking-wide text-slate-400 hover:text-slate-600">
+            <ChevronDown size={14} className="transition group-open:rotate-180" /> Introductions des espèces ({introSteps.length} étape{introSteps.length > 1 ? 's' : ''})
+          </summary>
+          <p className="mt-2 text-xs text-slate-500">
             Ajoute les espèces à venir dans l&apos;onglet Vivant avec leur date prévue : elles s&apos;alignent ici sur les fenêtres conseillées. Avant chaque étape, NO2 à 0 et NO3 sous 25 aux deux derniers tests.
           </p>
           <ul className="mt-2 space-y-2">
@@ -315,7 +316,7 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
               </li>
             ))}
           </ul>
-        </div>
+        </details>
       )}
     </div>
   );

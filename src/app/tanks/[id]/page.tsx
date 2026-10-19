@@ -56,6 +56,7 @@ type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'maladies
 type BacSub = 'proprietes' | 'materiel' | 'hardscape' | 'produits';
 type EauSub = 'parametres' | 'cyclage';
 type PeuplementSub = 'poissons' | 'simulateur' | 'plantes';
+type EntretienSub = 'planning' | 'traitements' | 'journal';
 
 const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
   { key: 'apercu', label: 'Aperçu', icon: <LayoutGrid size={15} /> },
@@ -86,6 +87,12 @@ const PEUPLEMENT_SUBS: { key: PeuplementSub; label: string }[] = [
   { key: 'plantes', label: 'Plantes' },
 ];
 
+const ENTRETIEN_SUBS: { key: EntretienSub; label: string }[] = [
+  { key: 'planning', label: 'Planning' },
+  { key: 'traitements', label: 'Traitements' },
+  { key: 'journal', label: 'Journal' },
+];
+
 const QUICK_ACTIONS: { taskType: MaintenanceTaskType; label: string; icon: React.ReactNode }[] = [
   { taskType: 'water_change', label: "Changement d'eau", icon: <Droplet size={14} /> },
   { taskType: 'feeding', label: 'Nourrissage', icon: <Utensils size={14} /> },
@@ -114,6 +121,7 @@ export default function TankDetailPage() {
   const [bacSub, setBacSub] = useState<BacSub>('proprietes');
   const [eauSub, setEauSub] = useState<EauSub>('parametres');
   const [peuplementSub, setPeuplementSub] = useState<PeuplementSub>('poissons');
+  const [entretienSub, setEntretienSub] = useState<EntretienSub>('planning');
   const [loading, setLoading] = useState(true);
   const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose' | 'scan'>('chat');
@@ -176,6 +184,13 @@ export default function TankDetailPage() {
   const subTabsFor: Partial<Record<Section, { key: string; label: string; active: boolean; onClick: () => void }[]>> = {
     bac: BAC_SUBS.map((s) => ({ key: s.key, label: s.label, active: bacSub === s.key, onClick: () => setBacSub(s.key) })),
     eau: EAU_SUBS.map((s) => ({ key: s.key, label: s.label, active: eauSub === s.key, onClick: () => setEauSub(s.key) })),
+    entretien: ENTRETIEN_SUBS.map((s) => ({
+      key: s.key,
+      // Un point d'alerte sur « Traitements » quand une dose est à faire ou en retard.
+      label: s.key === 'traitements' && programAlerts.length > 0 ? `Traitements (${programAlerts.length})` : s.label,
+      active: entretienSub === s.key,
+      onClick: () => setEntretienSub(s.key),
+    })),
     peuplement: PEUPLEMENT_SUBS.map((s) => ({
       key: s.key,
       label: s.label,
@@ -192,7 +207,7 @@ export default function TankDetailPage() {
           <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-teal-200 hover:text-white">
             <ArrowLeft size={16} /> Mes bacs
           </Link>
-          <div className="mt-3 flex items-end justify-between gap-4">
+          <div className="mt-3">
             <div className="min-w-0">
               <h1 className="truncate text-3xl leading-tight sm:text-4xl">{tank.name}</h1>
               <p className="mt-1 text-sm text-teal-200">
@@ -205,15 +220,6 @@ export default function TankDetailPage() {
                 , {tank.water_type === 'freshwater' ? 'eau douce' : tank.water_type === 'saltwater' ? 'eau de mer' : 'eau saumâtre'}
               </p>
             </div>
-            <button
-              onClick={() => {
-                setAssistantMode('chat');
-                setSection('assistant');
-              }}
-              className="flex shrink-0 items-center gap-1.5 rounded-full bg-sable px-4 py-2 text-sm font-semibold text-abysse transition hover:bg-white"
-            >
-              <Sparkles size={16} /> Assistant IA
-            </button>
           </div>
         </div>
 
@@ -221,7 +227,10 @@ export default function TankDetailPage() {
           {SECTIONS.map((s) => (
             <button
               key={s.key}
-              onClick={() => setSection(s.key)}
+              onClick={() => {
+                if (s.key === 'assistant') setAssistantMode('chat');
+                setSection(s.key);
+              }}
               className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                 section === s.key ? 'bg-white text-abysse' : 'text-teal-100 hover:bg-white/10 hover:text-white'
               }`}
@@ -253,76 +262,95 @@ export default function TankDetailPage() {
       <main className="mx-auto max-w-5xl px-4 py-6">
         {section === 'apercu' && (
           <div className="space-y-4">
-            {programAlerts.length > 0 && (
-              <div className="rounded-2xl border border-teal-300 bg-teal-50 p-4">
-                <h3 className="mb-1 font-semibold text-teal-900">Traitement à faire</h3>
-                <ul className="space-y-1 text-sm text-teal-800">
-                  {programAlerts.map(({ p, st }) => (
-                    <li key={p.id}>
-                      <span className="font-medium">{p.name}</span>,{' '}
-                      {st.dueToday
-                        ? `dose du jour${p.dose_ml ? ` (${p.dose_ml} mL)` : ''}`
-                        : `${st.overdue.length} dose(s) en retard`}
-                      {' '}(jour {st.dayIndex} sur {st.totalDays})
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={() => setSection('entretien')} className="mt-2 text-xs font-medium text-teal-900 underline">
-                  Ouvrir les programmes
-                </button>
-              </div>
-            )}
-            {reminders.length > 0 && (
-              <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4">
-                <div className="mb-1 flex items-center gap-2 text-sky-800">
+            {(programAlerts.length > 0 || reminders.length > 0 || productsToWatch.length > 0) && (
+              <div className="rounded-2xl border border-amber-200 bg-white">
+                <div className="flex items-center gap-2 border-b border-amber-100 bg-amber-50/60 px-4 py-2.5 text-amber-900">
                   <AlertTriangle size={16} />
-                  <h3 className="font-semibold">Rappels d&apos;entretien</h3>
+                  <h3 className="font-semibold">À surveiller</h3>
                 </div>
-                <ul className="space-y-1 text-sm text-sky-700">
-                  {reminders.map((r) => (
-                    <li key={r.taskType}>
-                      <span className="font-medium">{TASK_LABELS[r.taskType]}</span> —{' '}
-                      {r.level === 'overdue'
-                        ? `en retard depuis le ${r.dueAt.toLocaleDateString('fr-FR')} (${Math.abs(r.daysLeft)} j)`
-                        : r.daysLeft === 0
-                          ? "aujourd'hui"
-                          : `dans ${r.daysLeft} j (le ${r.dueAt.toLocaleDateString('fr-FR')})`}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => setSection('entretien')}
-                  className="mt-2 text-xs font-medium text-sky-800 underline hover:text-sky-900"
-                >
-                  Voir l&apos;entretien
-                </button>
-              </div>
-            )}
-            {productsToWatch.length > 0 && (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-                <div className="mb-1 flex items-center gap-2 text-amber-800">
-                  <AlertTriangle size={16} />
-                  <h3 className="font-semibold">Produits à surveiller</h3>
+                <div className="divide-y divide-slate-100">
+                  {programAlerts.length > 0 && (
+                    <div className="flex items-start justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Traitement</p>
+                        <ul className="mt-1 space-y-0.5 text-sm text-slate-700">
+                          {programAlerts.map(({ p, st }) => (
+                            <li key={p.id}>
+                              <span className="font-medium">{p.name}</span>,{' '}
+                              {st.dueToday
+                                ? `dose du jour${p.dose_ml ? ` (${p.dose_ml} mL)` : ''}`
+                                : `${st.overdue.length} dose(s) en retard`}
+                              {' '}(jour {st.dayIndex} sur {st.totalDays})
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSection('entretien');
+                          setEntretienSub('traitements');
+                        }}
+                        className="shrink-0 text-xs font-medium text-teal-800 underline hover:text-teal-900"
+                      >
+                        Ouvrir
+                      </button>
+                    </div>
+                  )}
+                  {reminders.length > 0 && (
+                    <div className="flex items-start justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Rappels d&apos;entretien</p>
+                        <ul className="mt-1 space-y-0.5 text-sm text-slate-700">
+                          {reminders.map((r) => (
+                            <li key={r.taskType}>
+                              <span className="font-medium">{TASK_LABELS[r.taskType]}</span> —{' '}
+                              {r.level === 'overdue'
+                                ? `en retard depuis le ${r.dueAt.toLocaleDateString('fr-FR')} (${Math.abs(r.daysLeft)} j)`
+                                : r.daysLeft === 0
+                                  ? "aujourd'hui"
+                                  : `dans ${r.daysLeft} j (le ${r.dueAt.toLocaleDateString('fr-FR')})`}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSection('entretien');
+                          setEntretienSub('planning');
+                        }}
+                        className="shrink-0 text-xs font-medium text-teal-800 underline hover:text-teal-900"
+                      >
+                        Ouvrir
+                      </button>
+                    </div>
+                  )}
+                  {productsToWatch.length > 0 && (
+                    <div className="flex items-start justify-between gap-3 px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Produits</p>
+                        <ul className="mt-1 space-y-0.5 text-sm text-slate-700">
+                          {productsToWatch.map(({ product, shelfLife }) => (
+                            <li key={product.id}>
+                              <span className="font-medium">{product.name}</span> —{' '}
+                              {shelfLife!.level === 'expired'
+                                ? `probablement à jeter (dépassé depuis le ${shelfLife!.discardDate.toLocaleDateString('fr-FR')})`
+                                : `à utiliser avant le ${shelfLife!.discardDate.toLocaleDateString('fr-FR')} (${shelfLife!.daysLeft} j)`}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSection('bac');
+                          setBacSub('produits');
+                        }}
+                        className="shrink-0 text-xs font-medium text-teal-800 underline hover:text-teal-900"
+                      >
+                        Ouvrir
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <ul className="space-y-1 text-sm text-amber-700">
-                  {productsToWatch.map(({ product, shelfLife }) => (
-                    <li key={product.id}>
-                      <span className="font-medium">{product.name}</span> —{' '}
-                      {shelfLife!.level === 'expired'
-                        ? `probablement à jeter (dépassé depuis le ${shelfLife!.discardDate.toLocaleDateString('fr-FR')})`
-                        : `à utiliser avant le ${shelfLife!.discardDate.toLocaleDateString('fr-FR')} (${shelfLife!.daysLeft} j)`}
-                    </li>
-                  ))}
-                </ul>
-                <button
-                  onClick={() => {
-                    setSection('bac');
-                    setBacSub('produits');
-                  }}
-                  className="mt-2 text-xs font-medium text-amber-800 underline hover:text-amber-900"
-                >
-                  Voir mes produits
-                </button>
               </div>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
@@ -354,6 +382,7 @@ export default function TankDetailPage() {
                     key={a.taskType}
                     onClick={() => {
                       setQuickTaskType(a.taskType);
+                      setEntretienSub('journal');
                       setSection('entretien');
                     }}
                     className="flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:border-teal-300 hover:bg-teal-50 hover:text-teal-700"
@@ -431,10 +460,24 @@ export default function TankDetailPage() {
           />
           </div>
         )}
-        {section === 'entretien' && (
-          <div className="space-y-6">
-          <MaintenancePlanning tankId={tankId} livestock={livestock} logs={logs} tests={tests} volumeLiters={tank.volume_liters} onUpdated={loadAll} onNote={setQuickTaskType} />
+        {section === 'entretien' && entretienSub === 'planning' && (
+          <MaintenancePlanning
+            tankId={tankId}
+            livestock={livestock}
+            logs={logs}
+            tests={tests}
+            volumeLiters={tank.volume_liters}
+            onUpdated={loadAll}
+            onNote={(t) => {
+              setQuickTaskType(t);
+              setEntretienSub('journal');
+            }}
+          />
+        )}
+        {section === 'entretien' && entretienSub === 'traitements' && (
           <TreatmentPrograms tank={tank} products={products} programs={programs} unavailable={programsUnavailable} onUpdated={loadAll} />
+        )}
+        {section === 'entretien' && entretienSub === 'journal' && (
           <MaintenancePanel
             tank={tank}
             tankId={tankId}
@@ -443,9 +486,11 @@ export default function TankDetailPage() {
             presetTaskType={quickTaskType}
             products={products}
           />
-          </div>
         )}
-        {section === 'maladies' && <DiseasesPanel tankId={tankId} onJournalAdded={loadAll} onGoToPrograms={() => setSection('entretien')} />}
+        {section === 'maladies' && <DiseasesPanel tankId={tankId} onJournalAdded={loadAll} onGoToPrograms={() => {
+          setSection('entretien');
+          setEntretienSub('traitements');
+        }} />}
         {section === 'scanner' && (
           <ScannerPanel
             tankId={tankId}
