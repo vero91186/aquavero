@@ -181,8 +181,15 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
           <div className="min-w-0 flex-1">
             <p className={`text-sm font-medium ${done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
               {it.title}
-              {overdue && <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-normal text-red-700">en retard</span>}
-              {done && <span className="ml-2 text-xs font-normal text-emerald-600">fait</span>}
+              {done ? (
+                <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-normal text-emerald-700">Fait</span>
+              ) : it.date < today ? (
+                <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-normal text-red-700">Pas fait</span>
+              ) : it.date.getTime() === today.getTime() ? (
+                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">À faire</span>
+              ) : (
+                <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">À venir</span>
+              )}
             </p>
             <p className="text-sm text-slate-600">{it.summary}</p>
             <button
@@ -230,6 +237,13 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
   const todayItems = upcoming.filter((i) => i.date.getTime() === today.getTime());
   const todo = todayItems.filter((i) => !isDone(i, logs, tests));
 
+  // Bilan de la semaine en cours : tâches prévues du lundi à aujourd'hui (les tests se cochent tout seuls, ils ne comptent pas).
+  const weekStart = mondayOf(today).getTime();
+  const weekSoFar = items.filter((i) => i.type !== 'test' && i.date.getTime() >= weekStart && i.date.getTime() <= today.getTime());
+  const weekDone = weekSoFar.filter((i) => isDone(i, logs, tests)).length;
+  // Tâches passées de cette semaine déjà faites : elles restent visibles, et décochables.
+  const doneWeek = items.filter((i) => i.date.getTime() >= weekStart && i.date < today && isDone(i, logs, tests));
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-5">
       <h3 className="flex items-center gap-2 font-semibold text-slate-900">
@@ -253,11 +267,26 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
 
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
+      <p className="mt-3 text-sm text-slate-600">
+        {weekSoFar.length === 0
+          ? 'Aucune tâche à noter cette semaine pour le moment.'
+          : `Cette semaine : ${weekDone} tâche${weekDone > 1 ? 's' : ''} faite${weekDone > 1 ? 's' : ''} sur ${weekSoFar.length} prévue${weekSoFar.length > 1 ? 's' : ''} jusqu'à aujourd'hui.`}
+      </p>
+
       {late.length > 0 && (
         <div className="mt-3 rounded-xl border border-red-100 bg-red-50/40 px-3 py-2">
-          <p className="text-sm font-semibold text-red-700">En retard ({late.length})</p>
+          <p className="text-sm font-semibold text-red-700">Pas fait ({late.length})</p>
           <ul className="divide-y divide-red-100">{late.map((i) => renderItem(i, true))}</ul>
         </div>
+      )}
+
+      {doneWeek.length > 0 && (
+        <details className="group mt-3 rounded-xl border border-emerald-100 bg-emerald-50/30 px-3 py-2">
+          <summary className="flex cursor-pointer list-none items-center gap-1 text-sm font-semibold text-emerald-700">
+            <ChevronDown size={14} className="transition group-open:rotate-180" /> Déjà fait cette semaine ({doneWeek.length})
+          </summary>
+          <div className="mt-1">{renderDays(doneWeek)}</div>
+        </details>
       )}
 
       <div className="mt-3 space-y-4">
