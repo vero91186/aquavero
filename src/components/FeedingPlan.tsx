@@ -35,6 +35,13 @@ export function FeedingPlan({
   const foods = products.filter((p) => productCategoryOf(p) === 'food');
   const todayIndex = weekdayOf(today);
   const todayItems = itemsForDay(items, todayIndex);
+  // Dates réelles de la semaine en cours (lundi → dimanche) : le statut fait / pas fait se lit dessus.
+  const weekDates = WEEKDAYS.map((_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - todayIndex + i, 12));
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const isPast = (d: Date) => d < startOfToday;
+  const isFuture = (d: Date) => d.getFullYear() * 10000 + d.getMonth() * 100 + d.getDate() > today.getFullYear() * 10000 + today.getMonth() * 100 + today.getDate();
+  const weekMeals = weekDates.flatMap((d, i) => (isFuture(d) ? [] : itemsForDay(items, i).map((it) => ({ it, d }))));
+  const weekDone = weekMeals.filter(({ it, d }) => mealLogs(it, logs, d).length > 0).length;
 
   if (unavailable) {
     return (
@@ -93,11 +100,11 @@ export function FeedingPlan({
   }
 
   // Cocher un repas l'ajoute au journal (type Alimentation) ; décocher retire cette entrée.
-  async function toggleMeal(item: FeedingPlanItem, done: boolean) {
+  async function toggleMeal(item: FeedingPlanItem, done: boolean, day: Date) {
     setBusy(item.id);
     setError(null);
     if (done) {
-      const mine = mealLogs(item, logs, today);
+      const mine = mealLogs(item, logs, day);
       if (mine.length > 0) {
         const { error: err } = await supabase.from('maintenance_logs').delete().in('id', mine.map((l) => l.id));
         if (err) setError(`Impossible de décocher : ${err.message}`);
@@ -110,7 +117,8 @@ export function FeedingPlan({
           user_id: userData.user.id,
           task_type: 'feeding',
           description: feedingLogText(item),
-          performed_at: new Date().toISOString(),
+          // Un repas d'un jour passé est daté de ce jour, pour que le journal et le planning s'alignent.
+          performed_at: isPast(day) ? day.toISOString() : new Date().toISOString(),
         };
         const { error: err } = await supabase.from('maintenance_logs').insert({ ...base, product_name: item.food_name });
         // Colonne product_name absente (migration 0012 non appliquée) : on note sans.
@@ -124,35 +132,42 @@ export function FeedingPlan({
     onUpdated();
   }
 
-  const renderItem = (it: FeedingPlanItem, withCheck: boolean) => {
-    const done = mealLogs(it, logs, today).length > 0;
+  const renderItem = (it: FeedingPlanItem, day: Date, inWeek: boolean) => {
+    const done = mealLogs(it, logs, day).length > 0;
+    const future = isFuture(day);
     return (
       <li key={it.id} className="flex items-start gap-3 py-2">
-        {withCheck && (
-          <input
-            type="checkbox"
-            checked={done}
-            disabled={busy === it.id}
-            onChange={() => toggleMeal(it, done)}
-            aria-label={`${it.food_name} : ${done ? 'donné' : 'à donner'}`}
-            className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-teal-600"
-          />
-        )}
+        <input
+          type="checkbox"
+          checked={done}
+          disabled={busy === it.id || (future && !done)}
+          onChange={() => toggleMeal(it, done, day)}
+          aria-label={`${it.food_name} : ${done ? 'donné' : 'à donner'}`}
+          title={future ? 'Se coche le jour même' : undefined}
+          className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-teal-600 disabled:cursor-default"
+        />
         <div className="min-w-0 flex-1">
-          <p className={`text-sm font-medium ${withCheck && done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
+          <p className={`text-sm font-medium ${done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
             {it.food_name}
             {it.quantity && <span className="ml-2 font-normal text-slate-500">{it.quantity}</span>}
+            {done ? (
+              <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-normal text-emerald-700 no-underline">Fait</span>
+            ) : isPast(day) ? (
+              <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-normal text-red-700">Pas fait</span>
+            ) : (
+              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">{future ? 'À venir' : 'À faire'}</span>
+            )}
           </p>
-          {!withCheck && <p className="text-xs text-slate-400">{it.slot === 'morning' ? 'Matin' : 'Soir'}</p>}
+          {inWeek && <p className="text-xs text-slate-400">{it.slot === 'morning' ? 'Matin' : 'Soir'}</p>}
           {it.notes && <p className="text-xs text-slate-500">{it.notes}</p>}
         </div>
-        {!withCheck && (
+        {inWeek && (
           <button
             type="button"
             onClick={() => removeItem(it.id)}
             disabled={busy === it.id}
             className="shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
-            aria-label={`Retirer ${it.food_name}`}
+            aria-label={`Retirer ${it.food_name} du planning`}
           >
             <Trash2 size={14} />
           </button>
@@ -168,7 +183,7 @@ export function FeedingPlan({
       return (
         <div key={s} className="mt-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{SLOT_LABELS[s]}</p>
-          <ul className="divide-y divide-slate-100">{slotItems.map((i) => renderItem(i, true))}</ul>
+          <ul className="divide-y divide-slate-100">{slotItems.map((i) => renderItem(i, today, false))}</ul>
         </div>
       );
     });
@@ -263,20 +278,23 @@ export function FeedingPlan({
             </form>
           )}
 
-          <h4 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">Semaine type</h4>
+          <h4 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">Cette semaine</h4>
+          <p className="mt-1 text-sm text-slate-600">
+            {weekMeals.length === 0 ? 'Aucun repas à noter pour le moment.' : `${weekDone} repas fait${weekDone > 1 ? 's' : ''} sur ${weekMeals.length} prévus jusqu'à aujourd'hui.`}
+          </p>
           <div className="mt-1 divide-y divide-slate-100">
             {WEEKDAYS.map((name, i) => {
               const dayItems = itemsForDay(items, i);
               return (
                 <div key={name} className="py-2">
                   <p className={`text-sm font-semibold ${i === todayIndex ? 'text-teal-700' : 'text-slate-700'}`}>
-                    {name}
+                    {name} <span className="font-normal text-slate-400">{weekDates[i].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
                     {i === todayIndex && <span className="ml-2 text-xs font-normal text-teal-600">aujourd&apos;hui</span>}
                   </p>
                   {dayItems.length === 0 ? (
                     <p className="text-sm text-slate-400">Jeûne</p>
                   ) : (
-                    <ul>{dayItems.map((it) => renderItem(it, false))}</ul>
+                    <ul className="divide-y divide-slate-100">{dayItems.map((it) => renderItem(it, weekDates[i], true))}</ul>
                   )}
                 </div>
               );
