@@ -5,7 +5,7 @@ import { Plus, RefreshCw, Trash2, Utensils, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { FeedingPlanItem, FeedingSlot, MaintenanceLog, Product, Tank } from '@/types/database';
 import { productCategoryOf } from '@/lib/products';
-import { DEFAULT_FEEDING_PLAN, feedingLogText, itemsForDay, mealLogs, SLOT_LABELS, WEEKDAYS, weekdayOf } from '@/lib/feeding';
+import { DEFAULT_FEEDING_PLAN, defaultQuantity, feedingLogText, itemsForDay, mealLogs, quantitySuggestions, SLOT_LABELS, WEEKDAYS, weekdayOf } from '@/lib/feeding';
 
 export function FeedingPlan({
   tank,
@@ -60,6 +60,24 @@ export function FeedingPlan({
     );
   }
 
+  // Quand on choisit un aliment connu, la quantité habituelle est préremplie, sauf si
+  // l'utilisateur a déjà tapé la sienne (on ne remplace qu'une quantité vide ou proposée).
+  const nextQuantity = (previousFood: string, current: string, nextFood: string) => {
+    const proposed = defaultQuantity(nextFood);
+    if (!proposed) return current;
+    return current.trim() === '' || quantitySuggestions(previousFood).includes(current) ? proposed : current;
+  };
+
+  function changeFood(value: string) {
+    setQuantity((q) => nextQuantity(food, q, value));
+    setFood(value);
+  }
+
+  function changeReplFood(value: string) {
+    setReplQuantity((q) => nextQuantity(replFood, q, value));
+    setReplFood(value);
+  }
+
   async function insertItems(rows: { weekday: number; slot: FeedingSlot; food_name: string; quantity: string | null; notes: string | null }[]) {
     const { data: userData } = await supabase.auth.getUser();
     if (!userData.user) return false;
@@ -106,7 +124,7 @@ export function FeedingPlan({
   function startReplace(item: FeedingPlanItem) {
     setReplacingId(item.id);
     setReplFood('');
-    setReplQuantity(item.quantity ?? '');
+    setReplQuantity('');
     setError(null);
   }
 
@@ -196,13 +214,14 @@ export function FeedingPlan({
               <input
                 list="feeding-foods"
                 value={replFood}
-                onChange={(e) => setReplFood(e.target.value)}
+                onChange={(e) => changeReplFood(e.target.value)}
                 placeholder="Nouvel aliment (ex. Shrimp Lollies)"
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 autoFocus
                 required
               />
               <input
+                list="feeding-quantities-repl"
                 value={replQuantity}
                 onChange={(e) => setReplQuantity(e.target.value)}
                 placeholder="Quantité (ex. 1 lolly)"
@@ -293,6 +312,16 @@ export function FeedingPlan({
           <option key={p.id} value={p.name} />
         ))}
       </datalist>
+      <datalist id="feeding-quantities">
+        {quantitySuggestions(food).map((q) => (
+          <option key={q} value={q} />
+        ))}
+      </datalist>
+      <datalist id="feeding-quantities-repl">
+        {quantitySuggestions(replFood).map((q) => (
+          <option key={q} value={q} />
+        ))}
+      </datalist>
 
       {items.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-center">
@@ -336,12 +365,13 @@ export function FeedingPlan({
               <input
                 list="feeding-foods"
                 value={food}
-                onChange={(e) => setFood(e.target.value)}
+                onChange={(e) => changeFood(e.target.value)}
                 placeholder="Aliment (ex. JBL ProNovo Bel Flakes S)"
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 required
               />
               <input
+                list="feeding-quantities"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 placeholder="Quantité (ex. 1 cuillère rase)"
