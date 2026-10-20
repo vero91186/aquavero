@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Trash2, Utensils, Wand2 } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Utensils, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { FeedingPlanItem, FeedingSlot, MaintenanceLog, Product, Tank } from '@/types/database';
 import { productCategoryOf } from '@/lib/products';
@@ -31,6 +31,10 @@ export function FeedingPlan({
   const [slot, setSlot] = useState<FeedingSlot>('evening');
   const [food, setFood] = useState('');
   const [quantity, setQuantity] = useState('');
+  // Remplacement de l'aliment d'un repas déjà planifié.
+  const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [replFood, setReplFood] = useState('');
+  const [replQuantity, setReplQuantity] = useState('');
 
   const foods = products.filter((p) => productCategoryOf(p) === 'food');
   const todayIndex = weekdayOf(today);
@@ -99,6 +103,33 @@ export function FeedingPlan({
     onUpdated();
   }
 
+  function startReplace(item: FeedingPlanItem) {
+    setReplacingId(item.id);
+    setReplFood('');
+    setReplQuantity(item.quantity ?? '');
+    setError(null);
+  }
+
+  // Remplace l'aliment (et la quantité) d'un repas du planning, sans toucher au jour ni au moment.
+  // Les remarques de l'ancien aliment sont effacées : elles ne s'appliquent plus au nouveau.
+  async function replaceItem(e: React.FormEvent, id: string) {
+    e.preventDefault();
+    if (!replFood.trim()) return;
+    setBusy(id);
+    setError(null);
+    const { error: err } = await supabase
+      .from('feeding_plan_items')
+      .update({ food_name: replFood.trim(), quantity: replQuantity.trim() || null, notes: null })
+      .eq('id', id);
+    setBusy(null);
+    if (err) {
+      setError(`Impossible de remplacer : ${err.message}`);
+      return;
+    }
+    setReplacingId(null);
+    onUpdated();
+  }
+
   // Cocher un repas l'ajoute au journal (type Alimentation) ; décocher retire cette entrée.
   async function toggleMeal(item: FeedingPlanItem, done: boolean, day: Date) {
     setBusy(item.id);
@@ -160,17 +191,64 @@ export function FeedingPlan({
           </p>
           {inWeek && <p className="text-xs text-slate-400">{it.slot === 'morning' ? 'Matin' : 'Soir'}</p>}
           {it.notes && <p className="text-xs text-slate-500">{it.notes}</p>}
+          {inWeek && replacingId === it.id && (
+            <form onSubmit={(e) => replaceItem(e, it.id)} className="mt-2 grid gap-2 rounded-lg border border-teal-200 bg-teal-50/40 p-2 sm:grid-cols-2">
+              <input
+                list="feeding-foods"
+                value={replFood}
+                onChange={(e) => setReplFood(e.target.value)}
+                placeholder="Nouvel aliment (ex. Shrimp Lollies)"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                autoFocus
+                required
+              />
+              <input
+                value={replQuantity}
+                onChange={(e) => setReplQuantity(e.target.value)}
+                placeholder="Quantité (ex. 1 lolly)"
+                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+              />
+              <div className="flex gap-2 sm:col-span-2">
+                <button
+                  type="submit"
+                  disabled={busy === it.id}
+                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm text-white hover:bg-teal-700 disabled:opacity-50"
+                >
+                  Remplacer {it.food_name}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setReplacingId(null)}
+                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
+                >
+                  Annuler
+                </button>
+              </div>
+            </form>
+          )}
         </div>
         {inWeek && (
-          <button
-            type="button"
-            onClick={() => removeItem(it.id)}
-            disabled={busy === it.id}
-            className="shrink-0 rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
-            aria-label={`Retirer ${it.food_name} du planning`}
-          >
-            <Trash2 size={14} />
-          </button>
+          <div className="flex shrink-0 items-center">
+            <button
+              type="button"
+              onClick={() => (replacingId === it.id ? setReplacingId(null) : startReplace(it))}
+              disabled={busy === it.id}
+              className="rounded p-1 text-slate-300 hover:bg-teal-50 hover:text-teal-700"
+              aria-label={`Remplacer ${it.food_name} par un autre aliment`}
+              title="Remplacer par un autre aliment"
+            >
+              <RefreshCw size={14} />
+            </button>
+            <button
+              type="button"
+              onClick={() => removeItem(it.id)}
+              disabled={busy === it.id}
+              className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+              aria-label={`Retirer ${it.food_name} du planning`}
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
         )}
       </li>
     );
@@ -209,6 +287,12 @@ export function FeedingPlan({
       </p>
 
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+
+      <datalist id="feeding-foods">
+        {foods.map((p) => (
+          <option key={p.id} value={p.name} />
+        ))}
+      </datalist>
 
       {items.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-slate-200 p-4 text-center">
@@ -257,11 +341,6 @@ export function FeedingPlan({
                 className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 required
               />
-              <datalist id="feeding-foods">
-                {foods.map((p) => (
-                  <option key={p.id} value={p.name} />
-                ))}
-              </datalist>
               <input
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
