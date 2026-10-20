@@ -271,7 +271,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
   return (
     <div className="space-y-6">
       {dosableProducts.some((p) => p.dose_ml_per_100l !== null) && (
-        <section className="rounded-2xl bg-abysse p-5 text-white">
+        <section className="eau rounded-2xl p-5 text-white">
           <h3 className="text-xl">Tes doses pour {tank.volume_liters} L d&apos;eau</h3>
           <div className="mt-3 divide-y divide-white/10">
             {dosableProducts

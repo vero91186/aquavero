@@ -35,13 +35,13 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-abysse text-white">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-6">
-          <h1 className="text-3xl">Mes bacs</h1>
+    <div className="min-h-screen">
+      <header className="eau text-white">
+        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-9 sm:py-11">
+          <h1 className="text-4xl sm:text-5xl">Mes bacs</h1>
           <button
             onClick={handleSignOut}
-            className="flex items-center gap-1 text-sm text-teal-200 hover:text-white"
+            className="flex items-center gap-1.5 rounded-full border border-white/25 px-3.5 py-1.5 text-sm text-teal-100 transition hover:bg-white/10 hover:text-white"
           >
             <LogOut size={16} /> Déconnexion
           </button>
@@ -75,7 +75,7 @@ export default function DashboardPage() {
           <p className="text-sm text-slate-400">Chargement…</p>
         ) : tanks.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center">
-            <Droplets className="mx-auto mb-3 text-teal-500" size={32} />
+            <span className="bulle mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full text-white"><Droplets size={26} /></span>
             <p className="text-slate-600">Aucun bac pour l&apos;instant. Ajoute ton premier aquarium.</p>
           </div>
         ) : (
@@ -84,18 +84,22 @@ export default function DashboardPage() {
               <Link
                 key={tank.id}
                 href={`/tanks/${tank.id}`}
-                className="group rounded-2xl border border-slate-200 bg-white p-5 transition hover:border-teal-400"
+                className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-5 transition duration-200 hover:-translate-y-0.5 hover:border-teal-300 hover:shadow-lg"
               >
-                <p className="text-4xl font-semibold tracking-tight text-teal-700">
-                  {tank.volume_liters}
-                  <span className="ml-1 text-base font-medium text-slate-400">L</span>
-                </p>
-                <h2 className="mt-3 text-xl text-slate-900">{tank.name}</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {tank.gross_volume_liters ? `${tank.gross_volume_liters} L bruts, ` : ''}
-                  {waterTypeLabel(tank.water_type)}
-                  {tank.is_planted ? ', planté' : ''}
-                </p>
+                <span className="bulle grid h-[4.5rem] w-[4.5rem] shrink-0 place-items-center rounded-full text-center text-white">
+                  <span className="text-2xl font-semibold leading-none">
+                    {tank.volume_liters}
+                    <span className="mt-0.5 block text-[11px] font-medium text-white/85">litres</span>
+                  </span>
+                </span>
+                <span className="min-w-0">
+                  <h2 className="truncate text-xl text-slate-900">{tank.name}</h2>
+                  <span className="mt-1 block text-sm text-slate-500">
+                    {tank.gross_volume_liters ? `${tank.gross_volume_liters} L bruts, ` : ''}
+                    {waterTypeLabel(tank.water_type)}
+                    {tank.is_planted ? ', planté' : ''}
+                  </span>
+                </span>
               </Link>
             ))}
           </div>

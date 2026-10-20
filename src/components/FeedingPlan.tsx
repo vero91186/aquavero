@@ -290,7 +290,7 @@ export function FeedingPlan({
       const Icon = s === 'morning' ? Sunrise : Moon;
       return (
         <div key={s} className="mt-4 first:mt-0">
-          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-slate-600">
             <Icon size={14} className="text-teal-600" /> {SLOT_LABELS[s]}
           </p>
           <ul className="space-y-2">{slotItems.map((i) => renderItem(i, day))}</ul>

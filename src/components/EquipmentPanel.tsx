@@ -146,7 +146,7 @@ export function EquipmentPanel({ tank, onUpdated }: { tank: Tank; onUpdated?: ()
 
   return (
     <div className="space-y-5">
-      <section className="rounded-2xl bg-abysse p-5 text-white">
+      <section className="eau rounded-2xl p-5 text-white">
         <h2 className="text-2xl">Fiche technique</h2>
         <dl className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <Fact label="Volume brut" value={tank.gross_volume_liters ? `${tank.gross_volume_liters} L` : 'à renseigner'} />
