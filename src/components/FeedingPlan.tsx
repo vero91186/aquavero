@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, RefreshCw, Trash2, Utensils, Wand2 } from 'lucide-react';
+import { Moon, Plus, RefreshCw, Sunrise, Trash2, Utensils, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import type { FeedingPlanItem, FeedingSlot, MaintenanceLog, Product, Tank } from '@/types/database';
 import { productCategoryOf } from '@/lib/products';
@@ -27,6 +27,7 @@ export function FeedingPlan({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const [selectedDay, setSelectedDay] = useState(weekdayOf(new Date()));
   const [weekday, setWeekday] = useState(weekdayOf(new Date()));
   const [slot, setSlot] = useState<FeedingSlot>('evening');
   const [food, setFood] = useState('');
@@ -38,7 +39,6 @@ export function FeedingPlan({
 
   const foods = products.filter((p) => productCategoryOf(p) === 'food');
   const todayIndex = weekdayOf(today);
-  const todayItems = itemsForDay(items, todayIndex);
   // Dates réelles de la semaine en cours (lundi → dimanche) : le statut fait / pas fait se lit dessus.
   const weekDates = WEEKDAYS.map((_, i) => new Date(today.getFullYear(), today.getMonth(), today.getDate() - todayIndex + i, 12));
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -181,129 +181,145 @@ export function FeedingPlan({
     onUpdated();
   }
 
-  const renderItem = (it: FeedingPlanItem, day: Date, inWeek: boolean) => {
+  type DayStatus = 'none' | 'done' | 'missed' | 'todo';
+  const dayStatus = (i: number): DayStatus => {
+    const list = itemsForDay(items, i);
+    if (list.length === 0) return 'none';
+    const d = weekDates[i];
+    const doneCount = list.filter((it) => mealLogs(it, logs, d).length > 0).length;
+    if (doneCount === list.length) return 'done';
+    return isPast(d) ? 'missed' : 'todo';
+  };
+  const DOT: Record<DayStatus, string> = {
+    none: 'bg-slate-200',
+    done: 'bg-emerald-500',
+    missed: 'bg-red-400',
+    todo: 'bg-teal-300',
+  };
+  const progress = weekMeals.length === 0 ? 0 : Math.round((weekDone / weekMeals.length) * 100);
+
+  const renderItem = (it: FeedingPlanItem, day: Date) => {
     const done = mealLogs(it, logs, day).length > 0;
     const future = isFuture(day);
+    const past = isPast(day);
     return (
-      <li key={it.id} className="flex items-start gap-3 py-2">
-        <input
-          type="checkbox"
-          checked={done}
-          disabled={busy === it.id || (future && !done)}
-          onChange={() => toggleMeal(it, done, day)}
-          aria-label={`${it.food_name} : ${done ? 'donné' : 'à donner'}`}
-          title={future ? 'Se coche le jour même' : undefined}
-          className="mt-1 h-5 w-5 shrink-0 cursor-pointer accent-teal-600 disabled:cursor-default"
-        />
-        <div className="min-w-0 flex-1">
-          <p className={`text-sm font-medium ${done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
-            {it.food_name}
-            {it.quantity && <span className="ml-2 font-normal text-slate-500">{it.quantity}</span>}
-            {done ? (
-              <span className="ml-2 rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-normal text-emerald-700 no-underline">Fait</span>
-            ) : isPast(day) ? (
-              <span className="ml-2 rounded-full bg-red-50 px-2 py-0.5 text-xs font-normal text-red-700">Pas fait</span>
-            ) : (
-              <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-slate-500">{future ? 'À venir' : 'À faire'}</span>
-            )}
-          </p>
-          {inWeek && <p className="text-xs text-slate-400">{it.slot === 'morning' ? 'Matin' : 'Soir'}</p>}
-          {it.notes && <p className="text-xs text-slate-500">{it.notes}</p>}
-          {inWeek && replacingId === it.id && (
-            <form onSubmit={(e) => replaceItem(e, it.id)} className="mt-2 grid gap-2 rounded-lg border border-teal-200 bg-teal-50/40 p-2 sm:grid-cols-2">
-              <input
-                list="feeding-foods"
-                value={replFood}
-                onChange={(e) => changeReplFood(e.target.value)}
-                placeholder="Nouvel aliment (ex. Shrimp Lollies)"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                autoFocus
-                required
-              />
-              <input
-                list="feeding-quantities-repl"
-                value={replQuantity}
-                onChange={(e) => setReplQuantity(e.target.value)}
-                placeholder="Quantité (ex. 1 lolly)"
-                className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-              />
-              <div className="flex gap-2 sm:col-span-2">
-                <button
-                  type="submit"
-                  disabled={busy === it.id}
-                  className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm text-white hover:bg-teal-700 disabled:opacity-50"
-                >
-                  Remplacer {it.food_name}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReplacingId(null)}
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50"
-                >
-                  Annuler
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-        {inWeek && (
-          <div className="flex shrink-0 items-center">
+      <li key={it.id} className={`rounded-xl border p-3 transition-colors ${done ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-white'}`}>
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={done}
+            disabled={busy === it.id || (future && !done)}
+            onChange={() => toggleMeal(it, done, day)}
+            aria-label={`${it.food_name} : ${done ? 'donné' : 'à donner'}`}
+            title={future ? 'Se coche le jour même' : undefined}
+            className="mt-0.5 h-6 w-6 shrink-0 cursor-pointer accent-teal-600 disabled:cursor-default"
+          />
+          <div className="min-w-0 flex-1">
+            <p className={`font-medium leading-snug ${done ? 'text-slate-400 line-through' : 'text-slate-900'}`}>{it.food_name}</p>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              {it.quantity && <span className="rounded-full bg-teal-50 px-2.5 py-0.5 text-xs font-medium text-teal-800">{it.quantity}</span>}
+              {done ? (
+                <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-800">Fait</span>
+              ) : past ? (
+                <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-medium text-red-700">Pas fait</span>
+              ) : (
+                <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs text-slate-500">{future ? 'À venir' : 'À donner'}</span>
+              )}
+            </div>
+            {it.notes && <p className="mt-1.5 text-xs leading-relaxed text-slate-500">{it.notes}</p>}
+          </div>
+          <div className="-mr-1 -mt-1 flex shrink-0 items-center">
             <button
               type="button"
               onClick={() => (replacingId === it.id ? setReplacingId(null) : startReplace(it))}
               disabled={busy === it.id}
-              className="rounded p-1 text-slate-300 hover:bg-teal-50 hover:text-teal-700"
+              className="rounded-lg p-2 text-slate-400 hover:bg-teal-50 hover:text-teal-700"
               aria-label={`Remplacer ${it.food_name} par un autre aliment`}
               title="Remplacer par un autre aliment"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={16} />
             </button>
             <button
               type="button"
               onClick={() => removeItem(it.id)}
               disabled={busy === it.id}
-              className="rounded p-1 text-slate-300 hover:bg-red-50 hover:text-red-600"
+              className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600"
               aria-label={`Retirer ${it.food_name} du planning`}
+              title="Retirer du planning"
             >
-              <Trash2 size={14} />
+              <Trash2 size={16} />
             </button>
           </div>
+        </div>
+        {replacingId === it.id && (
+          <form onSubmit={(e) => replaceItem(e, it.id)} className="mt-3 grid gap-2 rounded-lg border border-teal-200 bg-teal-50/50 p-3 sm:grid-cols-2">
+            <input
+              list="feeding-foods"
+              value={replFood}
+              onChange={(e) => changeReplFood(e.target.value)}
+              placeholder="Nouvel aliment (ex. Shrimp Lollies)"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+              autoFocus
+              required
+            />
+            <input
+              list="feeding-quantities-repl"
+              value={replQuantity}
+              onChange={(e) => setReplQuantity(e.target.value)}
+              placeholder="Quantité (ex. 1 bâtonnet)"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            />
+            <div className="flex gap-2 sm:col-span-2">
+              <button type="submit" disabled={busy === it.id} className="rounded-lg bg-teal-600 px-3 py-2 text-sm text-white hover:bg-teal-700 disabled:opacity-50">
+                Remplacer
+              </button>
+              <button type="button" onClick={() => setReplacingId(null)} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">
+                Annuler
+              </button>
+            </div>
+          </form>
         )}
       </li>
     );
   };
 
-  const renderSlots = (list: FeedingPlanItem[]) =>
+  const renderSlots = (list: FeedingPlanItem[], day: Date) =>
     (['morning', 'evening'] as FeedingSlot[]).map((s) => {
       const slotItems = list.filter((i) => i.slot === s);
       if (slotItems.length === 0) return null;
+      const Icon = s === 'morning' ? Sunrise : Moon;
       return (
-        <div key={s} className="mt-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">{SLOT_LABELS[s]}</p>
-          <ul className="divide-y divide-slate-100">{slotItems.map((i) => renderItem(i, today, false))}</ul>
+        <div key={s} className="mt-4 first:mt-0">
+          <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500">
+            <Icon size={14} className="text-teal-600" /> {SLOT_LABELS[s]}
+          </p>
+          <ul className="space-y-2">{slotItems.map((i) => renderItem(i, day))}</ul>
         </div>
       );
     });
 
+  const selectedDate = weekDates[selectedDay];
+  const selectedItems = itemsForDay(items, selectedDay);
+
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-xl text-slate-900">
           <Utensils size={19} className="text-teal-700" /> Planning de nourrissage
         </h3>
         {items.length > 0 && (
           <button
             type="button"
-            onClick={() => setAdding((v) => !v)}
-            className="flex items-center gap-1 rounded-full border border-teal-300 bg-teal-50 px-3 py-1 text-sm text-teal-800 hover:bg-teal-100"
+            onClick={() => {
+              setWeekday(selectedDay);
+              setAdding((v) => !v);
+            }}
+            className="flex items-center gap-1 rounded-full border border-teal-300 bg-teal-50 px-3 py-1.5 text-sm text-teal-800 hover:bg-teal-100"
           >
             <Plus size={14} /> Ajouter un repas
           </button>
         )}
       </div>
-      <p className="text-sm text-slate-500">
-        Les quantités sont des repères : si de la nourriture reste le lendemain matin, réduis ; si tout disparaît en moins d&apos;une heure, augmente un peu. Retire les restes après quelques heures.
-      </p>
 
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
@@ -340,12 +356,49 @@ export function FeedingPlan({
         </div>
       ) : (
         <>
-          <div className="mt-4 rounded-xl border border-teal-200 bg-teal-50/50 px-3 py-2">
-            <p className="text-sm font-semibold text-slate-800">Aujourd&apos;hui, {WEEKDAYS[todayIndex].toLowerCase()}</p>
-            {todayItems.length === 0 ? (
-              <p className="py-2 text-sm text-slate-500">Jour de jeûne : ils se nourrissent du biofilm et des algues.</p>
+          <div className="mt-3">
+            <div className="flex items-baseline justify-between text-sm">
+              <span className="text-slate-600">
+                {weekMeals.length === 0 ? 'Aucun repas à noter pour le moment' : `${weekDone} repas sur ${weekMeals.length} donnés cette semaine`}
+              </span>
+              {weekMeals.length > 0 && <span className="font-medium text-teal-700">{progress} %</span>}
+            </div>
+            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-slate-100" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full rounded-full bg-teal-500 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-1.5" role="tablist" aria-label="Jours de la semaine">
+            {WEEKDAYS.map((name, i) => {
+              const selected = i === selectedDay;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setSelectedDay(i)}
+                  className={`flex flex-col items-center rounded-xl border px-1 py-2 text-center transition-colors ${
+                    selected ? 'border-teal-600 bg-teal-600 text-white' : i === todayIndex ? 'border-teal-300 bg-teal-50 text-teal-900' : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className="text-xs font-medium">{name.slice(0, 3)}</span>
+                  <span className="text-base font-semibold leading-tight">{weekDates[i].getDate()}</span>
+                  <span className={`mt-1 h-1.5 w-1.5 rounded-full ${selected ? 'bg-white' : DOT[dayStatus(i)]}`} />
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 rounded-xl bg-slate-50/70 p-3 sm:p-4">
+            <p className="mb-3 flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
+              {WEEKDAYS[selectedDay]} {selectedDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}
+              {selectedDay === todayIndex && <span className="rounded-full bg-teal-600 px-2 py-0.5 text-xs font-medium text-white">Aujourd&apos;hui</span>}
+            </p>
+            {selectedItems.length === 0 ? (
+              <p className="py-3 text-center text-sm text-slate-500">Jour de jeûne : crevettes et escargots se nourrissent du biofilm et des algues.</p>
             ) : (
-              renderSlots(todayItems)
+              renderSlots(selectedItems, selectedDate)
             )}
           </div>
 
@@ -387,28 +440,12 @@ export function FeedingPlan({
             </form>
           )}
 
-          <h4 className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">Cette semaine</h4>
-          <p className="mt-1 text-sm text-slate-600">
-            {weekMeals.length === 0 ? 'Aucun repas à noter pour le moment.' : `${weekDone} repas fait${weekDone > 1 ? 's' : ''} sur ${weekMeals.length} prévus jusqu'à aujourd'hui.`}
-          </p>
-          <div className="mt-1 divide-y divide-slate-100">
-            {WEEKDAYS.map((name, i) => {
-              const dayItems = itemsForDay(items, i);
-              return (
-                <div key={name} className="py-2">
-                  <p className={`text-sm font-semibold ${i === todayIndex ? 'text-teal-700' : 'text-slate-700'}`}>
-                    {name} <span className="font-normal text-slate-400">{weekDates[i].toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
-                    {i === todayIndex && <span className="ml-2 text-xs font-normal text-teal-600">aujourd&apos;hui</span>}
-                  </p>
-                  {dayItems.length === 0 ? (
-                    <p className="text-sm text-slate-400">Jeûne</p>
-                  ) : (
-                    <ul className="divide-y divide-slate-100">{dayItems.map((it) => renderItem(it, weekDates[i], true))}</ul>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <details className="mt-4 text-sm text-slate-500">
+            <summary className="cursor-pointer select-none text-slate-600">Conseils sur les quantités</summary>
+            <p className="mt-2 leading-relaxed">
+              Les quantités sont des repères : si de la nourriture reste le lendemain matin, réduis ; si tout disparaît en moins d&apos;une heure, augmente un peu. Retire les restes après quelques heures.
+            </p>
+          </details>
         </>
       )}
     </section>
