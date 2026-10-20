@@ -243,6 +243,21 @@ export interface TreatmentProgram {
   created_at: string;
 }
 
+export type FeedingSlot = 'morning' | 'evening';
+
+// Une ligne du planning de nourrissage hebdomadaire (migration 0019).
+export interface FeedingPlanItem {
+  id: string;
+  tank_id: string;
+  user_id: string;
+  weekday: number; // 0 = lundi … 6 = dimanche
+  slot: FeedingSlot;
+  food_name: string;
+  quantity: string | null;
+  notes: string | null;
+  created_at: string;
+}
+
 export interface PlantInfo {
   identified_name: string | null;
   scientific_name: string | null;

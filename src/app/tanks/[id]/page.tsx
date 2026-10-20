@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
-import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product, CustomSpecies } from '@/types/database';
+import type { Tank, WaterTest, Livestock, MaintenanceLog, CyclingDose, HardscapeItem, Product, CustomSpecies, FeedingPlanItem } from '@/types/database';
 import { computeHealthScore } from '@/lib/health-score';
 import { computeShelfLife } from '@/lib/shelf-life';
 import { computeReminders } from '@/lib/reminders';
@@ -24,6 +24,7 @@ import { ScannerPanel } from '@/components/ScannerPanel';
 import { DiseasesPanel } from '@/components/DiseasesPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
 import { TreatmentPrograms } from '@/components/TreatmentPrograms';
+import { FeedingPlan } from '@/components/FeedingPlan';
 import { programState, dateKey } from '@/lib/treatment';
 import { PlantMap } from '@/components/PlantMap';
 import { EquipmentPanel } from '@/components/EquipmentPanel';
@@ -56,7 +57,7 @@ type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'maladies
 type BacSub = 'proprietes' | 'materiel' | 'hardscape' | 'produits';
 type EauSub = 'parametres' | 'cyclage';
 type PeuplementSub = 'poissons' | 'simulateur' | 'plantes';
-type EntretienSub = 'planning' | 'traitements' | 'journal';
+type EntretienSub = 'planning' | 'nourrissage' | 'traitements' | 'journal';
 
 const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
   { key: 'apercu', label: 'Aperçu', icon: <LayoutGrid size={15} /> },
@@ -89,6 +90,7 @@ const PEUPLEMENT_SUBS: { key: PeuplementSub; label: string }[] = [
 
 const ENTRETIEN_SUBS: { key: EntretienSub; label: string }[] = [
   { key: 'planning', label: 'Planning' },
+  { key: 'nourrissage', label: 'Nourrissage' },
   { key: 'traitements', label: 'Traitements' },
   { key: 'journal', label: 'Journal' },
 ];
@@ -117,6 +119,8 @@ export default function TankDetailPage() {
   const [customSpecies, setCustomSpecies] = useState<CustomSpecies[]>([]);
   const [programs, setPrograms] = useState<TreatmentProgram[]>([]);
   const [programsUnavailable, setProgramsUnavailable] = useState(false);
+  const [feedingItems, setFeedingItems] = useState<FeedingPlanItem[]>([]);
+  const [feedingUnavailable, setFeedingUnavailable] = useState(false);
   const [section, setSection] = useState<Section>('apercu');
   const [bacSub, setBacSub] = useState<BacSub>('proprietes');
   const [eauSub, setEauSub] = useState<EauSub>('parametres');
@@ -127,7 +131,7 @@ export default function TankDetailPage() {
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose' | 'scan'>('chat');
 
   const loadAll = useCallback(async () => {
-    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes, programsRes] = await Promise.all([
+    const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes, programsRes, feedingRes] = await Promise.all([
       supabase.from('tanks').select('*').eq('id', tankId).single(),
       supabase.from('water_tests').select('*').eq('tank_id', tankId).order('tested_at', { ascending: false }),
       supabase.from('livestock').select('*').eq('tank_id', tankId),
@@ -139,6 +143,7 @@ export default function TankDetailPage() {
       // seulement celui-ci, pour bénéficier des recherches faites ailleurs.
       supabase.from('custom_species').select('*').order('created_at', { ascending: false }),
       supabase.from('treatment_programs').select('*').eq('tank_id', tankId).order('start_date', { ascending: false }),
+      supabase.from('feeding_plan_items').select('*').eq('tank_id', tankId).order('created_at', { ascending: true }),
     ]);
 
     if (tankRes.error || !tankRes.data) {
@@ -156,6 +161,8 @@ export default function TankDetailPage() {
     setCustomSpecies(customSpeciesRes.data ?? []);
     setProgramsUnavailable(!!programsRes.error);
     setPrograms((programsRes.data ?? []) as TreatmentProgram[]);
+    setFeedingUnavailable(!!feedingRes.error);
+    setFeedingItems((feedingRes.data ?? []) as FeedingPlanItem[]);
     setLoading(false);
   }, [tankId, supabase, router]);
 
@@ -473,6 +480,9 @@ export default function TankDetailPage() {
               setEntretienSub('journal');
             }}
           />
+        )}
+        {section === 'entretien' && entretienSub === 'nourrissage' && (
+          <FeedingPlan tank={tank} items={feedingItems} logs={logs} products={products} unavailable={feedingUnavailable} onUpdated={loadAll} />
         )}
         {section === 'entretien' && entretienSub === 'traitements' && (
           <TreatmentPrograms tank={tank} products={products} programs={programs} unavailable={programsUnavailable} onUpdated={loadAll} />
