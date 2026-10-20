@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: 'Le suivi de ton aquarium : paramètres, population, matériel et conseils.',
     start_url: '/dashboard',
     display: 'standalone',
-    background_color: '#0f2a22',
-    theme_color: '#0f2a22',
+    background_color: '#0b3b4c',
+    theme_color: '#0b3b4c',
     lang: 'fr',
     icons: [
       { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },

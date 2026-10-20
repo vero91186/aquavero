@@ -1,33 +1,33 @@
 @import "tailwindcss";
 
-/* Palette « eau de bac planté » : gris-vert froids, vert mousse, sable. */
+/* Palette « lumière dans l'eau » : turquoises et bleus-gris frais, sable chaud en contrepoint. */
 @theme {
-  --color-slate-50: #f4f7f5;
-  --color-slate-100: #e8eeeb;
-  --color-slate-200: #d5dfda;
-  --color-slate-300: #b6c5be;
-  --color-slate-400: #8a9d95;
-  --color-slate-500: #62766d;
-  --color-slate-600: #485a52;
-  --color-slate-700: #364640;
-  --color-slate-800: #25322d;
-  --color-slate-900: #16211d;
+  --color-slate-50: #f2f8fa;
+  --color-slate-100: #e5eff3;
+  --color-slate-200: #d0e0e6;
+  --color-slate-300: #b0c6cf;
+  --color-slate-400: #839ca8;
+  --color-slate-500: #5d7783;
+  --color-slate-600: #435c68;
+  --color-slate-700: #314651;
+  --color-slate-800: #22333c;
+  --color-slate-900: #14232b;
 
-  --color-teal-50: #eef6f0;
-  --color-teal-100: #d7eadd;
-  --color-teal-200: #b1d6bd;
-  --color-teal-300: #85bb98;
-  --color-teal-400: #55996f;
-  --color-teal-500: #3b8056;
-  --color-teal-600: #2f6f47;
-  --color-teal-700: #265a39;
-  --color-teal-800: #1f4730;
-  --color-teal-900: #183725;
+  --color-teal-50: #ecfafb;
+  --color-teal-100: #d0f1f4;
+  --color-teal-200: #a3e2e8;
+  --color-teal-300: #6ccdd6;
+  --color-teal-400: #38b4c0;
+  --color-teal-500: #1a9aa9;
+  --color-teal-600: #0f7f8e;
+  --color-teal-700: #0e6574;
+  --color-teal-800: #0f4f5c;
+  --color-teal-900: #0e3a45;
 
-  --color-abysse: #0f2a22;
-  --color-abysse-2: #17382e;
-  --color-sable: #e6d3a3;
-  --color-brume: #f4f7f5;
+  --color-abysse: #0b3b4c;
+  --color-abysse-2: #0d4a5e;
+  --color-sable: #f1e1b0;
+  --color-brume: #f2f9fb;
 
   --font-sans: var(--font-corps), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-titre), ui-serif, Georgia, serif;
@@ -35,8 +35,9 @@
 
 :root {
   color-scheme: light;
-  --background: #f4f7f5;
-  --foreground: #16211d;
+  --background: #f2f9fb;
+  --foreground: #14232b;
+  accent-color: #0f7f8e;
 }
 
 body {
@@ -70,4 +71,72 @@ h3 {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ——— Habillage « eau » ———
+   Non stratifié, comme les règles ci-dessus : prend le pas sur les utilitaires. */
+
+/* Surface d'eau éclairée par le dessus : en-têtes, pages de connexion, bandeaux. */
+.eau {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(70% 130% at 88% -30%, rgb(140 232 240 / 0.55), transparent 62%),
+    radial-gradient(50% 100% at 4% 130%, rgb(56 180 192 / 0.4), transparent 66%),
+    linear-gradient(135deg, #0b3b4c 0%, #0e6574 58%, #1a9aa9 125%);
+}
+
+/* Rais de lumière qui traversent la surface, de plus en plus faibles vers le fond. */
+.eau::before {
+  content: '';
+  position: absolute;
+  inset: -30% -10% auto -10%;
+  height: 150%;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    102deg,
+    rgb(255 255 255 / 0.075) 0 2px,
+    transparent 2px 52px,
+    rgb(255 255 255 / 0.04) 52px 84px,
+    transparent 84px 150px
+  );
+  -webkit-mask-image: linear-gradient(180deg, #000 0%, transparent 80%);
+  mask-image: linear-gradient(180deg, #000 0%, transparent 80%);
+}
+
+/* Le contenu reste au-dessus des rais. */
+.eau > :not(.absolute) {
+  position: relative;
+}
+
+/* Bulle : le volume d'un bac, en pastille translucide. */
+.bulle {
+  background:
+    radial-gradient(circle at 30% 24%, rgb(255 255 255 / 0.6) 0, rgb(255 255 255 / 0) 36%),
+    linear-gradient(160deg, #38b4c0 0%, #0e6574 100%);
+  box-shadow:
+    inset 0 -4px 10px rgb(11 59 76 / 0.28),
+    0 6px 14px -6px rgb(14 101 116 / 0.55);
+}
+
+/* Cartes : un voile d'ombre teinté d'eau plutôt qu'un simple filet. */
+.rounded-2xl.bg-white,
+.rounded-3xl.bg-white {
+  box-shadow:
+    0 1px 2px rgb(11 59 76 / 0.04),
+    0 8px 22px -12px rgb(14 101 116 / 0.2);
+}
+
+/* Champs : un halo turquoise net au focus. */
+input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-teal-500);
+  box-shadow: 0 0 0 3px rgb(26 154 169 / 0.2);
+}
+
+/* Carte posée sur l'eau (connexion) : ombre plus profonde. */
+.eau .rounded-3xl.bg-white {
+  box-shadow: 0 28px 60px -22px rgb(4 30 40 / 0.65);
 }

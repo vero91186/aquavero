@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Droplets } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 
 export default function LoginPage() {
@@ -28,8 +29,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-abysse px-4">
-      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-8 shadow-xl">
+    <div className="eau flex min-h-screen items-center justify-center px-4 py-10">
+      <form onSubmit={handleSubmit} className="w-full max-w-sm space-y-4 rounded-3xl bg-white p-8">
+        <span className="bulle grid h-12 w-12 place-items-center rounded-full text-white">
+          <Droplets size={22} />
+        </span>
         <h1 className="text-3xl text-slate-900">AquaTrack AI</h1>
         <p className="text-sm text-slate-500">Connecte-toi pour retrouver tes bacs.</p>
 

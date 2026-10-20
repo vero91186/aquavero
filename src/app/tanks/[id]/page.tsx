@@ -208,8 +208,8 @@ export default function TankDetailPage() {
   const activeSubTabs = subTabsFor[section];
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-abysse text-white">
+    <div className="min-h-screen">
+      <header className="eau text-white">
         <div className="mx-auto max-w-5xl px-4 pt-4 pb-5">
           <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-teal-200 hover:text-white">
             <ArrowLeft size={16} /> Mes bacs

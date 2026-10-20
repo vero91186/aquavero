@@ -116,7 +116,7 @@ function Timeline({ days }: { days: number | null }) {
   const position = days === null ? null : Math.min(days, span);
 
   return (
-    <section className="rounded-2xl bg-abysse p-5 text-white">
+    <section className="eau rounded-2xl p-5 text-white">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="text-xl">Calendrier du rodage</h3>
         <p className="text-sm text-teal-200">
