@@ -38,6 +38,32 @@ export const DEFAULT_FEEDING_PLAN: DefaultFeedingItem[] = [
   { weekday: 5, slot: 'evening', food_name: 'Rondelle de courgette blanchie', quantity: '1 rondelle', notes: 'À retirer au bout de 24 h.' },
 ];
 
+// Quantités proposées selon le type d'aliment, reconnu à son nom. La première
+// est la valeur préremplie ; les autres apparaissent dans la liste de suggestions.
+const QUANTITY_HINTS: { match: RegExp; quantities: string[] }[] = [
+  { match: /lolli|bâtonnet|batonnet|stick|stiel/i, quantities: ['1 bâtonnet', '1/2 bâtonnet'] },
+  { match: /flake|flocon/i, quantities: ['5 à 8 flocons', 'Une pincée'] },
+  { match: /wafer|paillette|galette/i, quantities: ['1 paillette', '1/2 paillette', '1 cuillère rase'] },
+  { match: /tab|pastille|comprim/i, quantities: ['2 à 3 pastilles', '1 pastille'] },
+  { match: /granul|pellet|micro/i, quantities: ['Une pincée', '5 à 10 granulés'] },
+  { match: /courgette|concombre|épinard|epinard|carotte|légume|legume/i, quantities: ['1 rondelle', '1 petit morceau'] },
+  { match: /artemia|artémia|daphnie|cyclop|moustique|mysis|surgel|congel/i, quantities: ['1 cube', '1/2 cube'] },
+  { match: /feuille|noix|aulne|catappa|mûrier|murier|bouleau/i, quantities: ['1 feuille', '1 petit morceau'] },
+];
+
+const GENERIC_QUANTITIES = ['Une pincée', '1 cuillère rase', '1 pastille', '1 bâtonnet'];
+
+export function quantitySuggestions(foodName: string): string[] {
+  const hit = QUANTITY_HINTS.find((h) => h.match.test(foodName));
+  return hit ? hit.quantities : GENERIC_QUANTITIES;
+}
+
+// Quantité préremplie quand on choisit un aliment connu ; null si rien de précis à proposer.
+export function defaultQuantity(foodName: string): string | null {
+  const hit = QUANTITY_HINTS.find((h) => h.match.test(foodName));
+  return hit ? hit.quantities[0] : null;
+}
+
 export function itemsForDay(items: FeedingPlanItem[], weekday: number): FeedingPlanItem[] {
   return items
     .filter((i) => i.weekday === weekday)
