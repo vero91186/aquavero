@@ -140,12 +140,13 @@ export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date(
     if (grazers > 0) {
       plan.push({ weekday: 0, slot: 'evening', food_name: WAFERS, quantity: SPOON(c.shrimp), notes: 'Paillettes pour les crevettes et les escargots.' });
     }
-    // Un bâtonnet par semaine pour les crevettes (deux au-delà de 60), le mercredi soir.
+    // Un bâtonnet par semaine pour les crevettes (deux au-delà de 60), le mardi soir.
     if (c.shrimp > 0) {
-      plan.push({ weekday: 2, slot: 'evening', food_name: LOLLY, quantity: c.shrimp > 60 ? '2 bâtonnets' : '1 bâtonnet', notes: 'Un par semaine : à retirer au bout de 24 h s’il en reste.' });
+      plan.push({ weekday: 1, slot: 'evening', food_name: LOLLY, quantity: c.shrimp > 60 ? '2 bâtonnets' : '1 bâtonnet', notes: 'Un par semaine : à retirer au bout de 24 h s’il en reste.' });
     }
     if (c.bottomFish > 0) {
-      const days = c.bottomFish >= 5 ? [1, 3] : [3];
+      // Mardi est réservé au bâtonnet des crevettes : deux repas de pastilles tombent mercredi et vendredi.
+      const days = c.bottomFish >= 5 ? [2, 4] : [3];
       for (const weekday of days) {
         plan.push({ weekday, slot: 'evening', food_name: TABS, quantity: tabQuantity(c.bottomFish), notes: `Pastilles qui coulent pour les poissons de fond ; les crevettes grignotent aussi.${soft}` });
       }
