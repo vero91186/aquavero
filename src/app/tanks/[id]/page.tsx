@@ -482,7 +482,7 @@ export default function TankDetailPage() {
           />
         )}
         {section === 'entretien' && entretienSub === 'nourrissage' && (
-          <FeedingPlan tank={tank} items={feedingItems} logs={logs} products={products} unavailable={feedingUnavailable} onUpdated={loadAll} />
+          <FeedingPlan tank={tank} items={feedingItems} logs={logs} livestock={livestock} products={products} unavailable={feedingUnavailable} onUpdated={loadAll} />
         )}
         {section === 'entretien' && entretienSub === 'traitements' && (
           <TreatmentPrograms tank={tank} products={products} programs={programs} unavailable={programsUnavailable} onUpdated={loadAll} />

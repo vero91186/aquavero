@@ -1,4 +1,4 @@
-import type { FeedingPlanItem, FeedingSlot, MaintenanceLog } from '@/types/database';
+import type { FeedingPlanItem, FeedingSlot, Livestock, MaintenanceLog } from '@/types/database';
 
 export const WEEKDAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 
@@ -37,6 +37,119 @@ export const DEFAULT_FEEDING_PLAN: DefaultFeedingItem[] = [
   { weekday: 3, slot: 'evening', food_name: TABS, quantity: '2 à 3 pastilles', notes: 'Pastilles qui coulent : surtout pour l’ancistrus, les crevettes grignotent.' },
   { weekday: 5, slot: 'evening', food_name: 'Rondelle de courgette blanchie', quantity: '1 rondelle', notes: 'À retirer au bout de 24 h.' },
 ];
+
+// --- Planning généré d'après le peuplement du bac -------------------------
+
+type Group = 'surface' | 'bottomFish' | 'carnivore' | 'shrimp' | 'snail';
+
+const BOTTOM_FISH = /corydora|cory\b|ancistrus|otocinclus|\bloche|kuhli|botia|panda|pléco|pleco|synodontis/i;
+const CARNIVORE = /pseudomugil|gourami|betta|killi|combattant|apistogramma|ram\b/i;
+const SNAIL = /neritina|nérite|nerite|clithon|escargot|snail|planorbe|physe|mélanie|melanie|helenta/i;
+
+function groupsOf(l: Livestock): Group[] {
+  const name = `${l.species_common_name} ${l.species_scientific_name ?? ''}`;
+  if (l.category === 'invertebrate') {
+    if (SNAIL.test(name)) return ['snail'];
+    return ['shrimp'];
+  }
+  if (l.category !== 'fish') return [];
+  if (BOTTOM_FISH.test(name) || l.swim_zone === 'bottom') return ['bottomFish'];
+  // Poisson de surface ou de milieu : paillettes le matin, et du surgelé pour les espèces carnivores.
+  return CARNIVORE.test(name) ? ['surface', 'carnivore'] : ['surface'];
+}
+
+export interface PopulationCounts {
+  surface: number;
+  bottomFish: number;
+  carnivore: number;
+  shrimp: number;
+  snail: number;
+}
+
+export function populationCounts(livestock: Livestock[]): PopulationCounts {
+  const c: PopulationCounts = { surface: 0, bottomFish: 0, carnivore: 0, shrimp: 0, snail: 0 };
+  for (const l of livestock) for (const g of groupsOf(l)) c[g] += Math.max(l.quantity, 0);
+  return c;
+}
+
+// Phrase affichée sous le bouton « Charger le planning » : ce sur quoi il s'appuie.
+export function describePopulation(livestock: Livestock[]): string {
+  const living = livestock.filter((l) => l.category === 'fish' || l.category === 'invertebrate');
+  return living.map((l) => `${l.quantity} ${l.species_common_name}`).join(', ');
+}
+
+const SPOON = (n: number) => (n <= 15 ? '1/2 cuillère rase' : n <= 40 ? '1 cuillère rase' : '2 cuillères rases');
+
+function flakeQuantity(n: number): string {
+  if (n <= 1) return '5 à 8 flocons';
+  if (n <= 8) return 'Une petite pincée';
+  if (n <= 20) return 'Une pincée';
+  return 'Deux pincées';
+}
+
+function tabQuantity(n: number): string {
+  if (n <= 3) return '2 à 3 pastilles';
+  return `${Math.ceil(n / 4)} pastilles`;
+}
+
+function frozenQuantity(n: number): string {
+  if (n <= 6) return '1/2 cube';
+  if (n <= 15) return '1 cube';
+  return '2 cubes';
+}
+
+const FROZEN = 'Artémias surgelées';
+
+// Planning hebdomadaire déduit du peuplement : repas du matin pour les poissons de
+// surface et de milieu, repas coulant du soir pour le fond, les crevettes et les
+// escargots, surgelé pour les espèces carnivores. Les quantités suivent l'effectif ;
+// le dimanche reste un jour de jeûne. Un groupe arrivé depuis moins de 7 jours
+// reçoit une demi-ration (le filtre n'a pas encore absorbé sa charge).
+export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date()): DefaultFeedingItem[] {
+  const c = populationCounts(livestock);
+  if (c.surface + c.bottomFish + c.shrimp + c.snail === 0) return DEFAULT_FEEDING_PLAN;
+
+  const plan: DefaultFeedingItem[] = [];
+  const weekAgo = today.getTime() - 7 * 24 * 3600 * 1000;
+  const recent = livestock.some((l) => (l.category === 'fish') && l.added_at && new Date(l.added_at).getTime() > weekAgo);
+  const soft = recent ? ' Demi-ration pendant la première semaine d’un nouveau groupe.' : '';
+
+  if (c.surface > 0) {
+    const morning = [0, 1, 2, 3, 4, 5];
+    // Deux matins par semaine remplacés par du surgelé pour les carnivores (mercredi, samedi).
+    const frozenDays = c.carnivore > 0 ? [2, 5] : [];
+    for (const weekday of morning) {
+      if (frozenDays.includes(weekday)) {
+        plan.push({ weekday, slot: 'morning', food_name: FROZEN, quantity: frozenQuantity(c.carnivore), notes: `Pour les poissons carnivores : décongeler dans un peu d’eau du bac.${soft}` });
+      } else {
+        plan.push({
+          weekday,
+          slot: 'morning',
+          food_name: FLAKES,
+          quantity: flakeQuantity(c.surface),
+          notes: c.surface === 1 ? `Tout doit être mangé en 1 à 2 minutes.${soft}` : `Tout doit être mangé en 1 à 2 minutes, avant que ça ne coule.${soft}`,
+        });
+      }
+    }
+  }
+
+  // Repas du soir (extinction des lumières) : les Corydoras et l'ancistrus sont actifs à ce moment.
+  if (c.shrimp + c.snail + c.bottomFish > 0) {
+    const grazers = c.shrimp + c.snail;
+    if (grazers > 0) {
+      plan.push({ weekday: 0, slot: 'evening', food_name: WAFERS, quantity: SPOON(c.shrimp), notes: 'Paillettes pour les crevettes et les escargots.' });
+    }
+    if (c.bottomFish > 0) {
+      const days = c.bottomFish >= 5 ? [1, 3] : [3];
+      for (const weekday of days) {
+        plan.push({ weekday, slot: 'evening', food_name: TABS, quantity: tabQuantity(c.bottomFish), notes: `Pastilles qui coulent pour les poissons de fond ; les crevettes grignotent aussi.${soft}` });
+      }
+    }
+    plan.push({ weekday: 5, slot: 'evening', food_name: 'Rondelle de courgette blanchie', quantity: '1 rondelle', notes: 'À retirer au bout de 24 h.' });
+  }
+
+  return plan;
+}
 
 // Quantités proposées selon le type d'aliment, reconnu à son nom. La première
 // est la valeur préremplie ; les autres apparaissent dans la liste de suggestions.
