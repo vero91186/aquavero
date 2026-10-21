@@ -96,7 +96,7 @@ export function FeedingPlan({
 
   async function loadDefault() {
     setBusy('default');
-    if (await insertItems(buildFeedingPlan(livestock))) onUpdated();
+    if (await insertItems(buildFeedingPlan(livestock, new Date(), foods))) onUpdated();
     setBusy(null);
   }
 
@@ -111,7 +111,7 @@ export function FeedingPlan({
       setBusy(null);
       return;
     }
-    if (await insertItems(buildFeedingPlan(livestock))) onUpdated();
+    if (await insertItems(buildFeedingPlan(livestock, new Date(), foods))) onUpdated();
     setBusy(null);
   }
 

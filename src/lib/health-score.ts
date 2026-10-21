@@ -1,4 +1,5 @@
 import type { Livestock, Tank, WaterTest } from '@/types/database';
+import { INVERTEBRATE_COEF } from '@/lib/density';
 
 // Calcul générique de charge biologique et de score de santé.
 // Ne dépend d'aucune population figée : s'adapte à n'importe quel bac,
@@ -11,8 +12,12 @@ export interface BioloadResult {
 }
 
 export function computeBioload(tank: Tank, livestock: Livestock[]): BioloadResult {
+  // Crevettes et escargots pèsent moins sur le bac que des poissons : même
+  // coefficient (30 %) que dans le calcul de densité, pour que le score de santé
+  // et les repères de peuplement racontent la même chose.
   const totalBioloadUnits = livestock.reduce(
-    (sum, item) => sum + item.bioload_factor * item.quantity,
+    (sum, item) =>
+      sum + item.bioload_factor * item.quantity * (item.category === 'invertebrate' ? INVERTEBRATE_COEF : 1),
     0
   );
   const bioloadPerLiter = tank.volume_liters > 0 ? totalBioloadUnits / tank.volume_liters : 0;
