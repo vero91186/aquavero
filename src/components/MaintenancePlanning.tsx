@@ -250,7 +250,7 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
         <CalendarDays size={18} /> Planning d&apos;entretien
       </h3>
       <p className="mt-1 text-sm text-slate-500">
-        Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Repas : une fois par jour, en petite quantité, sans rien laisser après 2 minutes.
+        Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Repas : voir l’onglet Nourrissage (petites quantités, rien ne doit rester après 2 minutes pour les poissons, jeûne un jour par semaine).
       </p>
 
       <div className={`mt-3 rounded-xl border px-3 py-2 ${todo.length > 0 ? 'border-teal-200 bg-teal-50/50' : 'border-slate-100 bg-slate-50'}`}>

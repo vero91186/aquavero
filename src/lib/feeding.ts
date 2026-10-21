@@ -106,7 +106,9 @@ const LOLLY = 'GlasGarten Shrimp Lolly';
 // escargots (plus un bâtonnet hebdomadaire pour les crevettes), surgelé pour les espèces carnivores. Les quantités suivent l'effectif ;
 // le dimanche reste un jour de jeûne. Un groupe arrivé depuis moins de 7 jours
 // reçoit une demi-ration (le filtre n'a pas encore absorbé sa charge).
-export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date()): DefaultFeedingItem[] {
+export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date(), foodProducts: { name: string }[] = []): DefaultFeedingItem[] {
+  // Le bâtonnet porte le nom exact du produit enregistré : le journal et le planning se reconnaissent ainsi.
+  const lollyName = foodProducts.find((p) => /lolli/i.test(p.name))?.name ?? LOLLY;
   const c = populationCounts(livestock);
   if (c.surface + c.bottomFish + c.shrimp + c.snail === 0) return DEFAULT_FEEDING_PLAN;
 
@@ -142,7 +144,7 @@ export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date(
     }
     // Un bâtonnet par semaine pour les crevettes (deux au-delà de 60), le mardi soir.
     if (c.shrimp > 0) {
-      plan.push({ weekday: 1, slot: 'evening', food_name: LOLLY, quantity: c.shrimp > 60 ? '2 bâtonnets' : '1 bâtonnet', notes: 'Un par semaine : à retirer au bout de 24 h s’il en reste.' });
+      plan.push({ weekday: 1, slot: 'evening', food_name: lollyName, quantity: c.shrimp > 60 ? '2 bâtonnets' : '1 bâtonnet', notes: 'Un par semaine : à retirer au bout de 24 h s’il en reste.' });
     }
     if (c.bottomFish > 0) {
       // Mardi est réservé au bâtonnet des crevettes : deux repas de pastilles tombent mercredi et vendredi.

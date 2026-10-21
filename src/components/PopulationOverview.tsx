@@ -1,6 +1,7 @@
 'use client';
 
 import { scientificNameOf } from '@/lib/species-catalog';
+import { computeDensity, densityLevel, linesFromLivestock, DENSITY_LIMIT } from '@/lib/density';
 import type { Livestock, SwimZone, Tank } from '@/types/database';
 import { AlertTriangle, Info } from 'lucide-react';
 
@@ -10,30 +11,23 @@ const SWIM_ZONE_LABELS: Record<SwimZone, string> = {
   bottom: 'Fond',
 };
 
-// Repère indicatif largement utilisé : ~1 cm de poisson adulte par litre
-// d'eau pour un bac communautaire classique. Volontairement prudent — ne
-// remplace pas le calculateur de charge biologique (facteur bioload), qui
-// reste la référence pour le score de santé.
-const CM_PER_LITER_REFERENCE = 1;
-
-function levelFromRatio(ratio: number): { label: string; color: string } {
-  if (ratio < 0.5) return { label: 'Sous-peuplé', color: 'bg-sky-100 text-sky-700' };
-  if (ratio <= 1) return { label: 'Bien peuplé', color: 'bg-emerald-100 text-emerald-700' };
-  if (ratio <= 1.4) return { label: 'Densément peuplé', color: 'bg-amber-100 text-amber-700' };
-  return { label: 'Surpeuplé', color: 'bg-red-100 text-red-700' };
-}
+// Couleur du badge selon le niveau calculé par le module de densité, le même que
+// celui de l'onglet Peuplement (poissons + invertébrés à 30 %).
+const LEVEL_COLORS: Record<string, string> = {
+  aere: 'bg-sky-100 text-sky-700',
+  raisonnable: 'bg-emerald-100 text-emerald-700',
+  charge: 'bg-amber-100 text-amber-700',
+  surcharge: 'bg-red-100 text-red-700',
+};
 
 export function PopulationOverview({ tank, livestock }: { tank: Tank; livestock: Livestock[] }) {
   const animals = livestock.filter((l) => l.category !== 'plant');
 
-  // Le repère cm/L ne vaut que pour les poissons : crevettes et escargots
-  // (invertébrés) pèsent très peu sur la charge et faussaient le total.
-  const totalCm = animals
-    .filter((l) => l.category === 'fish')
-    .reduce((sum, l) => sum + (l.adult_size_cm ?? 0) * l.quantity, 0);
-  const ratio = tank.volume_liters > 0 ? totalCm / tank.volume_liters : 0;
-  const pct = Math.min(150, Math.round((ratio / CM_PER_LITER_REFERENCE) * 100));
-  const level = levelFromRatio(ratio);
+  const density = computeDensity(linesFromLivestock(animals), tank.volume_liters, tank.gross_volume_liters ?? null, null);
+  const ratio = density.ratioNet;
+  const pct = Math.min(150, Math.round((ratio / DENSITY_LIMIT) * 100));
+  const levelInfo = densityLevel(ratio);
+  const level = { label: levelInfo.label, color: LEVEL_COLORS[levelInfo.id] ?? LEVEL_COLORS.aere };
 
   const zoneCounts: Record<SwimZone, number> = { top: 0, mid: 0, bottom: 0 };
   animals.forEach((l) => {
@@ -60,19 +54,18 @@ export function PopulationOverview({ tank, livestock }: { tank: Tank; livestock:
         <div className="mt-3 flex items-end gap-2">
           <span className="text-3xl font-bold text-slate-900">{pct}%</span>
           <span className="mb-1 text-sm text-slate-400">
-            · {ratio.toFixed(2)} cm de poisson / L (repère indicatif ~1 cm/L)
+            · {ratio.toFixed(2)} cm équivalent poisson / L (limite conseillée {DENSITY_LIMIT})
           </span>
         </div>
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
           <div
-            className={`h-full rounded-full ${pct > 140 ? 'bg-red-500' : pct > 100 ? 'bg-amber-500' : 'bg-teal-500'}`}
+            className={`h-full rounded-full ${pct > 133 ? 'bg-red-500' : pct > 100 ? 'bg-amber-500' : 'bg-teal-500'}`}
             style={{ width: `${Math.min(100, pct)}%` }}
           />
         </div>
         <p className="mt-2 text-xs text-slate-400">
-          Estimation indicative basée sur la taille adulte des espèces déclarées — le score de
-          santé et le calculateur de peuplement restent la référence pour la charge biologique
-          réelle.
+          Estimation indicative basée sur la taille adulte des espèces déclarées (crevettes et
+          escargots comptés pour 30 %), calculée comme dans l’onglet Peuplement.
         </p>
       </div>
 
