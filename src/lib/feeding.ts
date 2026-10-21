@@ -99,10 +99,11 @@ function frozenQuantity(n: number): string {
 }
 
 const FROZEN = 'Artémias surgelées';
+const LOLLY = 'GlasGarten Shrimp Lolly';
 
 // Planning hebdomadaire déduit du peuplement : repas du matin pour les poissons de
 // surface et de milieu, repas coulant du soir pour le fond, les crevettes et les
-// escargots, surgelé pour les espèces carnivores. Les quantités suivent l'effectif ;
+// escargots (plus un bâtonnet hebdomadaire pour les crevettes), surgelé pour les espèces carnivores. Les quantités suivent l'effectif ;
 // le dimanche reste un jour de jeûne. Un groupe arrivé depuis moins de 7 jours
 // reçoit une demi-ration (le filtre n'a pas encore absorbé sa charge).
 export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date()): DefaultFeedingItem[] {
@@ -138,6 +139,10 @@ export function buildFeedingPlan(livestock: Livestock[], today: Date = new Date(
     const grazers = c.shrimp + c.snail;
     if (grazers > 0) {
       plan.push({ weekday: 0, slot: 'evening', food_name: WAFERS, quantity: SPOON(c.shrimp), notes: 'Paillettes pour les crevettes et les escargots.' });
+    }
+    // Un bâtonnet par semaine pour les crevettes (deux au-delà de 60), le mercredi soir.
+    if (c.shrimp > 0) {
+      plan.push({ weekday: 2, slot: 'evening', food_name: LOLLY, quantity: c.shrimp > 60 ? '2 bâtonnets' : '1 bâtonnet', notes: 'Un par semaine : à retirer au bout de 24 h s’il en reste.' });
     }
     if (c.bottomFish > 0) {
       const days = c.bottomFish >= 5 ? [1, 3] : [3];
