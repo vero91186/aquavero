@@ -3,14 +3,15 @@
 import { useState } from 'react';
 import { Moon, Plus, RefreshCw, Sunrise, Trash2, Utensils, Wand2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import type { FeedingPlanItem, FeedingSlot, MaintenanceLog, Product, Tank } from '@/types/database';
+import type { FeedingPlanItem, FeedingSlot, Livestock, MaintenanceLog, Product, Tank } from '@/types/database';
 import { productCategoryOf } from '@/lib/products';
-import { DEFAULT_FEEDING_PLAN, defaultQuantity, feedingLogText, itemsForDay, mealLogs, quantitySuggestions, SLOT_LABELS, WEEKDAYS, weekdayOf } from '@/lib/feeding';
+import { buildFeedingPlan, defaultQuantity, describePopulation, feedingLogText, itemsForDay, mealLogs, quantitySuggestions, SLOT_LABELS, WEEKDAYS, weekdayOf } from '@/lib/feeding';
 
 export function FeedingPlan({
   tank,
   items,
   logs,
+  livestock,
   products,
   unavailable,
   onUpdated,
@@ -18,6 +19,7 @@ export function FeedingPlan({
   tank: Tank;
   items: FeedingPlanItem[];
   logs: MaintenanceLog[];
+  livestock: Livestock[];
   products: Product[];
   unavailable: boolean;
   onUpdated: () => void;
@@ -94,7 +96,22 @@ export function FeedingPlan({
 
   async function loadDefault() {
     setBusy('default');
-    if (await insertItems(DEFAULT_FEEDING_PLAN)) onUpdated();
+    if (await insertItems(buildFeedingPlan(livestock))) onUpdated();
+    setBusy(null);
+  }
+
+  // Remplace tout le planning par un nouveau calculé d'après le peuplement actuel.
+  async function regenerate() {
+    if (!window.confirm('Remplacer le planning actuel par un planning calculé d’après le peuplement ? Tes modifications manuelles seront perdues.')) return;
+    setBusy('default');
+    setError(null);
+    const { error: err } = await supabase.from('feeding_plan_items').delete().eq('tank_id', tank.id);
+    if (err) {
+      setError(`Impossible de remplacer le planning : ${err.message}`);
+      setBusy(null);
+      return;
+    }
+    if (await insertItems(buildFeedingPlan(livestock))) onUpdated();
     setBusy(null);
   }
 
@@ -351,7 +368,9 @@ export function FeedingPlan({
             <Wand2 size={15} /> Charger le planning conseillé
           </button>
           <p className="mt-2 text-xs text-slate-400">
-            Pensé pour 30 crevettes, des escargots, un ancistrus et un tétra : flocons le matin, paillettes, pastilles ou courgette le soir, jeûne le dimanche. Tu pourras tout modifier.
+            {describePopulation(livestock)
+              ? `Calculé d’après le peuplement de ce bac (${describePopulation(livestock)}) : repas du matin pour la surface, repas coulant le soir pour le fond, jeûne le dimanche. Tu pourras tout modifier.`
+              : 'Aucun animal dans l’onglet Peuplement : planning type (flocons le matin, paillettes ou pastilles le soir, jeûne le dimanche). Tu pourras tout modifier.'}
           </p>
         </div>
       ) : (
@@ -439,6 +458,15 @@ export function FeedingPlan({
               </button>
             </form>
           )}
+
+          <button
+            type="button"
+            onClick={regenerate}
+            disabled={busy === 'default'}
+            className="mt-4 inline-flex items-center gap-2 rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+          >
+            <Wand2 size={14} /> Régénérer selon le peuplement
+          </button>
 
           <details className="mt-4 text-sm text-slate-500">
             <summary className="cursor-pointer select-none text-slate-600">Conseils sur les quantités</summary>
