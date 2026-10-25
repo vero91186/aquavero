@@ -1,5 +1,5 @@
 import type { Livestock, Tank, WaterTest } from '@/types/database';
-import { INVERTEBRATE_COEF } from '@/lib/density';
+import { INVERTEBRATE_COEF, DENSITY_LIMIT, computeDensity, linesFromLivestock } from '@/lib/density';
 
 // Calcul générique de charge biologique et de score de santé.
 // Ne dépend d'aucune population figée : s'adapte à n'importe quel bac,
@@ -22,11 +22,19 @@ export function computeBioload(tank: Tank, livestock: Livestock[]): BioloadResul
   );
   const bioloadPerLiter = tank.volume_liters > 0 ? totalBioloadUnits / tank.volume_liters : 0;
 
-  // Seuils indicatifs, volontairement prudents pour un bac communautaire planté.
+  // Le niveau de charge vient du même calcul que l'onglet Peuplement et l'aperçu
+  // (cm équivalent poisson par litre d'eau réelle, limite conseillée 1,5), pour
+  // que le score de santé ne contredise jamais « Aéré / Raisonnable / Chargé ».
+  const ratio = computeDensity(
+    linesFromLivestock(livestock),
+    tank.volume_liters,
+    tank.gross_volume_liters ?? null,
+    null,
+  ).ratioNet;
   let loadLevel: BioloadResult['loadLevel'] = 'faible';
-  if (bioloadPerLiter > 0.12) loadLevel = 'critique';
-  else if (bioloadPerLiter > 0.08) loadLevel = 'élevée';
-  else if (bioloadPerLiter > 0.04) loadLevel = 'modérée';
+  if (ratio >= 2) loadLevel = 'critique';
+  else if (ratio >= DENSITY_LIMIT) loadLevel = 'élevée';
+  else if (ratio >= 1) loadLevel = 'modérée';
 
   return { totalBioloadUnits, bioloadPerLiter, loadLevel };
 }
