@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
@@ -26,6 +26,7 @@ import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
 import { TreatmentPrograms } from '@/components/TreatmentPrograms';
 import { FeedingPlan } from '@/components/FeedingPlan';
 import { CrossingChart } from '@/components/CrossingChart';
+import { BottomNav, type NavItem } from '@/components/BottomNav';
 import { programState, dateKey } from '@/lib/treatment';
 import { PlantMap } from '@/components/PlantMap';
 import { EquipmentPanel } from '@/components/EquipmentPanel';
@@ -97,6 +98,30 @@ const ENTRETIEN_SUBS: { key: EntretienSub; label: string }[] = [
   { key: 'journal', label: 'Journal' },
 ];
 
+const SECTION_KEYS: string[] = SECTIONS.map((s) => s.key);
+const SUBS_BY_SECTION: Partial<Record<Section, { key: string; label: string }[]>> = {
+  bac: BAC_SUBS,
+  eau: EAU_SUBS,
+  peuplement: PEUPLEMENT_SUBS,
+  entretien: ENTRETIEN_SUBS,
+};
+
+// Sur téléphone : les rubriques du quotidien dans la barre du bas, le reste sous « Plus ».
+const PRIMARY_KEYS: Section[] = ['apercu', 'peuplement', 'eau', 'entretien'];
+const MORE_HINTS: Partial<Record<Section, string>> = {
+  bac: 'Propriétés, matériel, roches et produits',
+  maladies: 'Diagnostic et programmes de traitement',
+  scanner: 'Analyser une photo (bandelette, poisson, produit)',
+  assistant: 'Poser une question ou lancer un check-up',
+};
+
+// L'adresse garde la rubrique et le sous-onglet : le bouton retour du téléphone
+// remonte d'un écran et un rechargement ne ramène plus à l'aperçu.
+function navQuery(section: Section, sub: string | null): string {
+  if (section === 'apercu') return '';
+  return `?s=${section}${sub ? `&sub=${sub}` : ''}`;
+}
+
 const QUICK_ACTIONS: { taskType: MaintenanceTaskType; label: string; icon: React.ReactNode }[] = [
   { taskType: 'water_change', label: "Changement d'eau", icon: <Droplet size={14} /> },
   { taskType: 'feeding', label: 'Nourrissage', icon: <Utensils size={14} /> },
@@ -131,6 +156,61 @@ export default function TankDetailPage() {
   const [loading, setLoading] = useState(true);
   const [quickTaskType, setQuickTaskType] = useState<MaintenanceTaskType | null>(null);
   const [assistantMode, setAssistantMode] = useState<'chat' | 'diagnose' | 'scan'>('chat');
+  const [navReady, setNavReady] = useState(false);
+  const subNavRef = useRef<HTMLDivElement>(null);
+
+  const currentSub: string | null =
+    section === 'bac' ? bacSub : section === 'eau' ? eauSub : section === 'peuplement' ? peuplementSub : section === 'entretien' ? entretienSub : null;
+
+  // Lit la rubrique dans l'adresse (ouverture, rechargement, bouton retour).
+  const applyUrl = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const wanted = params.get('s');
+    const target = (wanted && SECTION_KEYS.includes(wanted) ? wanted : 'apercu') as Section;
+    const subs = SUBS_BY_SECTION[target];
+    const wantedSub = params.get('sub');
+    const sub = subs ? (subs.find((x) => x.key === wantedSub) ?? subs[0]).key : null;
+    setSection(target);
+    if (target === 'bac') setBacSub(sub as BacSub);
+    if (target === 'eau') setEauSub(sub as EauSub);
+    if (target === 'peuplement') setPeuplementSub(sub as PeuplementSub);
+    if (target === 'entretien') setEntretienSub(sub as EntretienSub);
+    // Adresse incomplète ou inconnue : on la remet d'aplomb sans ajouter d'étape à l'historique.
+    const clean = navQuery(target, sub);
+    if (clean !== window.location.search) window.history.replaceState(null, '', window.location.pathname + clean);
+  }, []);
+
+  useEffect(() => {
+    // Lecture de l'adresse au chargement : on aligne l'état local sur un système
+    // extérieur (l'URL), c'est le rôle normal d'un effet.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    applyUrl();
+    setNavReady(true);
+    window.addEventListener('popstate', applyUrl);
+    return () => window.removeEventListener('popstate', applyUrl);
+  }, [applyUrl]);
+
+  // Chaque changement de rubrique ou de sous-onglet crée une étape d'historique et remonte en haut de page.
+  useEffect(() => {
+    if (!navReady) return;
+    const wanted = navQuery(section, currentSub);
+    if (wanted === window.location.search) return;
+    window.history.pushState(null, '', window.location.pathname + wanted);
+    window.scrollTo({ top: 0 });
+  }, [navReady, section, currentSub]);
+
+  // Garde le sous-onglet actif visible dans la rangée qui défile.
+  useEffect(() => {
+    const box = subNavRef.current;
+    const el = box?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!box || !el) return;
+    box.scrollTo({ left: el.offsetLeft - (box.clientWidth - el.clientWidth) / 2, behavior: 'smooth' });
+  }, [loading, section, currentSub]);
+
+  function selectSection(key: string) {
+    if (key === 'assistant') setAssistantMode('chat');
+    setSection(key as Section);
+  }
 
   const loadAll = useCallback(async () => {
     const [tankRes, testsRes, livestockRes, logsRes, dosesRes, hardscapeRes, productsRes, customSpeciesRes, programsRes, feedingRes] = await Promise.all([
@@ -208,6 +288,7 @@ export default function TankDetailPage() {
     })),
   };
   const activeSubTabs = subTabsFor[section];
+  const subLabel = SUBS_BY_SECTION[section]?.find((x) => x.key === currentSub)?.label;
 
   return (
     <div className="min-h-screen">
@@ -228,18 +309,20 @@ export default function TankDetailPage() {
                 )}
                 , {tank.water_type === 'freshwater' ? 'eau douce' : tank.water_type === 'saltwater' ? 'eau de mer' : 'eau saumâtre'}
               </p>
+              <p className="mt-2 text-xs font-medium uppercase tracking-wide text-teal-200 sm:hidden">
+                {SECTIONS.find((x) => x.key === section)?.label}
+                {subLabel ? ` · ${subLabel}` : ''}
+              </p>
             </div>
           </div>
         </div>
 
-        <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 pb-3">
+        <nav aria-label="Rubriques" className="mx-auto hidden max-w-5xl gap-1 overflow-x-auto px-4 pb-3 sm:flex">
           {SECTIONS.map((s) => (
             <button
               key={s.key}
-              onClick={() => {
-                if (s.key === 'assistant') setAssistantMode('chat');
-                setSection(s.key);
-              }}
+              aria-current={section === s.key ? 'page' : undefined}
+              onClick={() => selectSection(s.key)}
               className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
                 section === s.key ? 'bg-white text-abysse' : 'text-teal-100 hover:bg-white/10 hover:text-white'
               }`}
@@ -249,26 +332,28 @@ export default function TankDetailPage() {
           ))}
         </nav>
 
-        {activeSubTabs && (
-          <div className="border-t border-white/10 bg-abysse-2">
-            <div className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2">
-              {activeSubTabs.map((s) => (
-                <button
-                  key={s.key}
-                  onClick={s.onClick}
-                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium transition ${
-                    s.active ? 'bg-sable text-abysse' : 'text-teal-200 hover:text-white'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </header>
 
-      <main className="mx-auto max-w-5xl px-4 py-6">
+      {activeSubTabs && (
+        <div className="sticky top-0 z-30 border-b border-white/10 bg-abysse-2 shadow-sm">
+          <div ref={subNavRef} className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-4 py-2">
+            {activeSubTabs.map((s) => (
+              <button
+                key={s.key}
+                aria-current={s.active ? 'page' : undefined}
+                onClick={s.onClick}
+                className={`shrink-0 rounded-full px-3.5 py-1.5 text-sm font-medium transition sm:px-3 sm:py-1 sm:text-xs ${
+                  s.active ? 'bg-sable text-abysse' : 'text-teal-200 hover:text-white'
+                }`}
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <main className="mx-auto max-w-5xl px-4 py-6 pb-28 sm:pb-6">
         {section === 'apercu' && (
           <div className="space-y-4">
             {(programAlerts.length > 0 || reminders.length > 0 || productsToWatch.length > 0) && (
@@ -525,6 +610,18 @@ export default function TankDetailPage() {
           <AiAssistantPanel tankId={tankId} initialMode={assistantMode} onUpdated={loadAll} />
         )}
       </main>
+
+      <BottomNav
+        active={section}
+        onSelect={selectSection}
+        primary={PRIMARY_KEYS.map((k): NavItem => {
+          const item = SECTIONS.find((x) => x.key === k)!;
+          return { key: item.key, label: item.label, icon: item.icon };
+        })}
+        more={SECTIONS.filter((x) => !PRIMARY_KEYS.includes(x.key)).map(
+          (x): NavItem => ({ key: x.key, label: x.label, icon: x.icon, hint: MORE_HINTS[x.key] })
+        )}
+      />
     </div>
   );
 }
