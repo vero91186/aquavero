@@ -119,7 +119,6 @@ function NewTankForm({ onCreated, onCancel }: { onCreated: () => void; onCancel:
   const supabase = createClient();
   const [name, setName] = useState('');
   const [volume, setVolume] = useState('');
-  const [waterType, setWaterType] = useState('freshwater');
   const [isPlanted, setIsPlanted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,7 +136,7 @@ function NewTankForm({ onCreated, onCancel }: { onCreated: () => void; onCancel:
       user_id: user.id,
       name,
       volume_liters: parseFloat(volume),
-      water_type: waterType,
+      water_type: 'freshwater',
       is_planted: isPlanted,
       setup_date: new Date().toISOString().slice(0, 10),
     });
@@ -173,18 +172,6 @@ function NewTankForm({ onCreated, onCancel }: { onCreated: () => void; onCancel:
             onChange={(e) => setVolume(e.target.value)}
             className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm font-medium text-slate-700">Type d&apos;eau</label>
-          <select
-            value={waterType}
-            onChange={(e) => setWaterType(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            <option value="freshwater">Eau douce</option>
-            <option value="saltwater">Eau de mer</option>
-            <option value="brackish">Eau saumâtre</option>
-          </select>
         </div>
         <label className="flex items-center gap-2 self-end pb-2 text-sm text-slate-700">
           <input type="checkbox" checked={isPlanted} onChange={(e) => setIsPlanted(e.target.checked)} />

@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     `Mise en eau : ${tank.setup_date ? `il y a ${setupDays} jour${(setupDays ?? 0) > 1 ? 's' : ''}` : 'date non renseignée'}`,
     `Statut du cyclage déclaré : ${CYCLING_LABELS[tank.cycling_status] ?? tank.cycling_status}`,
     `Score de santé calculé (règles fixes, indicatif) : ${health.score}/100 (${health.label})`,
-    `Charge biologique : ${bioload.loadLevel} (${bioload.bioloadPerLiter.toFixed(3)} unité/L)`,
+    `Charge biologique : ${bioload.loadLevel} (${bioload.densityCmPerLiter.toFixed(2)} cm équivalent poisson par litre, limite conseillée 1,5)`,
     `Peuplement : ${
       livestockList.length > 0
         ? livestockList.map((l) => `${l.quantity} ${l.species_common_name} (${l.category})`).join(', ')

@@ -114,7 +114,11 @@ export function TankPropertiesPanel({
               onChange={(e) => set('water_type', e.target.value as WaterType)}
               className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
             >
-              {(Object.keys(WATER_TYPE_LABELS) as WaterType[]).map((t) => (
+              {/* Les plages de référence (score de santé, cyclage) sont celles de l'eau
+                  douce : on ne propose que celle-ci, en gardant le type d'un bac déjà créé. */}
+              {(Object.keys(WATER_TYPE_LABELS) as WaterType[])
+                .filter((t) => t === 'freshwater' || t === tank.water_type)
+                .map((t) => (
                 <option key={t} value={t}>{WATER_TYPE_LABELS[t]}</option>
               ))}
             </select>
