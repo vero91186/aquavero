@@ -25,6 +25,7 @@ import { DiseasesPanel } from '@/components/DiseasesPanel';
 import { TankPropertiesPanel } from '@/components/TankPropertiesPanel';
 import { TreatmentPrograms } from '@/components/TreatmentPrograms';
 import { FeedingPlan } from '@/components/FeedingPlan';
+import { CrossingChart } from '@/components/CrossingChart';
 import { programState, dateKey } from '@/lib/treatment';
 import { PlantMap } from '@/components/PlantMap';
 import { EquipmentPanel } from '@/components/EquipmentPanel';
@@ -56,7 +57,7 @@ import {
 type Section = 'apercu' | 'bac' | 'eau' | 'peuplement' | 'entretien' | 'maladies' | 'scanner' | 'assistant';
 type BacSub = 'proprietes' | 'materiel' | 'hardscape' | 'produits';
 type EauSub = 'parametres' | 'cyclage';
-type PeuplementSub = 'poissons' | 'simulateur' | 'plantes';
+type PeuplementSub = 'poissons' | 'simulateur' | 'plantes' | 'croisements';
 type EntretienSub = 'planning' | 'nourrissage' | 'traitements' | 'journal';
 
 const SECTIONS: { key: Section; label: string; icon: React.ReactNode }[] = [
@@ -86,6 +87,7 @@ const PEUPLEMENT_SUBS: { key: PeuplementSub; label: string }[] = [
   { key: 'poissons', label: 'Mes poissons' },
   { key: 'simulateur', label: 'Simulateur' },
   { key: 'plantes', label: 'Plantes' },
+  { key: 'croisements', label: 'Croisements' },
 ];
 
 const ENTRETIEN_SUBS: { key: EntretienSub; label: string }[] = [
@@ -452,6 +454,7 @@ export default function TankDetailPage() {
             />
           </div>
         )}
+        {section === 'peuplement' && peuplementSub === 'croisements' && <CrossingChart />}
         {section === 'peuplement' && peuplementSub === 'plantes' && (
           <div className="space-y-6">
           <PlantMap tank={tank} plants={livestock.filter((l) => l.category === 'plant')} onUpdated={loadAll} />
