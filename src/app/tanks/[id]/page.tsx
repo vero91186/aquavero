@@ -562,6 +562,7 @@ export default function TankDetailPage() {
             logs={logs}
             tests={tests}
             volumeLiters={tank.volume_liters}
+            maintenanceWeekday={tank.maintenance_weekday ?? null}
             onUpdated={loadAll}
             onNote={(t) => {
               setQuickTaskType(t);

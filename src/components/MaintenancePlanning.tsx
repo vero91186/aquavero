@@ -70,12 +70,14 @@ function kindOf(it: PlanItem): { icon: React.ReactNode; label: string; tone: str
   return { icon: <Leaf size={16} />, label: 'Plantes', tone: 'bg-lime-50 text-lime-700' };
 }
 
-export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLiters, onUpdated, onNote }: {
+export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLiters, maintenanceWeekday, onUpdated, onNote }: {
   tankId: string;
   livestock: Livestock[];
   logs: MaintenanceLog[];
   tests: WaterTest[];
   volumeLiters: number;
+  // Jour d'entretien choisi (0 = lundi … 6 = dimanche), null = calé sur le jour 0.
+  maintenanceWeekday: number | null;
   // Recharge les données après qu'une case a été cochée ou décochée.
   onUpdated: () => void;
   // Préremplit le formulaire de journal plus bas avec le type de tâche choisi.
@@ -101,7 +103,7 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
     );
   }
 
-  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters, contextFromLivestock(livestock));
+  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters, contextFromLivestock(livestock), maintenanceWeekday);
   const late = items.filter((i) => i.date < today && i.type !== 'test' && !isDone(i, logs, tests));
   const upcoming = items.filter((i) => i.date >= today);
 
@@ -123,6 +125,16 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
     });
     return { s, from, to, lines, allDone: lines.every((x) => x.done) };
   });
+
+  async function changeWeekday(value: string) {
+    setError(null);
+    const { error: err } = await supabase
+      .from('tanks')
+      .update({ maintenance_weekday: value === '' ? null : Number(value) })
+      .eq('id', tankId);
+    if (err) setError(`Impossible de changer le jour d'entretien : ${err.message}`);
+    onUpdated();
+  }
 
   // Cocher ajoute l'intervention au journal ; décocher retire celle que la case avait créée.
   async function toggle(it: PlanItem, key: string, done: boolean) {
@@ -252,6 +264,19 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
       <p className="mt-1 text-sm text-slate-500">
         Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Repas : voir l’onglet Nourrissage (petites quantités, rien ne doit rester après 2 minutes pour les poissons, jeûne un jour par semaine).
       </p>
+      <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+        Jour du changement d&apos;eau
+        <select
+          value={maintenanceWeekday ?? ''}
+          onChange={(e) => changeWeekday(e.target.value)}
+          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm"
+        >
+          <option value="">Automatique (jour {day0.toLocaleDateString('fr-FR', { weekday: 'long' })})</option>
+          {['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'].map((d, i) => (
+            <option key={d} value={i}>{d.charAt(0).toUpperCase() + d.slice(1)}</option>
+          ))}
+        </select>
+      </label>
 
       <div className={`mt-3 rounded-xl border px-3 py-2 ${todo.length > 0 ? 'border-teal-200 bg-teal-50/50' : 'border-slate-100 bg-slate-50'}`}>
         <p className="flex items-center gap-2 text-sm font-semibold text-slate-800">
