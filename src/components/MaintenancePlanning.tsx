@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { CalendarDays, ChevronDown, Droplets, Eraser, Filter, Fish, FlaskConical, Gauge, Leaf, ListChecks, Utensils, Wrench } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import type { Livestock, MaintenanceLog, MaintenanceTaskType, WaterTest } from '@/types/database';
-import { addDays, buildPlan, contextFromLivestock, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
+import type { Livestock, MaintenanceLog, MaintenanceTaskType, Product, WaterTest } from '@/types/database';
+import { productCategoryOf } from '@/lib/products';
+import { addDays, buildPlan, contextFromLivestock, type PlanConditioner, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
 import { introductionPlan } from '@/lib/introduction';
 import { linesFromLivestock } from '@/lib/density';
 
@@ -70,7 +71,7 @@ function kindOf(it: PlanItem): { icon: React.ReactNode; label: string; tone: str
   return { icon: <Leaf size={16} />, label: 'Plantes', tone: 'bg-lime-50 text-lime-700' };
 }
 
-export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLiters, maintenanceWeekday, waterEveryWeeks, onUpdated, onNote }: {
+export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLiters, maintenanceWeekday, waterEveryWeeks, conditionerDosePer100l, products, onUpdated, onNote }: {
   tankId: string;
   livestock: Livestock[];
   logs: MaintenanceLog[];
@@ -80,6 +81,9 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
   maintenanceWeekday: number | null;
   // Changement d'eau toutes les 1 ou 2 semaines.
   waterEveryWeeks: number;
+  // Dose de référence du conditionneur (mL pour 100 L d'eau neuve) et fiches produits du bac.
+  conditionerDosePer100l: number | null;
+  products: Product[];
   // Recharge les données après qu'une case a été cochée ou décochée.
   onUpdated: () => void;
   // Préremplit le formulaire de journal plus bas avec le type de tâche choisi.
@@ -105,7 +109,15 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
     );
   }
 
-  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters, contextFromLivestock(livestock), maintenanceWeekday, waterEveryWeeks);
+  // Dose enregistrée sur le bac en priorité, sinon celle de la fiche du conditionneur (anti-chlore) du bac.
+  const conditionerProduct = products.find((p) => productCategoryOf(p) === 'conditioner' && (p.dose_ml_per_100l ?? 0) > 0);
+  const conditioner: PlanConditioner | null =
+    (conditionerDosePer100l ?? 0) > 0
+      ? { name: conditionerProduct?.name ?? null, per100l: conditionerDosePer100l as number }
+      : conditionerProduct
+        ? { name: conditionerProduct.name, per100l: conditionerProduct.dose_ml_per_100l as number }
+        : null;
+  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters, contextFromLivestock(livestock), maintenanceWeekday, waterEveryWeeks, conditioner);
   const late = items.filter((i) => i.date < today && i.type !== 'test' && !isDone(i, logs, tests));
   const upcoming = items.filter((i) => i.date >= today);
 
@@ -159,6 +171,8 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
         user_id: userData.user.id,
         task_type: it.type,
         description: it.title,
+        // Changement d'eau : on note aussi l'eau changée et le conditionneur versé.
+        ...(it.type === 'water_change' ? { percentage_changed: it.percentage ?? null, conditioner_ml: it.conditionerMl ?? null } : {}),
         performed_at: when.toISOString(),
       });
       if (err) setError(`Impossible de cocher : ${err.message}`);
