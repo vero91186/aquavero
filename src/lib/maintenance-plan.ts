@@ -96,8 +96,9 @@ export function weekdayShift(day0: Date, weekday: number | null | undefined): nu
 }
 
 // `weekday` : jour d'entretien choisi pour le bac (changement d'eau et tâches liées).
+// `waterEveryWeeks` : 1 (chaque semaine) ou 2 (toutes les 2 semaines) ; le test d'eau et l'engrais suivent le changement d'eau.
 // Le jour 0 et le test des 3 premiers jours restent à leur date réelle.
-export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext, weekday: number | null = null): PlanItem[] {
+export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext, weekday: number | null = null, waterEveryWeeks: number | null = 1): PlanItem[] {
   const items: PlanItem[] = [];
   const shift = weekdayShift(day0, weekday);
   const push = (n: number, it: Omit<PlanItem, 'date'>, fixed = false) => {
@@ -116,7 +117,9 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
     tolerance: 0,
   }, true);
 
+  const every = waterEveryWeeks === 2 ? 2 : 1;
   for (let k = 1; 7 * k <= maxDay; k++) {
+    if (k % every !== 0) continue;
     const n = 7 * k;
     // Test la veille du changement d'eau : chaque semaine 8 semaines, puis tous les 15 jours.
     if (k <= 8 || k % 2 === 0) {
@@ -129,7 +132,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
       });
     }
     const siphon = k >= 4;
-    const zone = ((k - 4) % 3) + 1;
+    const zone = (Math.floor((k - 4) / every) % 3) + 1;
     push(n, {
       type: 'water_change',
       title: 'Changement d’eau',
