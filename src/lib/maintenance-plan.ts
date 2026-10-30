@@ -87,13 +87,25 @@ export function contextFromLivestock(livestock: Livestock[]): PlanContext {
   };
 }
 
-export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext): PlanItem[] {
+// Décalage (de -3 à +3 jours) qui fait tomber le rythme hebdomadaire sur le jour de la
+// semaine choisi (0 = lundi … 6 = dimanche, comme le planning de nourrissage), au plus près du jour 0.
+export function weekdayShift(day0: Date, weekday: number | null | undefined): number {
+  if (weekday === null || weekday === undefined || weekday < 0 || weekday > 6) return 0;
+  const target = (weekday + 1) % 7; // convention de Date : 0 = dimanche
+  return ((target - startOfDay(day0).getDay() + 10) % 7) - 3;
+}
+
+// `weekday` : jour d'entretien choisi pour le bac (changement d'eau et tâches liées).
+// Le jour 0 et le test des 3 premiers jours restent à leur date réelle.
+export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext, weekday: number | null = null): PlanItem[] {
   const items: PlanItem[] = [];
-  const push = (n: number, it: Omit<PlanItem, 'date'>) => {
-    const date = addDays(startOfDay(day0), n);
+  const shift = weekdayShift(day0, weekday);
+  const push = (n: number, it: Omit<PlanItem, 'date'>, fixed = false) => {
+    const date = addDays(startOfDay(day0), fixed || n === 0 ? n : n + shift);
     if (date >= startOfDay(from) && date <= startOfDay(to)) items.push({ date, ...it });
   };
-  const maxDay = dayNumber(day0, to);
+  // Marge de 3 jours : un décalage négatif ramène dans la fenêtre des tâches un peu plus tardives.
+  const maxDay = dayNumber(day0, to) + 3;
 
   // Contrôle des premiers jours : le bac vient de recevoir de la charge.
   push(3, {
@@ -102,7 +114,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
     summary: 'NH4 et NO2 doivent rester à 0.',
     detail: "Trois jours après l'arrivée des premiers animaux : les deux doivent rester à 0. Sinon, change 30 % d'eau et ne rajoute rien.",
     tolerance: 0,
-  });
+  }, true);
 
   for (let k = 1; 7 * k <= maxDay; k++) {
     const n = 7 * k;
