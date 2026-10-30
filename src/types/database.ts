@@ -11,6 +11,7 @@ export interface Tank {
   volume_liters: number; // volume réel d'eau
   gross_volume_liters: number | null; // volume brut annoncé (voir migration 0010)
   maintenance_weekday?: number | null; // jour d'entretien, 0 = lundi … 6 = dimanche (voir migration 0020)
+  water_change_every_weeks?: number; // changement d'eau toutes les 1 ou 2 semaines (voir migration 0021)
   is_planted: boolean;
   setup_date: string | null; // date de mise en eau
   cycling_status: CyclingStatus;

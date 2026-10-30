@@ -563,6 +563,7 @@ export default function TankDetailPage() {
             tests={tests}
             volumeLiters={tank.volume_liters}
             maintenanceWeekday={tank.maintenance_weekday ?? null}
+            waterEveryWeeks={tank.water_change_every_weeks ?? 1}
             onUpdated={loadAll}
             onNote={(t) => {
               setQuickTaskType(t);
