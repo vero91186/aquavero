@@ -19,6 +19,20 @@ export interface PlanItem {
   // Mot à écrire dans la description du journal pour cocher cette tâche quand elle
   // partage son type avec d'autres (feuilles de catappa et engrais liquide, tous deux « dosage »).
   keyword?: string;
+  // Changement d'eau : pourcentage d'eau changé (valeur médiane de la fourchette) et
+  // quantité de conditionneur correspondante, notés au journal quand la tâche est cochée.
+  percentage?: number;
+  conditionerMl?: number | null;
+}
+
+// Conditionneur de référence du bac : nom et dose en mL pour 100 L d'eau neuve.
+export interface PlanConditioner {
+  name: string | null;
+  per100l: number;
+}
+
+function fmtMl(x: number): string {
+  return x.toLocaleString('fr-FR', { maximumFractionDigits: x < 10 ? 1 : 0 });
 }
 
 // Tous les mots-clés de tâches : un journal qui en contient un ne coche que la tâche correspondante.
@@ -98,7 +112,7 @@ export function weekdayShift(day0: Date, weekday: number | null | undefined): nu
 // `weekday` : jour d'entretien choisi pour le bac (changement d'eau et tâches liées).
 // `waterEveryWeeks` : 1 (chaque semaine) ou 2 (toutes les 2 semaines) ; le test d'eau et l'engrais suivent le changement d'eau.
 // Le jour 0 et le test des 3 premiers jours restent à leur date réelle.
-export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext, weekday: number | null = null, waterEveryWeeks: number | null = 1): PlanItem[] {
+export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number, ctx: PlanContext, weekday: number | null = null, waterEveryWeeks: number | null = 1, conditioner: PlanConditioner | null = null): PlanItem[] {
   const items: PlanItem[] = [];
   const shift = weekdayShift(day0, weekday);
   const push = (n: number, it: Omit<PlanItem, 'date'>, fixed = false) => {
@@ -133,14 +147,26 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
     }
     const siphon = k >= 4;
     const zone = (Math.floor((k - 4) / every) % 3) + 1;
+    // Fourchette d'eau changée et conditionneur à verser sur l'eau neuve (dose pour 100 L).
+    const [pLow, pHigh] = siphon ? [25, 30] : [20, 25];
+    const mlOf = (pct: number) => (conditioner ? (conditioner.per100l * volumeLiters * pct) / 10000 : null);
+    const mlLow = mlOf(pLow);
+    const mlHigh = mlOf(pHigh);
+    const mlMid = mlOf((pLow + pHigh) / 2);
+    const conditionerShort = mlLow !== null && mlHigh !== null ? ` Conditionneur : ${fmtMl(mlLow)} à ${fmtMl(mlHigh)} mL.` : '';
+    const conditionerLong = mlLow !== null && mlHigh !== null && conditioner
+      ? ` Conditionneur${conditioner.name ? ` (${conditioner.name})` : ''} : ${fmtMl(mlLow)} à ${fmtMl(mlHigh)} mL selon la quantité changée (${fmtMl(conditioner.per100l)} mL pour 100 L d’eau neuve), versé dans l’eau neuve avant de la remettre dans le bac.`
+      : '';
     push(n, {
       type: 'water_change',
       title: 'Changement d’eau',
-      summary: siphon ? `Change 25 à 30 % de l’eau et siphonne le tiers n° ${zone} du sable.` : 'Change 20 à 25 % de l’eau, sans siphonner le sable.',
-      detail: siphon
+      summary: (siphon ? `Change 25 à 30 % de l’eau et siphonne le tiers n° ${zone} du sable.` : 'Change 20 à 25 % de l’eau, sans siphonner le sable.') + conditionerShort,
+      detail: (siphon
         ? `25 à 30 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Siphonne le tiers n° ${zone} du sable en surface (pas autour des racines ni sous les pierres et le décor)${ctx.hasShrimp ? ', bas fin sur l’embout à cause des crevettes' : ''}.`
-        : "20 à 25 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Pas de siphonnage du sol avant la semaine 4 : enlève seulement les débris visibles.",
+        : "20 à 25 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Pas de siphonnage du sol avant la semaine 4 : enlève seulement les débris visibles.") + conditionerLong,
       tolerance: 3,
+      percentage: (pLow + pHigh) / 2,
+      conditionerMl: mlMid !== null ? Math.round(mlMid * 10) / 10 : null,
     });
     if (ctx.hasPlants) push(n, {
       type: 'dosing',

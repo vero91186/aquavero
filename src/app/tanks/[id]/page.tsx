@@ -564,6 +564,8 @@ export default function TankDetailPage() {
             volumeLiters={tank.volume_liters}
             maintenanceWeekday={tank.maintenance_weekday ?? null}
             waterEveryWeeks={tank.water_change_every_weeks ?? 1}
+            conditionerDosePer100l={tank.conditioner_dose_ml_per_100l}
+            products={products}
             onUpdated={loadAll}
             onNote={(t) => {
               setQuickTaskType(t);
