@@ -10,6 +10,14 @@ import { introductionPlan } from '@/lib/introduction';
 import { linesFromLivestock } from '@/lib/density';
 
 const HORIZON_DAYS = 42;
+
+// Éléments du Juwel Bioflow M, de haut en bas, pour les reconnaître au moment de l'entretien.
+const FILTER_MEDIA: { name: string; look: string; swatch: string; rule: string }[] = [
+  { name: 'Ouate filtrante (Poly Pad M)', look: 'blanche, plate et fine, tout en haut', swatch: 'border-slate-300 bg-white', rule: 'Se remplace toutes les 4 semaines. Pas de rinçage.' },
+  { name: 'Nitrax M', look: 'verte, mousse dense', swatch: 'border-green-600 bg-green-500', rule: 'Se remplace toutes les 8 semaines, sans le rincer.' },
+  { name: 'Mousse grossière (Sponge Coarse M)', look: 'bleue, gros pores, une seule', swatch: 'border-blue-700 bg-blue-600', rule: 'Se rince toutes les 4 semaines dans l’eau du bac, se remplace tous les 3 mois.' },
+  { name: 'Mousses fines (Sponge Fine M)', look: 'bleues, pores serrés, deux', swatch: 'border-blue-800 bg-blue-800', rule: 'On n’y touche pas : une remplacée vers 6 mois, l’autre vers 9 mois, jamais les deux le même jour.' },
+];
 const LATE_WINDOW_DAYS = 14;
 
 function mondayOf(d: Date): Date {
@@ -278,7 +286,22 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
       <p className="mt-1 text-sm text-slate-500">
         Jour {n} depuis l&apos;arrivée des premiers animaux (le {day0.toLocaleDateString('fr-FR')}). Repas : voir l’onglet Nourrissage (petites quantités, rien ne doit rester après 2 minutes pour les poissons, jeûne un jour par semaine).
       </p>
-      <label className="mt-2 flex items-center gap-2 text-sm text-slate-700">
+      <details className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+        <summary className="cursor-pointer font-medium text-slate-800">Reconnaître les éléments de mon filtre (Bioflow M)</summary>
+        <p className="mt-2 text-slate-500">De haut en bas, d’après le schéma Juwel. Le charbon noir a été retiré.</p>
+        <ul className="mt-2 divide-y divide-slate-200">
+          {FILTER_MEDIA.map((m) => (
+            <li key={m.name} className="flex items-start gap-3 py-2">
+              <span className={`mt-1 h-4 w-4 shrink-0 rounded-full border ${m.swatch}`} aria-hidden />
+              <div>
+                <p className="font-medium text-slate-800">{m.name} <span className="font-normal text-slate-500">· {m.look}</span></p>
+                <p className="text-slate-600">{m.rule}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </details>
+      <label className="mt-3 flex items-center gap-2 text-sm text-slate-700">
         Jour du changement d&apos;eau
         <select
           value={maintenanceWeekday ?? ''}
