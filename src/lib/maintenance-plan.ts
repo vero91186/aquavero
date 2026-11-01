@@ -36,7 +36,7 @@ function fmtMl(x: number): string {
 }
 
 // Tous les mots-clés de tâches : un journal qui en contient un ne coche que la tâche correspondante.
-export const PLAN_KEYWORDS = ['catappa', 'pastille', 'biopad'];
+export const PLAN_KEYWORDS = ['catappa', 'pastille', 'biopad', 'nitrax'];
 
 export function addDays(d: Date, n: number): Date {
   const r = new Date(d);
@@ -265,8 +265,8 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
     push(n, {
       type: 'filter_clean',
       title: 'Remplacement du bioPad',
-      summary: 'Remplace le coussin fin blanc du filtre (bioPad).',
-      detail: 'Le coussin fin retient les saletés et se colmate : remplace-le toutes les 4 à 6 semaines. Ne touche pas aux mousses le même jour. Les mousses, elles, ne se remplacent pas ici (voir le rinçage).',
+      summary: 'Remplace le coussin fin blanc du filtre (Poly Pad M).',
+      detail: 'Le coussin fin (Poly Pad M, en haut du filtre) retient les saletés et se colmate : Juwel le fait changer chaque semaine, toutes les 4 semaines suffisent avec un peuplement léger. Ne touche pas aux mousses le même jour.',
       tolerance: 3,
       keyword: 'biopad',
     });
@@ -276,8 +276,20 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
       type: 'filter_clean',
       title: 'Rinçage des mousses du filtre',
       summary: 'Rince la mousse grossière dans l’eau du bac, sans la remplacer.',
-      detail: 'Sors les mousses, rince-les dans un seau d’eau prélevée au changement d’eau (jamais au robinet : le chlore tue les bactéries utiles) et presse-les doucement, sans chercher à les rendre propres à fond. Un seul élément à la fois, un autre jour que le changement d’eau.',
+      detail: 'Sors la mousse grossière (Sponge Coarse M), rince-la dans un seau d’eau prélevée au changement d’eau (jamais au robinet : le chlore tue les bactéries utiles) et presse-la doucement, sans chercher à la rendre propre à fond. Les deux mousses fines seulement si le débit a baissé. Ne rince pas le Nitrax : il se remplace. Un seul élément à la fois, un autre jour que le changement d’eau.',
       tolerance: 3,
+    });
+  }
+
+  // Nitrax M (anti-nitrates) : à remplacer toutes les 8 semaines, sans le rincer.
+  for (let n = 39; n <= maxDay; n += 56) {
+    push(offWaterChangeDay(n), {
+      type: 'filter_clean',
+      title: 'Remplacement du Nitrax',
+      summary: 'Remplace le Nitrax M (mousse verte anti-nitrates).',
+      detail: 'Le Nitrax M (mousse verte, au-dessus de la mousse grossière) fixe les nitrates et s’épuise en 8 semaines environ : remplace-le sans le rincer. Pas le même jour que la mousse grossière ou le changement d’eau.',
+      tolerance: 5,
+      keyword: 'nitrax',
     });
   }
 
@@ -313,10 +325,13 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
       detail: 'Remplace-la : pose la neuve à côté de l’ancienne 2 à 3 semaines pour qu’elle se colonise, puis retire l’ancienne. Rinçage de l’ancienne dans l’eau du bac, jamais au robinet.',
     });
   }
-  foamJobs.push(
-    { n: 190, title: 'Première mousse fine du filtre', summary: 'Remplace une seule mousse fine.', detail: 'Remplace une seule mousse fine, jamais le même jour que la grossière. Rinçage dans l’eau du bac prélevée au changement d’eau.' },
-    { n: 280, title: 'Seconde mousse fine du filtre', summary: 'Remplace l’autre mousse fine.', detail: 'Remplace l’autre mousse fine, en décalé de la première.' }
-  );
+  // Deux mousses fines (Sponge Fine M), remplacées en décalé, chacune tous les 9 mois environ.
+  for (let n = 190; n <= maxDay + 14; n += 270) {
+    foamJobs.push({ n, title: 'Première mousse fine du filtre', summary: 'Remplace une seule mousse fine.', detail: 'Remplace une seule mousse fine, jamais le même jour que la grossière. Rinçage dans l’eau du bac prélevée au changement d’eau.' });
+  }
+  for (let n = 280; n <= maxDay + 14; n += 270) {
+    foamJobs.push({ n, title: 'Seconde mousse fine du filtre', summary: 'Remplace l’autre mousse fine.', detail: 'Remplace l’autre mousse fine, en décalé de la première.' });
+  }
   for (const j of foamJobs) {
     push(offWaterChangeDay(j.n), { type: 'filter_clean', title: j.title, summary: j.summary, detail: j.detail, tolerance: 10 });
   }
