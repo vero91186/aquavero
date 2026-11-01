@@ -13,7 +13,7 @@ const HORIZON_DAYS = 42;
 
 // Éléments du Juwel Bioflow M, de haut en bas, pour les reconnaître au moment de l'entretien.
 const FILTER_MEDIA: { name: string; look: string; swatch: string; rule: string }[] = [
-  { name: 'Ouate filtrante (Poly Pad M)', look: 'blanche, plate et fine, tout en haut', swatch: 'border-slate-300 bg-white', rule: 'Se remplace toutes les 4 semaines. Pas de rinçage.' },
+  { name: 'Ouate filtrante (Poly Pad M)', look: 'blanche, plate et fine, tout en haut', swatch: 'border-slate-300 bg-white', rule: 'Se remplace toutes les 2 semaines (elle s’encrasse vite). Pas de rinçage.' },
   { name: 'Nitrax M', look: 'verte, mousse dense', swatch: 'border-green-600 bg-green-500', rule: 'Se remplace toutes les 8 semaines, sans le rincer.' },
   { name: 'Mousse grossière (Sponge Coarse M)', look: 'bleue, gros pores, une seule', swatch: 'border-blue-700 bg-blue-600', rule: 'Se rince toutes les 4 semaines dans l’eau du bac, se remplace tous les 3 mois.' },
   { name: 'Mousses fines (Sponge Fine M)', look: 'bleues, pores serrés, deux', swatch: 'border-blue-800 bg-blue-800', rule: 'On n’y touche pas : une remplacée vers 6 mois, l’autre vers 9 mois, jamais les deux le même jour.' },
