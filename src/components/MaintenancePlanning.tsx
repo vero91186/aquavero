@@ -5,7 +5,7 @@ import { CalendarDays, ChevronDown, Droplets, Eraser, Filter, Fish, FlaskConical
 import { createClient } from '@/lib/supabase/client';
 import type { Livestock, MaintenanceLog, MaintenanceTaskType, Product, WaterTest } from '@/types/database';
 import { productCategoryOf } from '@/lib/products';
-import { addDays, buildPlan, contextFromLivestock, type PlanConditioner, dayNumber, firstIntroduction, PLAN_KEYWORDS, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
+import { addDays, buildPlan, contextFromLivestock, type PlanConditioner, dayNumber, firstIntroduction, isRecalibrated, PLAN_KEYWORDS, recalibrate, startOfDay, type PlanItem } from '@/lib/maintenance-plan';
 import { introductionPlan } from '@/lib/introduction';
 import { linesFromLivestock } from '@/lib/density';
 
@@ -125,7 +125,14 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
       : conditionerProduct
         ? { name: conditionerProduct.name, per100l: conditionerProduct.dose_ml_per_100l as number }
         : null;
-  const items = buildPlan(day0, addDays(today, -LATE_WINDOW_DAYS), addDays(today, HORIZON_DAYS), volumeLiters, contextFromLivestock(livestock), maintenanceWeekday, waterEveryWeeks, conditioner);
+  // Le planning est construit depuis le jour 0, puis recalé sur ce qui a été réellement fait (en avance ou en retard).
+  const windowStart = startOfDay(addDays(today, -LATE_WINDOW_DAYS));
+  const windowEnd = startOfDay(addDays(today, HORIZON_DAYS));
+  const items = recalibrate(
+    buildPlan(day0, addDays(day0, -7), addDays(today, HORIZON_DAYS + 120), volumeLiters, contextFromLivestock(livestock), maintenanceWeekday, waterEveryWeeks, conditioner),
+    logs,
+    keywordIn
+  ).filter((i) => i.date >= windowStart && i.date <= windowEnd);
   const late = items.filter((i) => i.date < today && i.type !== 'test' && !isDone(i, logs, tests));
   const upcoming = items.filter((i) => i.date >= today);
 
@@ -173,7 +180,8 @@ export function MaintenancePlanning({ tankId, livestock, logs, tests, volumeLite
         return;
       }
       // Une tâche en retard est datée du jour prévu, pour que le journal et le planning s'alignent.
-      const when = it.date < today ? it.date : new Date();
+      // Les tâches recalées gardent la date réelle : c'est elle qui décale les suivantes.
+      const when = it.date < today && !isRecalibrated(it.title) ? it.date : new Date();
       const { error: err } = await supabase.from('maintenance_logs').insert({
         tank_id: tankId,
         user_id: userData.user.id,

@@ -1,4 +1,4 @@
-import type { Livestock, MaintenanceTaskType } from '@/types/database';
+import type { Livestock, MaintenanceLog, MaintenanceTaskType } from '@/types/database';
 
 // Planning d'entretien daté, compté depuis le « jour 0 » : l'introduction des
 // premiers animaux. Il reprend les calendriers de lib/introduction.ts (mousses,
@@ -337,4 +337,80 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
   }
 
   return items.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+// Tâches à intervalle fixe (en jours) : quand l'une est faite en avance ou en retard, les
+// suivantes se recalent sur la date réelle. Le changement d'eau, les tests, l'observation et
+// le jeûne restent calés sur le jour de la semaine choisi.
+const RECAL_EVERY: Record<string, number> = {
+  'Remplacement du bioPad': 14,
+  'Rinçage des mousses du filtre': 28,
+  'Remplacement du Nitrax': 56,
+  'Nettoyage des vitres': 14,
+  'Taille des plantes': 14,
+  'Vérification du matériel': 30,
+  'Couvercle et rampe LED': 28,
+  'Feuilles de catappa': 28,
+  'Pastilles d’engrais racinaire': 90,
+  'Grille d’aspiration et pré-filtre': 28,
+  'Hélice de la pompe et tuyaux': 90,
+  'Mousse grossière du filtre': 90,
+  'Première mousse fine du filtre': 270,
+  'Seconde mousse fine du filtre': 270,
+};
+
+export function isRecalibrated(title: string): boolean {
+  return title in RECAL_EVERY;
+}
+
+// Recale chaque série à intervalle fixe sur les interventions réellement faites : une tâche faite
+// à une autre date que prévu prend la date réelle, et les suivantes se décalent d'autant.
+export function recalibrate(items: PlanItem[], logs: MaintenanceLog[], keywordIn: (text: string) => string | null): PlanItem[] {
+  const DAY = 86400000;
+  const waterDays = new Set(items.filter((i) => i.type === 'water_change').map((i) => startOfDay(i.date).getTime()));
+  const series = new Map<string, PlanItem[]>();
+  const out: PlanItem[] = [];
+  for (const it of items) {
+    if (!isRecalibrated(it.title)) out.push(it);
+    else series.set(it.title, [...(series.get(it.title) ?? []), it]);
+  }
+  for (const [title, list] of series) {
+    list.sort((a, b) => a.date.getTime() - b.date.getTime());
+    const first = list[0];
+    const every = RECAL_EVERY[title];
+    // Interventions de cette tâche : cochées depuis le planning (description = titre) ou notées près d'une date prévue.
+    const done = logs
+      .filter(
+        (l) =>
+          l.task_type === first.type &&
+          (keywordIn(l.description ?? '') ?? null) === (first.keyword ?? null) &&
+          (l.description === title || list.some((s) => Math.abs(new Date(l.performed_at).getTime() - s.date.getTime()) <= (s.tolerance + 0.5) * DAY))
+      )
+      .map((l) => startOfDay(new Date(l.performed_at)).getTime())
+      .sort((a, b) => a - b);
+    const used = new Set<number>();
+    const reach = Math.max((first.tolerance + 0.5) * DAY, every * 0.75 * DAY);
+    let offset = 0;
+    for (const it of list) {
+      const planned = startOfDay(it.date).getTime();
+      const expected = planned + offset * DAY;
+      let best = -1;
+      done.forEach((t, idx) => {
+        if (used.has(idx)) return;
+        const d = Math.abs(t - expected);
+        if (d <= reach && (best < 0 || d < Math.abs(done[best] - expected))) best = idx;
+      });
+      if (best >= 0) {
+        used.add(best);
+        offset = Math.round((done[best] - planned) / DAY);
+        out.push({ ...it, date: new Date(done[best]) });
+        continue;
+      }
+      let date = addDays(startOfDay(it.date), offset);
+      // Jamais le même jour que le changement d'eau.
+      for (let k = 0; offset !== 0 && waterDays.has(date.getTime()) && k < 2; k++) date = addDays(date, 1);
+      out.push({ ...it, date });
+    }
+  }
+  return out.sort((a, b) => a.date.getTime() - b.date.getTime());
 }
