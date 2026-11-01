@@ -36,7 +36,7 @@ function fmtMl(x: number): string {
 }
 
 // Tous les mots-clés de tâches : un journal qui en contient un ne coche que la tâche correspondante.
-export const PLAN_KEYWORDS = ['catappa', 'pastille'];
+export const PLAN_KEYWORDS = ['catappa', 'pastille', 'biopad'];
 
 export function addDays(d: Date, n: number): Date {
   const r = new Date(d);
@@ -256,6 +256,28 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
       summary: 'Essuie la rampe LED et le couvercle : calcaire et poussière.',
       detail: 'Débranche, puis essuie avec un chiffon humide sans produit. Un éclairage voilé réduit la lumière reçue par les plantes et favorise les algues. Vérifie aussi que le programmateur est à la bonne heure.',
       tolerance: 5,
+    });
+  }
+
+  // Entretien courant du filtre : coussin fin (bioPad) remplacé toutes les 4 semaines, puis
+  // mousses rincées une semaine plus tard, toutes les 4 semaines. Jamais le jour du changement d'eau.
+  for (let n = 25; n <= maxDay; n += 28) {
+    push(n, {
+      type: 'filter_clean',
+      title: 'Remplacement du bioPad',
+      summary: 'Remplace le coussin fin blanc du filtre (bioPad).',
+      detail: 'Le coussin fin retient les saletés et se colmate : remplace-le toutes les 4 à 6 semaines. Ne touche pas aux mousses le même jour. Les mousses, elles, ne se remplacent pas ici (voir le rinçage).',
+      tolerance: 3,
+      keyword: 'biopad',
+    });
+  }
+  for (let n = 32; n <= maxDay; n += 28) {
+    push(n, {
+      type: 'filter_clean',
+      title: 'Rinçage des mousses du filtre',
+      summary: 'Rince la mousse grossière dans l’eau du bac, sans la remplacer.',
+      detail: 'Sors les mousses, rince-les dans un seau d’eau prélevée au changement d’eau (jamais au robinet : le chlore tue les bactéries utiles) et presse-les doucement, sans chercher à les rendre propres à fond. Un seul élément à la fois, un autre jour que le changement d’eau.',
+      tolerance: 3,
     });
   }
 
