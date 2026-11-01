@@ -266,7 +266,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
       type: 'filter_clean',
       title: 'Remplacement du bioPad',
       summary: 'Remplace le coussin fin blanc du filtre (Poly Pad M).',
-      detail: 'Le coussin fin (Poly Pad M, en haut du filtre) retient les saletés et se colmate : Juwel le fait changer chaque semaine, toutes les 4 semaines suffisent avec un peuplement léger. Ne touche pas aux mousses le même jour.',
+      detail: 'La ouate blanche et plate (Poly Pad M, en haut du filtre) retient les saletés et se colmate : Juwel le fait changer chaque semaine, toutes les 4 semaines suffisent avec un peuplement léger. Ne touche pas aux mousses le même jour.',
       tolerance: 3,
       keyword: 'biopad',
     });
@@ -276,7 +276,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
       type: 'filter_clean',
       title: 'Rinçage des mousses du filtre',
       summary: 'Rince la mousse grossière dans l’eau du bac, sans la remplacer.',
-      detail: 'Sors la mousse grossière (Sponge Coarse M), rince-la dans un seau d’eau prélevée au changement d’eau (jamais au robinet : le chlore tue les bactéries utiles) et presse-la doucement, sans chercher à la rendre propre à fond. Les deux mousses fines seulement si le débit a baissé. Ne rince pas le Nitrax : il se remplace. Un seul élément à la fois, un autre jour que le changement d’eau.',
+      detail: 'Sors la mousse bleue à gros pores (Sponge Coarse M, la seule), rince-la dans un seau d’eau prélevée au changement d’eau (jamais au robinet : le chlore tue les bactéries utiles) et presse-la doucement, sans chercher à la rendre propre à fond. Les deux mousses bleues à pores serrés (fines) seulement si le débit a baissé. Ne rince pas le Nitrax : il se remplace. Un seul élément à la fois, un autre jour que le changement d’eau.',
       tolerance: 3,
     });
   }
