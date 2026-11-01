@@ -259,14 +259,14 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
     });
   }
 
-  // Entretien courant du filtre : coussin fin (bioPad) remplacé toutes les 4 semaines, puis
-  // mousses rincées une semaine plus tard, toutes les 4 semaines. Jamais le jour du changement d'eau.
-  for (let n = 25; n <= maxDay; n += 28) {
+  // Entretien courant du filtre : ouate (bioPad) remplacée toutes les 2 semaines, mousse
+  // grossière rincée toutes les 4 semaines, Nitrax toutes les 8 semaines (jours distincts). Jamais le jour du changement d'eau.
+  for (let n = 25; n <= maxDay; n += 14) {
     push(n, {
       type: 'filter_clean',
       title: 'Remplacement du bioPad',
       summary: 'Remplace le coussin fin blanc du filtre (Poly Pad M).',
-      detail: 'La ouate blanche et plate (Poly Pad M, en haut du filtre) retient les saletés et se colmate : Juwel le fait changer chaque semaine, toutes les 4 semaines suffisent avec un peuplement léger. Ne touche pas aux mousses le même jour.',
+      detail: 'La ouate blanche et plate (Poly Pad M, en haut du filtre) retient les saletés et se colmate : Juwel le fait changer chaque semaine ; ici toutes les 2 semaines, car elle s’est encrassée vite (brun foncé en 7 semaines). Ne touche pas aux mousses le même jour.',
       tolerance: 3,
       keyword: 'biopad',
     });
@@ -282,7 +282,7 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
   }
 
   // Nitrax M (anti-nitrates) : à remplacer toutes les 8 semaines, sans le rincer.
-  for (let n = 39; n <= maxDay; n += 56) {
+  for (let n = 46; n <= maxDay; n += 56) {
     push(offWaterChangeDay(n), {
       type: 'filter_clean',
       title: 'Remplacement du Nitrax',
