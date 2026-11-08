@@ -109,6 +109,9 @@ export function weekdayShift(day0: Date, weekday: number | null | undefined): nu
   return ((target - startOfDay(day0).getDay() + 10) % 7) - 3;
 }
 
+// Part du volume du bac changée à chaque changement d'eau (20 % = 30 L sur 150 L).
+export const WATER_CHANGE_PERCENT = 20;
+
 // `weekday` : jour d'entretien choisi pour le bac (changement d'eau et tâches liées).
 // `waterEveryWeeks` : 1 (chaque semaine) ou 2 (toutes les 2 semaines) ; le test d'eau et l'engrais suivent le changement d'eau.
 // Le jour 0 et le test des 3 premiers jours restent à leur date réelle.
@@ -147,26 +150,25 @@ export function buildPlan(day0: Date, from: Date, to: Date, volumeLiters: number
     }
     const siphon = k >= 4;
     const zone = (Math.floor((k - 4) / every) % 3) + 1;
-    // Fourchette d'eau changée et conditionneur à verser sur l'eau neuve (dose pour 100 L).
-    const [pLow, pHigh] = siphon ? [25, 30] : [20, 25];
-    const mlOf = (pct: number) => (conditioner ? (conditioner.per100l * volumeLiters * pct) / 10000 : null);
-    const mlLow = mlOf(pLow);
-    const mlHigh = mlOf(pHigh);
-    const mlMid = mlOf((pLow + pHigh) / 2);
-    const conditionerShort = mlLow !== null && mlHigh !== null ? ` Conditionneur : ${fmtMl(mlLow)} à ${fmtMl(mlHigh)} mL.` : '';
-    const conditionerLong = mlLow !== null && mlHigh !== null && conditioner
-      ? ` Conditionneur${conditioner.name ? ` (${conditioner.name})` : ''} : ${fmtMl(mlLow)} à ${fmtMl(mlHigh)} mL selon la quantité changée (${fmtMl(conditioner.per100l)} mL pour 100 L d’eau neuve), versé dans l’eau neuve avant de la remettre dans le bac.`
+    // Changement d'eau fixe : 20 % du volume du bac. Le conditionneur est dosé sur cette quantité d'eau neuve.
+    const pct = WATER_CHANGE_PERCENT;
+    const litersChanged = (volumeLiters * pct) / 100;
+    const mlNeeded = conditioner ? (conditioner.per100l * litersChanged) / 100 : null;
+    const litersLabel = fmtMl(litersChanged);
+    const conditionerShort = mlNeeded !== null ? ` Conditionneur : ${fmtMl(mlNeeded)} mL.` : '';
+    const conditionerLong = mlNeeded !== null && conditioner
+      ? ` Conditionneur${conditioner.name ? ` (${conditioner.name})` : ''} : ${fmtMl(mlNeeded)} mL pour ${litersLabel} L d’eau neuve (${fmtMl(conditioner.per100l)} mL pour 100 L), versé dans l’eau neuve avant de la remettre dans le bac.`
       : '';
     push(n, {
       type: 'water_change',
       title: 'Changement d’eau',
-      summary: (siphon ? `Change 25 à 30 % de l’eau et siphonne le tiers n° ${zone} du sable.` : 'Change 20 à 25 % de l’eau, sans siphonner le sable.') + conditionerShort,
+      summary: (siphon ? `Change ${pct} % de l’eau (${litersLabel} L) et siphonne le tiers n° ${zone} du sable.` : `Change ${pct} % de l’eau (${litersLabel} L), sans siphonner le sable.`) + conditionerShort,
       detail: (siphon
-        ? `25 à 30 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Siphonne le tiers n° ${zone} du sable en surface (pas autour des racines ni sous les pierres et le décor)${ctx.hasShrimp ? ', bas fin sur l’embout à cause des crevettes' : ''}.`
-        : "20 à 25 % d’eau, avec conditionneur sur l’eau neuve, à la même température. Pas de siphonnage du sol avant la semaine 4 : enlève seulement les débris visibles.") + conditionerLong,
+        ? `${pct} % d’eau (${litersLabel} L), avec conditionneur sur l’eau neuve, à la même température. Siphonne le tiers n° ${zone} du sable en surface (pas autour des racines ni sous les pierres et le décor)${ctx.hasShrimp ? ', bas fin sur l’embout à cause des crevettes' : ''}.`
+        : `${pct} % d’eau (${litersLabel} L), avec conditionneur sur l’eau neuve, à la même température. Pas de siphonnage du sol avant la semaine 4 : enlève seulement les débris visibles.`) + conditionerLong,
       tolerance: 3,
-      percentage: (pLow + pHigh) / 2,
-      conditionerMl: mlMid !== null ? Math.round(mlMid * 10) / 10 : null,
+      percentage: pct,
+      conditionerMl: mlNeeded !== null ? Math.round(mlNeeded * 10) / 10 : null,
     });
     if (ctx.hasPlants) push(n, {
       type: 'dosing',
