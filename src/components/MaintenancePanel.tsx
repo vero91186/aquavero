@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import type { MaintenanceLog, MaintenanceTaskType, Product, Tank } from '@/types/database';
 import { productCategoryOf } from '@/lib/products';
 import { TASK_LABELS, DEFAULT_REMINDER_DAYS } from '@/lib/maintenance';
+import { WATER_CHANGE_PERCENT } from '@/lib/maintenance-plan';
 import { PhotoUpload } from '@/components/PhotoUpload';
 import { Sparkles, CheckCircle2, Droplet, Bell, Pencil, Trash2, Check, X, FlaskConical, Utensils } from 'lucide-react';
 
@@ -60,7 +61,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
     }
   }, [presetTaskType]);
   const [description, setDescription] = useState('');
-  const [percentage, setPercentage] = useState('');
+  const [percentage, setPercentage] = useState(String(WATER_CHANGE_PERCENT));
   const [doseRatio, setDoseRatio] = useState(
     tank.conditioner_dose_ml_per_100l !== null ? String(tank.conditioner_dose_ml_per_100l) : ''
   );
@@ -190,7 +191,7 @@ export function MaintenancePanel({ tank, tankId, logs, onUpdated, presetTaskType
 
     setSaving(false);
     setDescription('');
-    setPercentage('');
+    setPercentage(String(WATER_CHANGE_PERCENT));
     setRememberDose(false);
     setSelectedProductId('');
     setDosingProductId('');
