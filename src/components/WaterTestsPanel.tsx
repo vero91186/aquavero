@@ -1,6 +1,7 @@
 'use client';
 
 import { PhotoPicker } from '@/components/PhotoPicker';
+import { WaterTestAnalysis } from '@/components/WaterTestAnalysis';
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
@@ -222,6 +223,8 @@ export function WaterTestsPanel({ tank, tankId, tests, onUpdated }: {
           {saving ? 'Enregistrement…' : 'Enregistrer le test'}
         </button>
       </form>
+
+      <WaterTestAnalysis tank={tank} tests={tests} />
 
       {chartData.length > 1 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
