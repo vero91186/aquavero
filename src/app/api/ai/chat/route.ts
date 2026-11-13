@@ -17,7 +17,13 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 });
 
-  const { tankId, message, conversationId } = await req.json();
+  const { tankId, message: rawMessage, conversationId, images: rawImages } = await req.json();
+  const images: { base64: string; mimeType: string }[] = Array.isArray(rawImages)
+    ? rawImages
+        .filter((i: { base64?: unknown; mimeType?: unknown }) => typeof i?.base64 === 'string' && typeof i?.mimeType === 'string')
+        .slice(0, 3)
+    : [];
+  const message: string = rawMessage || (images.length ? 'Que vois-tu sur cette photo ?' : '');
   if (!tankId || !message) {
     return NextResponse.json({ error: 'tankId et message requis' }, { status: 400 });
   }
@@ -80,11 +86,11 @@ export async function POST(req: NextRequest) {
     conversation_id: convoId,
     user_id: user.id,
     role: 'user',
-    content: message,
+    content: images.length ? `${message} [${images.length} photo${images.length > 1 ? 's' : ''} jointe${images.length > 1 ? 's' : ''}]` : message,
   });
 
   try {
-    const reply = await chatWithAssistant(message, tankContext, historyText);
+    const reply = await chatWithAssistant(message, tankContext, historyText, images);
 
     await supabase.from('ai_messages').insert({
       conversation_id: convoId,

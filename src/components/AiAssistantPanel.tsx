@@ -1,14 +1,16 @@
 'use client';
 
+import { PhotoPicker } from '@/components/PhotoPicker';
 import { useState } from 'react';
 import { fileToBase64, compressImageFile } from '@/lib/image';
 import { findDisease } from '@/lib/diseases';
 import { AddToJournal } from '@/components/AddToJournal';
-import { Send, Camera, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X, Leaf } from 'lucide-react';
+import { Send, Loader2, Stethoscope, AlertTriangle, ScanSearch, ListChecks, X, Leaf } from 'lucide-react';
 
 interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
+  previews?: string[];
 }
 
 const SEVERITY_STYLES: Record<string, string> = {
@@ -84,13 +86,28 @@ function ChatMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [chatImages, setChatImages] = useState<{ base64: string; mimeType: string; preview: string }[]>([]);
+
+  async function handleChatPhotos(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).slice(0, 3 - chatImages.length);
+    e.target.value = '';
+    const added: { base64: string; mimeType: string; preview: string }[] = [];
+    for (const file of files) {
+      const compressed = await compressImageFile(file);
+      const { base64, mimeType } = await fileToBase64(compressed);
+      added.push({ base64, mimeType, preview: URL.createObjectURL(compressed) });
+    }
+    setChatImages((prev) => [...prev, ...added].slice(0, 3));
+  }
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    if (!input.trim()) return;
-    const userMessage = input;
-    setMessages((m) => [...m, { role: 'user', content: userMessage }]);
+    if (!input.trim() && chatImages.length === 0) return;
+    const userMessage = input.trim() || 'Que vois-tu sur cette photo ?';
+    const sentImages = chatImages;
+    setMessages((m) => [...m, { role: 'user', content: userMessage, previews: sentImages.map((i) => i.preview) }]);
     setInput('');
+    setChatImages([]);
     setLoading(true);
     setError(null);
 
@@ -98,7 +115,12 @@ function ChatMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
       const res = await fetch('/api/ai/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tankId, message: userMessage, conversationId }),
+        body: JSON.stringify({
+          tankId,
+          message: userMessage,
+          conversationId,
+          images: sentImages.map(({ base64, mimeType }) => ({ base64, mimeType })),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -126,6 +148,14 @@ function ChatMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
                 msg.role === 'user' ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-800'
               }`}
             >
+              {msg.previews && msg.previews.length > 0 && (
+                <span className="mb-1 flex flex-wrap justify-end gap-1">
+                  {msg.previews.map((src, k) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img key={k} src={src} alt="Photo jointe" className="h-16 w-16 rounded-lg object-cover" />
+                  ))}
+                </span>
+              )}
               {msg.content}
             </span>
             {msg.role === 'assistant' && (
@@ -144,6 +174,29 @@ function ChatMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
 
       {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
+      {chatImages.length > 0 && (
+        <div className="mb-2 flex gap-2">
+          {chatImages.map((img, i) => (
+            <div key={i} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={img.preview} alt="Aperçu" className="h-14 w-14 rounded-lg object-cover" />
+              <button
+                type="button"
+                onClick={() => setChatImages((prev) => prev.filter((_, k) => k !== i))}
+                className="absolute -right-1 -top-1 rounded-full bg-slate-700 p-0.5 text-white"
+                aria-label="Retirer la photo"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {chatImages.length < 3 && (
+        <div className="mb-2">
+          <PhotoPicker multiple onChange={handleChatPhotos} cameraLabel="Photo" importLabel="Importer" />
+        </div>
+      )}
       <form onSubmit={handleSend} className="flex gap-2">
         <input
           value={input}
@@ -246,10 +299,7 @@ export function DiagnoseMode({
         />
 
         <div className="mt-3 flex items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-teal-300 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-50">
-            <Camera size={16} /> Ajouter une photo
-            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
-          </label>
+          <PhotoPicker onChange={handlePhoto} cameraLabel="Prendre une photo" />
           {imagePreview && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={imagePreview} alt="Aperçu" className="h-14 w-14 rounded-lg object-cover" />
@@ -418,11 +468,7 @@ function ScanMode({ tankId, onUpdated }: { tankId: string; onUpdated?: () => voi
             </div>
           ))}
           {images.length < MAX_SCAN_PHOTOS && (
-            <label className="flex h-16 w-16 cursor-pointer flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-slate-300 text-slate-400 hover:border-teal-400 hover:text-teal-600">
-              <Camera size={18} />
-              <span className="text-[10px]">Photo</span>
-              <input type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={handleAddPhotos} />
-            </label>
+            <PhotoPicker variant="tile" multiple onChange={handleAddPhotos} cameraLabel="Photo" />
           )}
         </div>
 

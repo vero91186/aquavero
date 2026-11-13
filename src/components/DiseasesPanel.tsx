@@ -1,5 +1,6 @@
 'use client';
 
+import { PhotoPicker } from '@/components/PhotoPicker';
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { AiDiagnostic } from '@/types/database';
@@ -29,7 +30,7 @@ import {
 import { TopicPhoto } from '@/components/TopicPhoto';
 import { AddToJournal } from '@/components/AddToJournal';
 import { compressImageFile, fileToBase64 } from '@/lib/image';
-import { AlertTriangle, Camera, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
+import { AlertTriangle, ChevronDown, Search, ShieldAlert, Stethoscope } from 'lucide-react';
 
 type Sub = 'scanner' | 'liste' | 'autre' | 'historique';
 
@@ -419,10 +420,7 @@ function ObservationScan({ tankId, onJournalAdded }: { tankId: string; onJournal
           className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
         />
         <div className="flex flex-wrap items-center gap-3">
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-300 px-3 py-1.5 text-sm text-slate-700">
-            <Camera size={15} /> {img ? 'Changer la photo' : 'Ajouter une photo'}
-            <input type="file" accept="image/*" capture="environment" onChange={onPhoto} className="hidden" />
-          </label>
+          <PhotoPicker onChange={onPhoto} cameraLabel={img ? 'Nouvelle photo' : 'Prendre une photo'} importLabel="Importer" />
           {img && (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={img.preview} alt="" className="h-14 w-14 rounded-lg object-cover" />

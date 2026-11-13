@@ -1,5 +1,6 @@
 'use client';
 
+import { PhotoPicker } from '@/components/PhotoPicker';
 import { Fragment, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { PlantInfo, CustomSpecies, Livestock, LivestockCategory, SwimZone } from '@/types/database';
@@ -13,7 +14,7 @@ import { GoogleSearchLink } from '@/components/GoogleSearchLink';
 import { SupplierShelf } from '@/components/SupplierShelf';
 import { supplierStatusOf, SUPPLIER_NAME, SUPPLIER_SNAPSHOT_DATE } from '@/lib/supplier-catalog';
 import { computeZoneDensity, linesFromLivestock, DENSITY_LIMIT, type ZoneDensity } from '@/lib/density';
-import { Trash2, Camera, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
+import { Trash2, Loader2, Pencil, Check, X, Search, Sparkles } from 'lucide-react';
 
 const CATEGORY_LABELS: Record<LivestockCategory, string> = {
   fish: 'Poisson',
@@ -499,11 +500,7 @@ export function LivestockPanel({
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">{title ?? 'Ajouter au peuplement'}</h3>
-          <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-teal-300 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-50">
-            {identifying ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-            Identifier par photo
-            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
-          </label>
+          <PhotoPicker onChange={handlePhoto} loading={identifying} cameraLabel="Identifier par photo" importLabel="Importer" />
         </div>
         {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         {identifyNote && <p className="mb-3 rounded-lg bg-teal-50 px-3 py-2 text-sm text-teal-700">{identifyNote}</p>}

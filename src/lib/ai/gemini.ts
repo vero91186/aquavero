@@ -113,9 +113,18 @@ conseils génériques. Si une question touche à un problème de santé grave ou
 clairement qu'un avis vétérinaire ou d'un spécialiste aquariophile reste nécessaire. Réponds
 uniquement avec un objet JSON de la forme {"reply": "..."}.`;
 
-export async function chatWithAssistant(message: string, tankContext: string, history: string) {
-  const prompt = `Contexte du bac :\n${tankContext}\n\nHistorique récent :\n${history}\n\nQuestion de l'utilisateur : ${message}`;
-  const text = await callGemini([{ text: prompt }], CHAT_SYSTEM_PROMPT);
+export async function chatWithAssistant(
+  message: string,
+  tankContext: string,
+  history: string,
+  images: { base64: string; mimeType: string }[] = []
+) {
+  const prompt = `Contexte du bac :\n${tankContext}\n\nHistorique récent :\n${history}\n\nQuestion de l'utilisateur : ${message}${
+    images.length ? `\n\n(${images.length} photo${images.length > 1 ? 's' : ''} jointe${images.length > 1 ? 's' : ''} : analyse-les pour répondre.)` : ''
+  }`;
+  const parts: GeminiPart[] = [{ text: prompt }];
+  for (const img of images) parts.push({ inline_data: { mime_type: img.mimeType, data: img.base64 } });
+  const text = await callGemini(parts, CHAT_SYSTEM_PROMPT);
   const parsed = JSON.parse(text);
   return parsed.reply as string;
 }
