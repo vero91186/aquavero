@@ -1,11 +1,12 @@
 'use client';
 
+import { PhotoPicker } from '@/components/PhotoPicker';
 import { useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { createClient } from '@/lib/supabase/client';
 import { fileToBase64 } from '@/lib/image';
 import type { Tank, WaterTest } from '@/types/database';
-import { Camera, Loader2, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Pencil, Trash2, Check, X } from 'lucide-react';
 
 // Convertit un timestamp ISO en valeur affichable/éditable par un
 // <input type="datetime-local"> (qui attend l'heure locale sans fuseau).
@@ -190,11 +191,7 @@ export function WaterTestsPanel({ tank, tankId, tests, onUpdated }: {
       <form onSubmit={handleSubmit} className="rounded-2xl border border-slate-200 bg-white p-5">
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-slate-900">Nouveau test</h3>
-          <label className="flex cursor-pointer items-center gap-1 rounded-lg border border-teal-300 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-50">
-            {ocrLoading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-            Photo bandelette
-            <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
-          </label>
+          <PhotoPicker onChange={handlePhoto} loading={ocrLoading} cameraLabel="Photo bandelette" importLabel="Importer" />
         </div>
 
         {error && <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}

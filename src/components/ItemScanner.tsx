@@ -1,9 +1,10 @@
 'use client';
 
+import { PhotoPicker } from '@/components/PhotoPicker';
 import { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { fileToBase64 } from '@/lib/image';
-import { Camera, Loader2, Check } from 'lucide-react';
+import { Check } from 'lucide-react';
 
 interface ItemResult {
   name: string;
@@ -107,11 +108,7 @@ export function ItemScanner({
       <h3 className="mb-1 font-semibold text-slate-900">{config.title}</h3>
       <p className="mb-3 text-sm text-slate-500">{config.hint}</p>
 
-      <label className="flex w-fit cursor-pointer items-center gap-1 rounded-lg border border-teal-300 px-3 py-1.5 text-sm text-teal-700 hover:bg-teal-50">
-        {loading ? <Loader2 size={16} className="animate-spin" /> : <Camera size={16} />}
-        {loading ? 'Analyse…' : 'Prendre une photo'}
-        <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhoto} />
-      </label>
+      <PhotoPicker onChange={handlePhoto} loading={loading} disabled={loading} cameraLabel={loading ? 'Analyse…' : 'Prendre une photo'} />
 
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
 
